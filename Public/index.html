@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a0f">
+<title>Beast Mode</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
+  select option { background: #1a1a2e; color: #fff; }
+  input:focus, select:focus { outline: none; border-color: #FF4D00 !important; }
+  button { cursor: pointer; font-family: inherit; }
+  button:active { transform: scale(0.97); }
+  @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.5; } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes glow { 0%,100% { box-shadow: 0 0 20px rgba(255,77,0,0.3); } 50% { box-shadow: 0 0 40px rgba(255,77,0,0.6); } }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.5/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, createContext, useContext } = React;
+
+// ─── API LAYER ──────────────────────────────────
+const API_BASE = '';  // same origin
+
+async function api(path, opts = {}) {
+  const token = localStorage.getItem('bm_token');
+  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const res = await fetch(`${API_BASE}${path}`, { ...opts, headers: { ...headers, ...opts.headers } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'API error');
+  return data;
+}
+
+// ─── TRANSLATIONS ───────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    welcomeTitle: "BEAST MODE", welcomeSub: "Evolve from amoeba to apex predator through micro-workouts",
+    enterName: "Enter your name...", legendStart: "EVERY LEGEND STARTS SMALL", begin: "BEGIN EVOLUTION →",
+    step1Title: "You start as an", step1Desc: "Complete exercises throughout your day to earn points and evolve into increasingly powerful creatures.",
+    step2Title: "50 EVOLUTION TIERS", step2Desc: "From Amoeba to Dragon — every point brings you closer to the next transformation.",
+    step3Title: "HOW IT WORKS", step3Desc: "Set your schedule. We'll alert you when it's time to move. Complete the exercise. Earn points. Evolve.",
+    dailySetup: "⚡ DAILY SETUP", alertInterval: "ALERT INTERVAL", alertIntervalHint: "How often should we remind you to move?",
+    exerciseDuration: "EXERCISE DURATION", durationHint: "Longer = bigger multiplier on points",
+    beastModeHours: "BEAST MODE HOURS", hoursHint: "When are you active?", start: "START", end: "END",
+    activeDays: "ACTIVE DAYS", activeDaysHint: "Which days should Beast Mode be active?",
+    alarmMessage: "ALARM MESSAGE", alarmHint: "What should the alarm say?",
+    exercises: "EXERCISES", allRandom: "All (Random)", customPick: "Custom Pick",
+    activateBeast: "ACTIVATE BEAST MODE 🔥", language: "LANGUAGE",
+    random: "🎲 Random — surprise me!", multiplier: "multiplier",
+    min30: "30 min", hour1: "1 hour", hours2: "2 hours",
+    sec30: "30 seconds", min1: "1 minute", min2: "2 minutes", min3: "3 minutes",
+    min4: "4 minutes", min5: "5 minutes", min6: "6 minutes", min7: "7 minutes",
+    dayStreak: "Day Streak", bonus: "bonus", freezes: "freezes", daysToNext: "days to next",
+    today: "TODAY", total: "TOTAL", completed: "completed", skipped: "skipped",
+    forStreakFreeze: "for streak freeze", streakSecured: "🔥 Streak secured!",
+    nextAlert: "NEXT ALERT", restDay: "REST DAY", noAlarmsToday: "No alarms today",
+    extraCreditAvail: "Extra credit still available!", extraCredit: "Extra Credit", leaderboard: "Leaderboard",
+    sessions: "sessions", every: "Every", recentActivity: "RECENT ACTIVITY",
+    completeFor: "Complete for", startBtn: "▶ START", skipBtn: "SKIP",
+    finishEarly: "⏹ FINISH EARLY", crushedIt: "CRUSHED IT!", goodEffort: "GOOD EFFORT!",
+    fullCompletion: "🎉 Full completion — multiplier unlocked!", completionBonus: "+25% completion bonus",
+    flatRate: "Flat rate — no multiplier", tryLonger: "Minimum 30s to earn points — keep going next time!",
+    completingWouldEarn: "Completing would have earned", collectPoints: "COLLECT POINTS", base: "base",
+    extraCreditTitle: "⭐ EXTRA CREDIT", duration: "DURATION", back: "BACK", ptsIfCompleted: "pts if completed",
+    leaderboardTitle: "🏆 LEADERBOARD", levelUp: "LEVEL UP!", ptsTo: "pts to", continueBtn: "CONTINUE",
+    demoNote: "⚡ Demo: Alarms trigger every ~20s (ignores interval & rest days)",
+    endDay: "End Day", missedDay: "❌ Missed Day", exerciseCount: "exercises",
+    everyDay: "Every day", weekdays: "Weekdays", daysPerWk: "days/wk",
+    login: "LOG IN", register: "REGISTER", password: "Password", username: "Username",
+    noAccount: "Don't have an account?", hasAccount: "Already have an account?",
+    logout: "Logout",
+  },
+  es: {
+    welcomeTitle: "BEAST MODE", welcomeSub: "Evoluciona de ameba a depredador supremo con micro-ejercicios",
+    enterName: "Ingresa tu nombre...", legendStart: "TODA LEYENDA EMPIEZA PEQUEÑA", begin: "COMENZAR EVOLUCIÓN →",
+    dailySetup: "⚡ CONFIGURACIÓN DIARIA", alertInterval: "INTERVALO DE ALERTA",
+    exercises: "EJERCICIOS", activateBeast: "ACTIVAR BEAST MODE 🔥",
+    dayStreak: "Racha de Días", today: "HOY", total: "TOTAL", completed: "completados", skipped: "omitidos",
+    nextAlert: "PRÓXIMA ALERTA", extraCredit: "Crédito Extra", leaderboard: "Clasificación",
+    crushedIt: "¡LO LOGRASTE!", goodEffort: "¡BUEN ESFUERZO!", collectPoints: "RECOGER PUNTOS",
+    login: "INICIAR SESIÓN", register: "REGISTRAR", password: "Contraseña", username: "Usuario",
+    logout: "Cerrar sesión",
+  },
+  ja: {
+    welcomeTitle: "ビーストモード", welcomeSub: "マイクロワークアウトでアメーバから頂点捕食者へ進化せよ",
+    dailySetup: "⚡ デイリーセットアップ", exercises: "エクササイズ",
+    dayStreak: "連続日数", today: "今日", total: "合計",
+    crushedIt: "やったぜ！", collectPoints: "ポイント獲得",
+    login: "ログイン", register: "登録", password: "パスワード", username: "ユーザー名",
+    logout: "ログアウト",
+  },
+};
+
+function useT(lang) { return (key) => TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || key; }
+
+// ─── EXERCISES ──────────────────────────────────
+const EXERCISES = [
+  { id: "plank", name: "Plank", emoji: "🧱", basePoints: 15 },
+  { id: "pushups", name: "Push-ups", emoji: "💪", basePoints: 12 },
+  { id: "situps", name: "Sit-ups", emoji: "🔄", basePoints: 10 },
+  { id: "squats", name: "Squats", emoji: "🦵", basePoints: 11 },
+  { id: "lunges", name: "Lunges", emoji: "🚶", basePoints: 11 },
+  { id: "burpees", name: "Burpees", emoji: "⚡", basePoints: 18 },
+  { id: "chair_pose", name: "Chair Pose", emoji: "🪑", basePoints: 13 },
+  { id: "jumping_jacks", name: "Jumping Jacks", emoji: "⭐", basePoints: 9 },
+  { id: "high_knees", name: "High Knees", emoji: "🏃", basePoints: 14 },
+  { id: "mountain_climbers", name: "Mt. Climbers", emoji: "🏔️", basePoints: 16 },
+];
+
+const DURATION_MULTIPLIERS = { 0.5: 1, 1: 1.5, 2: 2.3, 3: 3.8, 4: 5.5, 5: 7.5, 6: 9.8, 7: 12.5 };
+const DURATION_OPTIONS = [0.5, 1, 2, 3, 4, 5, 6, 7];
+
+function calcPoints(basePoints, durationMinutes) {
+  const mult = DURATION_MULTIPLIERS[durationMinutes] || 1;
+  return Math.round(basePoints * mult * 10) / 10;
+}
+function fmtDuration(d) { return d < 1 ? `${Math.round(d * 60)}s` : `${d}m`; }
+function resolveDuration(d) { return d === "random" ? DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)] : d; }
+
+// ─── AWARDS ──────────────────────────────────────
+const AWARDS = [
+  { id: "first_workout", emoji: "🎯", name: "First Blood", desc: "Complete your first workout" },
+  { id: "sessions_10", emoji: "🔟", name: "Getting Started", desc: "Complete 10 sessions" },
+  { id: "sessions_50", emoji: "5️⃣0️⃣", name: "Halfway Hero", desc: "Complete 50 sessions" },
+  { id: "sessions_100", emoji: "💯", name: "Centurion", desc: "Complete 100 sessions" },
+  { id: "sessions_500", emoji: "🏛️", name: "Legend", desc: "Complete 500 sessions" },
+  { id: "streak_3", emoji: "🔥", name: "On Fire", desc: "3-day streak" },
+  { id: "streak_7", emoji: "📅", name: "Full Week", desc: "7-day streak" },
+  { id: "streak_14", emoji: "🌙", name: "Fortnight", desc: "14-day streak" },
+  { id: "streak_30", emoji: "📆", name: "Monthly", desc: "30-day streak" },
+  { id: "streak_100", emoji: "⭐", name: "Unstoppable", desc: "100-day streak" },
+  { id: "pts_100", emoji: "🥉", name: "Bronze", desc: "Earn 100 points" },
+  { id: "pts_1000", emoji: "🥈", name: "Silver", desc: "Earn 1,000 points" },
+  { id: "pts_5000", emoji: "🥇", name: "Gold", desc: "Earn 5,000 points" },
+  { id: "pts_10000", emoji: "💎", name: "Diamond", desc: "Earn 10,000 points" },
+  { id: "try_all", emoji: "🎨", name: "Well Rounded", desc: "Try all 10 exercises" },
+  { id: "dur_5", emoji: "⏱️", name: "Endurance", desc: "Complete 5min workout" },
+  { id: "dur_7", emoji: "🦾", name: "Iron Will", desc: "Complete 7min workout" },
+  { id: "freeze_earn", emoji: "🧊", name: "Ice Bank", desc: "Earn a streak freeze" },
+  { id: "extra_1", emoji: "⭐", name: "Extra Mile", desc: "Do 1 extra credit session" },
+  { id: "extra_10", emoji: "🌟", name: "Overachiever", desc: "Do 10 extra sessions" },
+  { id: "perfect_day", emoji: "👑", name: "Perfect Day", desc: "5+ sessions in one day" },
+];
+
+// ─── DAYS ────────────────────────────────────────
+const DAYS_OF_WEEK = [
+  { key: "mon", label: "M" }, { key: "tue", label: "T" }, { key: "wed", label: "W" },
+  { key: "thu", label: "T" }, { key: "fri", label: "F" }, { key: "sat", label: "S" }, { key: "sun", label: "S" },
+];
+const ALL_DAYS = DAYS_OF_WEEK.map(d => d.key);
+function getTodayKey() {
+  const d = new Date().getDay();
+  return ["sun","mon","tue","wed","thu","fri","sat"][d];
+}
+
+// ─── EVOLUTION TIERS ─────────────────────────────
+const EVOLUTION_TIERS = [
+  { name: "Amoeba", emoji: "🦠", threshold: 0 }, { name: "Plankton", emoji: "🫧", threshold: 50 },
+  { name: "Jellyfish", emoji: "🪼", threshold: 120 }, { name: "Shrimp", emoji: "🦐", threshold: 200 },
+  { name: "Snail", emoji: "🐌", threshold: 300 }, { name: "Crab", emoji: "🦀", threshold: 420 },
+  { name: "Fish", emoji: "🐟", threshold: 560 }, { name: "Frog", emoji: "🐸", threshold: 720 },
+  { name: "Turtle", emoji: "🐢", threshold: 900 }, { name: "Snake", emoji: "🐍", threshold: 1100 },
+  { name: "Lizard", emoji: "🦎", threshold: 1350 }, { name: "Rabbit", emoji: "🐰", threshold: 1650 },
+  { name: "Fox", emoji: "🦊", threshold: 2000 }, { name: "Dog", emoji: "🐕", threshold: 2400 },
+  { name: "Cat", emoji: "🐈", threshold: 2850 }, { name: "Raccoon", emoji: "🦝", threshold: 3350 },
+  { name: "Deer", emoji: "🦌", threshold: 3900 }, { name: "Wolf", emoji: "🐺", threshold: 4500 },
+  { name: "Horse", emoji: "🐴", threshold: 5200 }, { name: "Dolphin", emoji: "🐬", threshold: 6000 },
+  { name: "Shark", emoji: "🦈", threshold: 6900 }, { name: "Octopus", emoji: "🐙", threshold: 7900 },
+  { name: "Eagle", emoji: "🦅", threshold: 9000 }, { name: "Owl", emoji: "🦉", threshold: 10200 },
+  { name: "Gorilla", emoji: "🦍", threshold: 11500 }, { name: "Panther", emoji: "🐆", threshold: 13000 },
+  { name: "Bear", emoji: "🐻", threshold: 14700 }, { name: "Lion", emoji: "🦁", threshold: 16600 },
+  { name: "Tiger", emoji: "🐯", threshold: 18700 }, { name: "Elephant", emoji: "🐘", threshold: 21000 },
+  { name: "Rhino", emoji: "🦏", threshold: 23500 }, { name: "Hippo", emoji: "🦛", threshold: 26200 },
+  { name: "Whale", emoji: "🐋", threshold: 29200 }, { name: "T-Rex", emoji: "🦖", threshold: 32500 },
+  { name: "Mammoth", emoji: "🦣", threshold: 36000 }, { name: "Saber-tooth", emoji: "🐅", threshold: 40000 },
+  { name: "Phoenix", emoji: "🔥", threshold: 44500 }, { name: "Unicorn", emoji: "🦄", threshold: 49500 },
+  { name: "Griffin", emoji: "🦅", threshold: 55000 }, { name: "Kraken", emoji: "🦑", threshold: 61000 },
+  { name: "Hydra", emoji: "🐉", threshold: 68000 }, { name: "Cerberus", emoji: "🐕‍🦺", threshold: 76000 },
+  { name: "Thunderbird", emoji: "⚡", threshold: 85000 }, { name: "Leviathan", emoji: "🌊", threshold: 95000 },
+  { name: "Titan", emoji: "🗿", threshold: 106000 }, { name: "Behemoth", emoji: "💀", threshold: 118000 },
+  { name: "Colossus", emoji: "🏛️", threshold: 132000 }, { name: "Wyvern", emoji: "🪽", threshold: 148000 },
+  { name: "Bahamut", emoji: "👑", threshold: 166000 }, { name: "Dragon", emoji: "🐲", threshold: 200000 },
+];
+
+function getEvolution(points) {
+  let tier = EVOLUTION_TIERS[0];
+  for (const t of EVOLUTION_TIERS) { if (points >= t.threshold) tier = t; else break; }
+  return tier;
+}
+function getNextEvolution(points) {
+  for (const t of EVOLUTION_TIERS) { if (points < t.threshold) return t; }
+  return null;
+}
+function getEvolutionProgress(points) {
+  const current = getEvolution(points);
+  const next = getNextEvolution(points);
+  if (!next) return 1;
+  return (points - current.threshold) / (next.threshold - current.threshold);
+}
+
+// ─── SOUND PLAYER ────────────────────────────────
+function playSound(type) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (type === "alarm") { osc.frequency.value = 880; gain.gain.value = 0.15; osc.start(); osc.stop(ctx.currentTime + 0.3); }
+    else if (type === "complete") { osc.frequency.value = 523; gain.gain.value = 0.12; osc.start(); osc.stop(ctx.currentTime + 0.2); }
+    else if (type === "levelup") { osc.frequency.value = 660; gain.gain.value = 0.15; osc.start(); osc.stop(ctx.currentTime + 0.5); }
+  } catch(e) {}
+}
+
+// ─── AUTH SCREEN ─────────────────────────────────
+function AuthScreen({ onAuth, lang, setLang }) {
+  const t = useT(lang);
+  const [mode, setMode] = useState("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!username.trim() || !password) return;
+    setLoading(true); setError("");
+    try {
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const data = await api(endpoint, { method: "POST", body: JSON.stringify({ username: username.trim(), password }) });
+      localStorage.setItem("bm_token", data.token);
+      onAuth(data);
+    } catch(e) {
+      setError(e.message);
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "linear-gradient(180deg, #0a0a0f 0%, #1a0a00 100%)" }}>
+      <div style={{ maxWidth: 380, width: "100%", animation: "fadeIn 0.6s ease" }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ fontSize: 60, marginBottom: 12 }}>🦠</div>
+          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, background: "linear-gradient(135deg, #FF4D00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 }}>BEAST MODE</h1>
+          <p style={{ color: "#666", fontSize: 14 }}>Evolve through micro-workouts</p>
+        </div>
+
+        <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 20, padding: 28, border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+            <button onClick={() => { setMode("login"); setError(""); }} style={{ flex: 1, padding: "10px", background: mode === "login" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "login" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "login" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("login")}</button>
+            <button onClick={() => { setMode("register"); setError(""); }} style={{ flex: 1, padding: "10px", background: mode === "register" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "register" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "register" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("register")}</button>
+          </div>
+
+          <input value={username} onChange={e => setUsername(e.target.value)} placeholder={t("username")}
+            style={{ width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 16, marginBottom: 12 }}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          <input value={password} onChange={e => setPassword(e.target.value)} placeholder={t("password")} type="password"
+            style={{ width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 16, marginBottom: 16 }}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+
+          {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
+
+          <button onClick={handleSubmit} disabled={loading}
+            style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>
+            {loading ? "..." : mode === "login" ? t("login") : t("register")}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
+          {["en","es","ja"].map(l => (
+            <button key={l} onClick={() => setLang(l)}
+              style={{ padding: "6px 14px", background: lang === l ? "rgba(255,77,0,0.2)" : "rgba(255,255,255,0.04)", border: lang === l ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, color: lang === l ? "#FF8C00" : "#555", fontSize: 12, fontWeight: 600 }}>
+              {l === "en" ? "🇺🇸 EN" : l === "es" ? "🇪🇸 ES" : "🇯🇵 JA"}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── EVOLUTION BADGE ─────────────────────────────
+function EvolutionBadge({ points, size = 48, glow = false }) {
+  const evo = getEvolution(points);
+  return (
+    <div style={{ width: size, height: size, borderRadius: "50%", background: "linear-gradient(135deg, #1a1a2e, #2d1400)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.55, border: "2px solid rgba(255,77,0,0.3)", boxShadow: glow ? "0 0 15px rgba(255,77,0,0.3)" : "none" }}>
+      {evo.emoji}
+    </div>
+  );
+}
+
+// ─── EVOLUTION BAR ───────────────────────────────
+function EvolutionBar({ points }) {
+  const current = getEvolution(points);
+  const next = getNextEvolution(points);
+  const progress = getEvolutionProgress(points);
+  return (
+    <div style={{ marginBottom: 16, padding: "14px 16px", background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>{current.emoji} {current.name}</span>
+        {next && <span style={{ fontSize: 12, color: "#888" }}>{Math.round((next.threshold - points))} pts to {next.emoji} {next.name}</span>}
+      </div>
+      <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden", marginBottom: 10 }}>
+        <div style={{ height: "100%", borderRadius: 4, width: `${progress * 100}%`, background: "linear-gradient(90deg, #FF4D00, #FFD700)", transition: "width 0.6s ease" }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 2px" }}>
+        <span style={{ fontSize: 18 }}>{current.emoji}</span>
+        <span style={{ fontSize: 11, color: "#555" }}>{Math.round(progress * 100)}%</span>
+        {next && <span style={{ fontSize: 18, opacity: 0.4 }}>{next.emoji}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── SETUP SCREEN ────────────────────────────────
+function DailySetupScreen({ onComplete, settings, lang }) {
+  const t = useT(lang);
+  const [interval, setInterval_] = useState(settings?.intervalMinutes || 60);
+  const [duration, setDuration] = useState(settings?.duration || 2);
+  const [exerciseMode, setExerciseMode] = useState("all");
+  const [selectedExercises, setSelectedExercises] = useState(settings?.selectedExercises || EXERCISES.map(e => e.id));
+  const [activeDays, setActiveDays] = useState(settings?.activeDays || ALL_DAYS);
+  const [alarmMessage, setAlarmMessage] = useState("Let's Be Our Best!");
+
+  const toggleDay = (key) => {
+    setActiveDays(prev => prev.includes(key) ? prev.filter(d => d !== key) : [...prev, key]);
+  };
+  const toggleExercise = (id) => {
+    setSelectedExercises(prev => prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]);
+  };
+
+  const handleActivate = async () => {
+    const s = { duration, intervalMinutes: interval, selectedExercises: exerciseMode === "all" ? EXERCISES.map(e => e.id) : selectedExercises, activeDays, alarmMessage };
+    try { await api("/api/user/settings", { method: "PUT", body: JSON.stringify(s) }); } catch(e) { console.error("Failed to save settings:", e); }
+    onComplete(s);
+  };
+
+  const sectionStyle = { marginBottom: 24 };
+  const labelStyle = { fontSize: 13, fontWeight: 800, letterSpacing: 2, color: "#FF8C00", marginBottom: 6 };
+  const hintStyle = { fontSize: 11, color: "#555", marginBottom: 12 };
+  const optBtn = (active) => ({ padding: "10px 16px", background: active ? "rgba(255,77,0,0.15)" : "rgba(255,255,255,0.04)", border: active ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: active ? "#FF8C00" : "#666", fontWeight: 600, fontSize: 13 });
+
+  return (
+    <div style={{ minHeight: "100vh", maxWidth: 420, margin: "0 auto", padding: "20px 16px", overflowY: "auto" }}>
+      <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: 3, textAlign: "center", marginBottom: 24, color: "#FFD700" }}>{t("dailySetup")}</h2>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("alertInterval")}</div>
+        <div style={hintStyle}>{t("alertIntervalHint")}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[30, 60, 120].map(v => <button key={v} onClick={() => setInterval_(v)} style={optBtn(interval === v)}>{v === 30 ? t("min30") : v === 60 ? t("hour1") : t("hours2")}</button>)}
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("exerciseDuration")}</div>
+        <div style={hintStyle}>{t("durationHint")}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => setDuration("random")} style={optBtn(duration === "random")}>{t("random")}</button>
+          {DURATION_OPTIONS.map(d => (
+            <button key={d} onClick={() => setDuration(d)} style={optBtn(duration === d)}>
+              {fmtDuration(d)} <span style={{ fontSize: 10, opacity: 0.6 }}>×{DURATION_MULTIPLIERS[d]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("activeDays")}</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {DAYS_OF_WEEK.map(d => (
+            <button key={d.key} onClick={() => toggleDay(d.key)}
+              style={{ width: 42, height: 42, borderRadius: 12, background: activeDays.includes(d.key) ? "rgba(255,77,0,0.2)" : "rgba(255,255,255,0.04)", border: activeDays.includes(d.key) ? "1px solid rgba(255,77,0,0.4)" : "1px solid rgba(255,255,255,0.08)", color: activeDays.includes(d.key) ? "#FF8C00" : "#555", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("exercises")}</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button onClick={() => setExerciseMode("all")} style={optBtn(exerciseMode === "all")}>{t("allRandom")}</button>
+          <button onClick={() => setExerciseMode("custom")} style={optBtn(exerciseMode === "custom")}>{t("customPick")}</button>
+        </div>
+        {exerciseMode === "custom" && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {EXERCISES.map(ex => (
+              <button key={ex.id} onClick={() => toggleExercise(ex.id)}
+                style={{ padding: "8px 14px", background: selectedExercises.includes(ex.id) ? "rgba(255,77,0,0.12)" : "rgba(255,255,255,0.03)", border: selectedExercises.includes(ex.id) ? "1px solid rgba(255,77,0,0.25)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, color: selectedExercises.includes(ex.id) ? "#FF8C00" : "#555", fontSize: 13, fontWeight: 600 }}>
+                {ex.emoji} {ex.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("alarmMessage")}</div>
+        <input value={alarmMessage} onChange={e => setAlarmMessage(e.target.value)}
+          style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 14 }} />
+      </div>
+
+      <button onClick={handleActivate}
+        style={{ width: "100%", padding: "18px", background: "linear-gradient(135deg, #FF4D00, #FF8C00)", color: "#fff", border: "none", borderRadius: 16, fontSize: 17, fontWeight: 900, letterSpacing: 2, marginBottom: 40 }}>
+        {t("activateBeast")}
+      </button>
+    </div>
+  );
+}
+
+// ─── ALARM POPUP ─────────────────────────────────
+function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background: "linear-gradient(145deg, #1a0a00, #2d1400)", borderRadius: 24, padding: "32px 24px", maxWidth: 380, width: "100%", textAlign: "center", border: "2px solid rgba(255,77,0,0.4)", animation: "glow 2s infinite", opacity: visible ? 1 : 0, transform: visible ? "scale(1)" : "scale(0.9)", transition: "all 0.3s ease" }}>
+        <div style={{ fontSize: 14, color: "#888", marginBottom: 8, letterSpacing: 2 }}>⏰ BEAST MODE</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#FFD700", marginBottom: 16 }}>{message || "Time to move!"}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 8 }}>
+          <span style={{ fontSize: 36 }}>{exercise.emoji}</span>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{exercise.name}</div>
+            <div style={{ fontSize: 13, color: "#FF8C00" }}>{calcPoints(exercise.basePoints, duration)} pts • {fmtDuration(duration)}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+          <button onClick={onStart} style={{ flex: 2, padding: "14px 20px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, letterSpacing: 1 }}>▶ START</button>
+          <button onClick={onSkip} style={{ flex: 1, padding: "14px 16px", background: "rgba(255,255,255,0.08)", color: "#888", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, fontWeight: 600 }}>SKIP</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── WORKOUT TIMER ───────────────────────────────
+function WorkoutTimer({ exercise, durationMinutes, onComplete }) {
+  const t = useT("en");
+  const totalSeconds = Math.round(durationMinutes * 60);
+  const [remaining, setRemaining] = useState(totalSeconds);
+  const [started, setStarted] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [stoppedEarly, setStoppedEarly] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
+  const [timeFraction, setTimeFraction] = useState(1);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (started && !completed && !stoppedEarly) {
+      intervalRef.current = setInterval(() => {
+        setRemaining(prev => {
+          if (prev <= 1) {
+            clearInterval(intervalRef.current);
+            const pts = calcPoints(exercise.basePoints, durationMinutes);
+            setEarnedPoints(pts);
+            setCompleted(true);
+            playSound("complete");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [started, completed, stoppedEarly]);
+
+  const handleStopEarly = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    const elapsed = totalSeconds - remaining;
+    const fraction = elapsed / totalSeconds;
+    setTimeFraction(fraction);
+    if (elapsed < 30) { setEarnedPoints(0); }
+    else {
+      const basePts = exercise.basePoints;
+      const pts = Math.round(basePts * fraction * 10) / 10;
+      setEarnedPoints(pts);
+    }
+    setStoppedEarly(true);
+  };
+
+  const handleCollect = () => {
+    onComplete(earnedPoints, !stoppedEarly);
+  };
+
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const progress = 1 - (remaining / totalSeconds);
+  const circumference = 2 * Math.PI * 78;
+
+  if (completed || stoppedEarly) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+        <div style={{ background: "linear-gradient(145deg, #0d0d1a, #1a1a2e)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,77,0,0.15)" }}>
+          <div style={{ fontSize: 60, marginBottom: 12 }}>{completed ? "🏆" : "💪"}</div>
+          <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 2, color: "#FFD700", marginBottom: 16 }}>{completed ? t("crushedIt") : t("goodEffort")}</div>
+          {earnedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #FF4D00, #FFD700)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#000", marginBottom: 12 }}>+{earnedPoints} pts</div>}
+          {completed && <div style={{ fontSize: 13, color: "#00E676", marginBottom: 8 }}>{t("fullCompletion")}</div>}
+          {stoppedEarly && earnedPoints > 0 && <div style={{ fontSize: 13, color: "#FF8C00", marginBottom: 8 }}>{Math.round(timeFraction * 100)}% completed — flat rate</div>}
+          {stoppedEarly && earnedPoints === 0 && <div style={{ fontSize: 13, color: "#FF6B6B", marginBottom: 8 }}>{t("tryLonger")}</div>}
+          <button onClick={handleCollect} style={{ width: "100%", maxWidth: 260, padding: "14px 28px", background: "linear-gradient(135deg, #FF4D00, #FF8C00)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 800, letterSpacing: 1, marginTop: 12 }}>{t("collectPoints")}</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background: "linear-gradient(145deg, #0d0d1a, #1a1a2e)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,77,0,0.15)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 24 }}>
+          <span style={{ fontSize: 32 }}>{exercise.emoji}</span>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{exercise.name}</span>
+        </div>
+
+        {!started ? (
+          <div>
+            <div style={{ fontSize: 48, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace", marginBottom: 24 }}>{fmtDuration(durationMinutes)}</div>
+            <button onClick={() => setStarted(true)}
+              style={{ padding: "16px 40px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 14, fontSize: 18, fontWeight: 800, letterSpacing: 2 }}>▶ GO!</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ position: "relative", width: 180, height: 180, margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="180" height="180" viewBox="0 0 180 180">
+                <circle cx="90" cy="90" r="78" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+                <circle cx="90" cy="90" r="78" fill="none" stroke="url(#timerGrad)" strokeWidth="8"
+                  strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)}
+                  strokeLinecap="round" transform="rotate(-90 90 90)" style={{ transition: "stroke-dashoffset 1s linear" }} />
+                <defs><linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#FF4D00"/><stop offset="100%" stopColor="#FFD700"/></linearGradient></defs>
+              </svg>
+              <span style={{ position: "absolute", fontSize: 44, fontWeight: 900, fontFamily: "'Courier New', monospace", color: "#FFD700" }}>{mins}:{secs.toString().padStart(2, "0")}</span>
+            </div>
+            <button onClick={handleStopEarly}
+              style={{ padding: "14px 28px", background: "linear-gradient(135deg, #FF4D00, #FF8C00)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 800, width: "100%", maxWidth: 260, letterSpacing: 1 }}>{t("finishEarly")}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── EXTRA CREDIT MODAL ──────────────────────────
+function ExtraCreditModal({ exercises, duration, onComplete, onClose }) {
+  const t = useT("en");
+  const [selectedEx, setSelectedEx] = useState(null);
+  const [selectedDur, setSelectedDur] = useState(duration === "random" ? 2 : duration);
+  const [running, setRunning] = useState(false);
+
+  if (running && selectedEx) {
+    return <WorkoutTimer exercise={selectedEx} durationMinutes={selectedDur} onComplete={(pts, wasCompleted) => { onComplete(pts, selectedEx, wasCompleted); }} />;
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "28px 24px", maxWidth: 400, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "1px solid rgba(255,215,0,0.15)" }}>
+        <div style={{ fontSize: 22, fontWeight: 800, textAlign: "center", marginBottom: 4 }}>{t("extraCreditTitle")}</div>
+        <div style={{ fontSize: 13, color: "#888", textAlign: "center", marginBottom: 20 }}>Pick an exercise and duration</div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#FFD700", letterSpacing: 1, marginBottom: 8 }}>{t("exercises")}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {EXERCISES.map(ex => (
+              <button key={ex.id} onClick={() => setSelectedEx(ex)}
+                style={{ padding: "8px 12px", background: selectedEx?.id === ex.id ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.04)", border: selectedEx?.id === ex.id ? "1px solid rgba(255,215,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, color: selectedEx?.id === ex.id ? "#FFD700" : "#888", fontSize: 13, fontWeight: 600 }}>
+                {ex.emoji} {ex.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#FFD700", letterSpacing: 1, marginBottom: 8 }}>{t("duration")}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {DURATION_OPTIONS.map(d => (
+              <button key={d} onClick={() => setSelectedDur(d)}
+                style={{ padding: "8px 14px", background: selectedDur === d ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.04)", border: selectedDur === d ? "1px solid rgba(255,215,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, color: selectedDur === d ? "#FFD700" : "#888", fontSize: 13, fontWeight: 600 }}>
+                {fmtDuration(d)} <span style={{ fontSize: 10, opacity: 0.5 }}>×{DURATION_MULTIPLIERS[d]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {selectedEx && <div style={{ textAlign: "center", fontSize: 13, color: "#FFD700", marginBottom: 16 }}>{calcPoints(selectedEx.basePoints, selectedDur)} {t("ptsIfCompleted")}</div>}
+
+        <div style={{ display: "flex", gap: 12 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#888", fontSize: 14, fontWeight: 600 }}>{t("back")}</button>
+          <button onClick={() => selectedEx && setRunning(true)} disabled={!selectedEx}
+            style={{ flex: 2, padding: "14px", background: selectedEx ? "linear-gradient(135deg, #FFD700, #FF8C00)" : "#333", border: "none", borderRadius: 12, color: selectedEx ? "#000" : "#666", fontSize: 14, fontWeight: 800, letterSpacing: 1 }}>▶ START</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── EVOLUTION POPUP ─────────────────────────────
+function EvolutionPopup({ oldTier, newTier, onClose }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { setTimeout(() => setVisible(true), 100); playSound("levelup"); }, []);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
+      <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,215,0,0.3)", opacity: visible ? 1 : 0, transform: visible ? "scale(1)" : "scale(0.8)", transition: "all 0.5s ease" }}>
+        <div style={{ fontSize: 14, letterSpacing: 3, color: "#FFD700", marginBottom: 8 }}>⚡ LEVEL UP! ⚡</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, margin: "16px 0 20px" }}>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 40 }}>{oldTier.emoji}</div><div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>{oldTier.name}</div></div>
+          <span style={{ fontSize: 24, color: "#FFD700" }}>→</span>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 52 }}>{newTier.emoji}</div><div style={{ fontSize: 13, fontWeight: 700, color: "#FFD700", marginTop: 4 }}>{newTier.name}</div></div>
+        </div>
+        <button onClick={onClose} style={{ padding: "14px 40px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>CONTINUE</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── AWARD POPUP ─────────────────────────────────
+function AwardPopup({ award, onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1050, padding: 20 }}>
+      <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "36px 28px", maxWidth: 340, width: "100%", textAlign: "center", border: "1px solid rgba(255,215,0,0.3)" }}>
+        <div style={{ fontSize: 12, letterSpacing: 3, color: "#888", marginBottom: 8 }}>🏅 AWARD UNLOCKED</div>
+        <div style={{ fontSize: 56, marginBottom: 12 }}>{award.emoji}</div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#FFD700", marginBottom: 8 }}>{award.name}</div>
+        <div style={{ fontSize: 13, color: "#888", marginBottom: 24 }}>{award.desc}</div>
+        <button onClick={onClose} style={{ padding: "12px 32px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800 }}>NICE!</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── AWARDS SCREEN ───────────────────────────────
+function AwardsScreen({ unlockedAwards, onBack }) {
+  return (
+    <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", minHeight: "100vh" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>← BACK</button>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>🏅 AWARDS</span>
+        <span style={{ fontSize: 12, color: "#888" }}>{unlockedAwards.size}/{AWARDS.length}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        {AWARDS.map(a => {
+          const unlocked = unlockedAwards.has(a.id);
+          return (
+            <div key={a.id} style={{ padding: "16px 8px", background: unlocked ? "rgba(255,215,0,0.08)" : "rgba(255,255,255,0.02)", border: unlocked ? "1px solid rgba(255,215,0,0.2)" : "1px solid rgba(255,255,255,0.05)", borderRadius: 14, textAlign: "center", opacity: unlocked ? 1 : 0.4 }}>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>{a.emoji}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: unlocked ? "#FFD700" : "#555", marginBottom: 2 }}>{a.name}</div>
+              <div style={{ fontSize: 9, color: "#555" }}>{a.desc}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── LEADERBOARD ─────────────────────────────────
+function LeaderboardScreen({ user, totalPoints, streak, onBack }) {
+  const [entries, setEntries] = useState([]);
+  const [userRank, setUserRank] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api("/api/stats/leaderboard").then(data => {
+      setEntries(data.leaderboard);
+      setUserRank(data.userRank);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const medals = ["🥇", "🥈", "🥉"];
+  return (
+    <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", minHeight: "100vh" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>← BACK</button>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>🏆 LEADERBOARD</span>
+        <span style={{ fontSize: 12, color: "#888" }}>#{userRank || "?"}</span>
+      </div>
+      {loading ? <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading...</div> :
+        entries.length === 0 ? <div style={{ textAlign: "center", color: "#555", padding: 40 }}>No entries yet — be the first!</div> :
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {entries.map((e, i) => {
+            const isYou = e.username === user?.username;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", padding: "14px 16px", borderRadius: 14, gap: 12, background: isYou ? "rgba(255,77,0,0.1)" : "rgba(255,255,255,0.03)", border: isYou ? "1px solid rgba(255,77,0,0.2)" : "1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ width: 32, textAlign: "center", fontSize: i < 3 ? 20 : 14, fontWeight: 800, color: i < 3 ? "#FFD700" : "#555" }}>{i < 3 ? medals[i] : i + 1}</div>
+                <EvolutionBadge points={e.total_points} size={36} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{e.username}{isYou && " (you)"}</div>
+                  <div style={{ fontSize: 11, color: "#999" }}>🔥 {e.streak} streak</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: "#FFD700" }}>{Math.round(e.total_points).toLocaleString()}</span>
+                  <span style={{ fontSize: 10, color: "#888", display: "block", letterSpacing: 1 }}>PTS</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      }
+    </div>
+  );
+}
+
+// ─── WEEKLY SUMMARY ──────────────────────────────
+function WeeklySummary({ weekData, streak, totalPoints, onClose }) {
+  if (!weekData) return null;
+  const maxPts = Math.max(...weekData.days.map(d => d.points), 1);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "28px 24px", maxWidth: 400, width: "100%", border: "1px solid rgba(255,215,0,0.2)", maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 16 }}>
+          <div style={{ fontSize: 14, letterSpacing: 3, color: "#FFD700", marginBottom: 4 }}>📊 WEEKLY SUMMARY</div>
+          <div style={{ fontSize: 11, color: "#555" }}>Your Beast Mode week in review</div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 20 }}>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#FFD700" }}>{weekData.sessions}</div><div style={{ fontSize: 10, color: "#888" }}>SESSIONS</div></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#FF8C00" }}>{weekData.points}</div><div style={{ fontSize: 10, color: "#888" }}>POINTS</div></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#00E676" }}>{weekData.completionRate}%</div><div style={{ fontSize: 10, color: "#888" }}>RATE</div></div>
+        </div>
+        <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "flex-end", height: 80, marginBottom: 16 }}>
+          {weekData.days.map((d, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flex: 1 }}>
+              <div style={{ width: "100%", maxWidth: 30, height: Math.max(4, (d.points / maxPts) * 60), background: d.active ? "linear-gradient(180deg, #FFD700, #FF8C00)" : "rgba(255,255,255,0.06)", borderRadius: 4 }} />
+              <span style={{ fontSize: 10, color: d.active ? "#FF8C00" : "#444" }}>{d.label}</span>
+            </div>
+          ))}
+        </div>
+        {weekData.topExercise && (
+          <div style={{ padding: "10px 14px", background: "rgba(255,215,0,0.06)", borderRadius: 12, marginBottom: 16, textAlign: "center" }}>
+            <span style={{ fontSize: 11, color: "#888" }}>Top exercise: </span>
+            <span style={{ color: "#FFD700", fontWeight: 700 }}>{weekData.topExercise.emoji} {weekData.topExercise.name}</span>
+            <span style={{ color: "#888", fontSize: 11 }}> ({weekData.topExercise.count}× / {weekData.topExercise.points} pts)</span>
+          </div>
+        )}
+        <button onClick={onClose} style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, letterSpacing: 2 }}>CONTINUE</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ────────────────────────────────────
+function BeastModeApp() {
+  const [screen, setScreen] = useState("loading");
+  const [lang, setLang] = useState("en");
+  const t = useT(lang);
+  const [user, setUser] = useState(null);
+  const [settings, setSettings] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [unlockedAwards, setUnlockedAwards] = useState(new Set());
+  const [history, setHistory] = useState([]);
+
+  // Alarm state
+  const [showAlarm, setShowAlarm] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
+  const [showExtraCredit, setShowExtraCredit] = useState(false);
+  const [currentExercise, setCurrentExercise] = useState(null);
+  const [resolvedDuration, setResolvedDuration] = useState(null);
+  const [evoPopup, setEvoPopup] = useState(null);
+  const [awardPopup, setAwardPopup] = useState(null);
+  const [showWeeklySummary, setShowWeeklySummary] = useState(false);
+  const [weekData, setWeekData] = useState(null);
+
+  // Countdown
+  const [nextAlarmTime, setNextAlarmTime] = useState(null);
+  const [countdown, setCountdown] = useState("");
+  const alarmTimeoutRef = useRef(null);
+  const retryRef = useRef(null);
+  const workoutActiveRef = useRef(false);
+
+  // Track active overlays
+  useEffect(() => {
+    workoutActiveRef.current = showTimer || showExtraCredit || showAlarm || !!evoPopup || !!awardPopup || showWeeklySummary;
+  }, [showTimer, showExtraCredit, showAlarm, evoPopup, awardPopup, showWeeklySummary]);
+
+  // ─── INIT: Check token and load profile ─────
+  useEffect(() => {
+    const token = localStorage.getItem("bm_token");
+    if (!token) { setScreen("auth"); return; }
+    api("/api/user/profile").then(data => {
+      setUser(data.user);
+      setLang(data.user.language || "en");
+      setSettings(data.settings);
+      setProgress(data.progress);
+      setStats(data.stats);
+      setUnlockedAwards(new Set(data.awards));
+      // Load history
+      api("/api/workout/history?limit=20").then(h => setHistory(h)).catch(() => {});
+      // Determine initial screen
+      if (!data.settings?.selectedExercises?.length) { setScreen("setup"); }
+      else { setScreen("dashboard"); }
+    }).catch(() => {
+      localStorage.removeItem("bm_token");
+      setScreen("auth");
+    });
+  }, []);
+
+  // ─── ALARM SCHEDULING ──────────────────────────
+  const getRandomExercise = useCallback(() => {
+    if (!settings?.selectedExercises) return EXERCISES[0];
+    const pool = EXERCISES.filter(e => settings.selectedExercises.includes(e.id));
+    return pool[Math.floor(Math.random() * pool.length)] || EXERCISES[0];
+  }, [settings]);
+
+  const fireAlarm = useCallback(() => {
+    if (retryRef.current) { clearInterval(retryRef.current); retryRef.current = null; }
+    const dur = resolveDuration(settings?.duration || 2);
+    if (workoutActiveRef.current) {
+      retryRef.current = setInterval(() => {
+        if (!workoutActiveRef.current) {
+          clearInterval(retryRef.current); retryRef.current = null;
+          setCurrentExercise(getRandomExercise());
+          setResolvedDuration(dur);
+          setShowAlarm(true);
+          playSound("alarm");
+        }
+      }, 3000);
+      return;
+    }
+    setCurrentExercise(getRandomExercise());
+    setResolvedDuration(dur);
+    setShowAlarm(true);
+    playSound("alarm");
+  }, [getRandomExercise, settings]);
+
+  const scheduleNextAlarm = useCallback(() => {
+    if (!settings) return;
+    if (alarmTimeoutRef.current) clearTimeout(alarmTimeoutRef.current);
+    if (retryRef.current) { clearInterval(retryRef.current); retryRef.current = null; }
+    // Demo: cap at 20s for testing
+    const demoIntervalMs = Math.min((settings.intervalMinutes || 60) * 60 * 1000, 20000);
+    setNextAlarmTime(Date.now() + demoIntervalMs);
+    alarmTimeoutRef.current = setTimeout(fireAlarm, demoIntervalMs);
+  }, [settings, fireAlarm]);
+
+  useEffect(() => {
+    if (!nextAlarmTime) return;
+    const tick = setInterval(() => {
+      const diff = Math.max(0, nextAlarmTime - Date.now());
+      if (diff === 0) { setCountdown("NOW!"); clearInterval(tick); return; }
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setCountdown(`${m}:${s.toString().padStart(2, "0")}`);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [nextAlarmTime]);
+
+  useEffect(() => {
+    if (settings && screen === "dashboard") scheduleNextAlarm();
+    return () => {
+      if (alarmTimeoutRef.current) clearTimeout(alarmTimeoutRef.current);
+      if (retryRef.current) clearInterval(retryRef.current);
+    };
+  }, [settings, screen, scheduleNextAlarm]);
+
+  // ─── WORKOUT COMPLETE HANDLER ──────────────────
+  const handleWorkoutComplete = async (pts, exercise, wasCompleted, type = "alarm") => {
+    setShowTimer(false);
+    setShowExtraCredit(false);
+    setShowAlarm(false);
+
+    const oldTotal = progress?.totalPoints || 0;
+    try {
+      const result = await api("/api/workout/log", {
+        method: "POST",
+        body: JSON.stringify({
+          exerciseId: exercise.id, exerciseName: exercise.name, exerciseEmoji: exercise.emoji,
+          points: pts, durationMinutes: resolvedDuration || 2, wasCompleted, type,
+        }),
+      });
+
+      // Update local state from server response
+      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: result.sessionsFinished }));
+
+      // Check for evolution
+      const oldTier = getEvolution(oldTotal);
+      const newTier = getEvolution(result.totalPoints);
+      if (newTier.name !== oldTier.name) {
+        setTimeout(() => setEvoPopup({ oldTier, newTier }), 600);
+      }
+
+      // Check for new awards
+      if (result.newAwards?.length > 0) {
+        const awardObj = AWARDS.find(a => a.id === result.newAwards[0]);
+        if (awardObj) setTimeout(() => setAwardPopup(awardObj), evoPopup ? 2000 : 800);
+        setUnlockedAwards(prev => { const next = new Set(prev); result.newAwards.forEach(id => next.add(id)); return next; });
+      }
+
+      // Add to local history
+      setHistory(prev => [{ exercise, points: result.finalPoints, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
+    } catch(e) {
+      console.error("Failed to log workout:", e);
+      // Still update UI optimistically
+      const streakMult = Math.pow(1.1, (progress?.streak || 1) - 1);
+      const finalPts = Math.round(pts * streakMult * 10) / 10;
+      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0 }));
+      setHistory(prev => [{ exercise, points: finalPts, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
+    }
+
+    scheduleNextAlarm();
+  };
+
+  // ─── END DAY / MISSED DAY ─────────────────────
+  const handleEndDay = async () => {
+    try {
+      const result = await api("/api/workout/end-day", { method: "POST" });
+      setProgress(prev => ({ ...prev, streak: result.streak, maxStreak: result.maxStreak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
+    } catch(e) { console.error("End day error:", e); }
+  };
+
+  const handleMissedDay = async () => {
+    try {
+      const result = await api("/api/workout/missed-day", { method: "POST" });
+      setProgress(prev => ({ ...prev, streak: result.streak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
+    } catch(e) { console.error("Missed day error:", e); }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("bm_token");
+    setUser(null); setSettings(null); setProgress(null);
+    setScreen("auth");
+  };
+
+  // ─── SCREENS ───────────────────────────────────
+  if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>🦠</div></div>;
+  if (screen === "auth") return <AuthScreen onAuth={(data) => { setUser(data.user); setScreen("setup"); }} lang={lang} setLang={setLang} />;
+  if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); }} settings={settings} lang={lang} />;
+  if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} />;
+  if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} />;
+
+  // ─── DASHBOARD ─────────────────────────────────
+  const totalPoints = progress?.totalPoints || 0;
+  const todayPoints = progress?.todayPoints || 0;
+  const streak = progress?.streak || 1;
+  const streakFreezes = progress?.streakFreezes || 0;
+  const sessionsCompleted = progress?.sessionsCompleted || 0;
+  const sessionsFinished = progress?.sessionsFinished || 0;
+  const streakMult = Math.pow(1.1, streak - 1).toFixed(2);
+  const isActiveToday = !settings?.activeDays || settings.activeDays.includes(getTodayKey());
+  const MIN_DAILY_SESSIONS = 3;
+  const MAX_FREEZES = 3;
+  const FREEZE_EARN_INTERVAL = 5;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#fff" }}>
+      <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", overflowY: "auto", maxHeight: "100vh" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <EvolutionBadge points={totalPoints} size={44} glow />
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>{user?.username}</div>
+              <div style={{ fontSize: 12, color: "#FF8C00" }}>🔥 {streak} {t("dayStreak")} • {streakMult}× {t("bonus")}</div>
+              <div style={{ fontSize: 11, color: "#69d2e7", marginTop: 2 }}>
+                {Array.from({ length: MAX_FREEZES }).map((_, i) => <span key={i} style={{ marginRight: 3, opacity: i < streakFreezes ? 1 : 0.25 }}>🧊</span>)}
+                <span style={{ marginLeft: 4 }}>{streakFreezes}/{MAX_FREEZES} {t("freezes")}</span>
+                {streak > 0 && streak % FREEZE_EARN_INTERVAL !== 0 && <span style={{ color: "#555", marginLeft: 6 }}>({FREEZE_EARN_INTERVAL - (streak % FREEZE_EARN_INTERVAL)} {t("daysToNext")})</span>}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setScreen("setup")} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>⚙️</button>
+            <button onClick={handleLogout} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}>🚪</button>
+          </div>
+        </div>
+
+        <EvolutionBar points={totalPoints} />
+
+        {/* Points Card */}
+        <div style={{ position: "relative", background: "linear-gradient(135deg, #1a0a00, #2d1400)", borderRadius: 20, padding: "24px 20px 16px", marginBottom: 16, border: "1px solid rgba(255,77,0,0.2)", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,77,0,0.15), transparent)" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, marginBottom: 16, position: "relative" }}>
+            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#888", marginBottom: 4 }}>{t("today")}</div><div style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace" }}>{Math.round(todayPoints).toLocaleString()}</div></div>
+            <div style={{ width: 1, height: 50, background: "rgba(255,255,255,0.1)" }} />
+            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#888", marginBottom: 4 }}>{t("total")}</div><div style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace" }}>{Math.round(totalPoints).toLocaleString()}</div></div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 20, fontSize: 13, color: "#888" }}>
+            <span>✅ {sessionsCompleted} {t("completed")}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <div style={{ flex: 1, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+              <div style={{ width: `${Math.min((sessionsFinished / MIN_DAILY_SESSIONS) * 100, 100)}%`, height: "100%", borderRadius: 3, background: sessionsFinished >= MIN_DAILY_SESSIONS ? "linear-gradient(90deg, #00E676, #69F0AE)" : "linear-gradient(90deg, #FF8C00, #FFD700)", transition: "width 0.5s ease" }} />
+            </div>
+            <span style={{ fontSize: 11, color: sessionsFinished >= MIN_DAILY_SESSIONS ? "#00E676" : "#FF8C00", fontWeight: 700, whiteSpace: "nowrap" }}>
+              {sessionsFinished >= MIN_DAILY_SESSIONS ? t("streakSecured") : `${sessionsFinished}/${MIN_DAILY_SESSIONS} ${t("forStreakFreeze")}`}
+            </span>
+          </div>
+        </div>
+
+        {/* Next Alarm / Rest Day */}
+        {isActiveToday ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", borderRadius: 16, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#666", marginBottom: 4 }}>{t("nextAlert")}</div><div style={{ fontSize: 28, fontWeight: 900, color: "#FF4D00", fontFamily: "'Courier New', monospace" }}>{countdown || "—"}</div></div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+              <span style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>"{settings?.alarmMessage || "Let's go!"}"</span>
+              <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,77,0,0.12)", borderRadius: 20, color: "#FF8C00" }}>{t("every")} {settings?.intervalMinutes || 60}m</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,230,118,0.04)", borderRadius: 16, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,230,118,0.15)" }}>
+            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#00E676" }}>{t("restDay")}</div><div style={{ fontSize: 18, fontWeight: 800, color: "#00E676" }}>😴</div></div>
+            <div style={{ fontSize: 12, color: "#888" }}>{t("extraCreditAvail")}</div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+          <button onClick={() => setShowExtraCredit(true)} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, color: "#FFD700", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 22 }}>⭐</span><span>{t("extraCredit")}</span>
+          </button>
+          <button onClick={() => setScreen("awards")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, color: "#FFD700", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 22 }}>🏅</span><span>Awards</span>{unlockedAwards.size > 0 && <span style={{ fontSize: 10 }}>{unlockedAwards.size}/{AWARDS.length}</span>}
+          </button>
+          <button onClick={() => setScreen("leaderboard")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,77,0,0.1), rgba(255,77,0,0.05))", border: "1px solid rgba(255,77,0,0.2)", borderRadius: 14, color: "#FF8C00", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 22 }}>🏆</span><span>{t("leaderboard")}</span>
+          </button>
+        </div>
+
+        {/* Info Pills */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ padding: "6px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 20, fontSize: 12, color: "#777", border: "1px solid rgba(255,255,255,0.06)" }}>
+            ⏱️ {settings?.duration === "random" ? "🎲 Random" : `${fmtDuration(settings?.duration || 2)} ${t("sessions")}`}
+          </div>
+          <div style={{ padding: "6px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 20, fontSize: 12, color: "#777", border: "1px solid rgba(255,255,255,0.06)" }}>
+            ×{settings?.duration === "random" ? "?" : DURATION_MULTIPLIERS[settings?.duration || 2]} {t("multiplier")}
+          </div>
+          <div style={{ padding: "6px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 20, fontSize: 12, color: "#777", border: "1px solid rgba(255,255,255,0.06)" }}>
+            {settings?.selectedExercises?.length || 10} {t("exerciseCount")}
+          </div>
+        </div>
+
+        {/* History */}
+        {history.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 12, letterSpacing: 2, color: "#666", marginBottom: 12 }}>{t("recentActivity")}</h3>
+            {history.slice(0, 8).map((h, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>{h.exercise.emoji}</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                      {h.exercise.name}
+                      {h.type === "extra" && <span style={{ fontSize: 9, padding: "2px 6px", background: "rgba(255,215,0,0.2)", borderRadius: 4, color: "#FFD700", fontWeight: 700, letterSpacing: 1 }}>EXTRA</span>}
+                      {!h.wasCompleted && <span style={{ fontSize: 9, padding: "2px 6px", background: "rgba(255,107,107,0.2)", borderRadius: 4, color: "#FF6B6B", fontWeight: 700 }}>STOPPED</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#555" }}>{new Date(h.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                  </div>
+                </div>
+                <span style={{ fontSize: 16, fontWeight: 800, color: h.wasCompleted !== false ? "#00E676" : "#FF6B6B" }}>+{Math.round(h.points * 10) / 10}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Demo Controls */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 8, padding: "12px 0" }}>
+          <div style={{ textAlign: "center", fontSize: 11, color: "#444", marginBottom: 12 }}>⚡ Demo: Alarms trigger every ~20s</div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <button onClick={handleEndDay} style={{ padding: "10px 20px", background: "rgba(0,230,118,0.1)", border: "1px solid rgba(0,230,118,0.2)", borderRadius: 10, color: "#00E676", fontSize: 12, fontWeight: 700 }}>{t("endDay")}</button>
+            <button onClick={handleMissedDay} style={{ padding: "10px 20px", background: "rgba(255,107,107,0.1)", border: "1px solid rgba(255,107,107,0.2)", borderRadius: 10, color: "#FF6B6B", fontSize: 12, fontWeight: 700 }}>{t("missedDay")}</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Overlays */}
+      {showAlarm && currentExercise && <AlarmPopup message={settings?.alarmMessage} exercise={currentExercise} duration={resolvedDuration} onStart={() => { setShowAlarm(false); setShowTimer(true); }} onSkip={() => { setShowAlarm(false); setProgress(prev => ({ ...prev, sessionsSkipped: (prev?.sessionsSkipped || 0) + 1 })); scheduleNextAlarm(); }} />}
+      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} onComplete={(pts, wasCompleted) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm")} />}
+      {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} onComplete={(pts, ex, wasCompleted) => handleWorkoutComplete(pts, ex, wasCompleted, "extra")} onClose={() => setShowExtraCredit(false)} />}
+      {evoPopup && <EvolutionPopup oldTier={evoPopup.oldTier} newTier={evoPopup.newTier} onClose={() => setEvoPopup(null)} />}
+      {awardPopup && <AwardPopup award={awardPopup} onClose={() => setAwardPopup(null)} />}
+      {showWeeklySummary && <WeeklySummary weekData={weekData} streak={streak} totalPoints={totalPoints} onClose={() => setShowWeeklySummary(false)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<BeastModeApp />);
+</script>
+</body>
+</html>
