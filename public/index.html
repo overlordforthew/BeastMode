@@ -8,7 +8,9 @@
 <title>Beast Mode</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
+  html, body, #root { height: 100%; }
+  body { background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; display: flex; justify-content: center; }
+  #root { width: 100%; max-width: 480px; }
   select option { background: #1a1a2e; color: #fff; }
   input:focus, select:focus { outline: none; border-color: #FF4D00 !important; }
   button { cursor: pointer; font-family: inherit; }
@@ -29,6 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.5/babel.min.js"></script>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, createContext, useContext } = React;
+
+// ─── DEMO MODE (add ?demo=true to URL) ──────────
+const DEMO_MODE = new URLSearchParams(window.location.search).has('demo');
 
 // ─── API LAYER ──────────────────────────────────
 const API_BASE = '';  // same origin
@@ -79,26 +84,91 @@ const TRANSLATIONS = {
     everyDay: "Every day", weekdays: "Weekdays", daysPerWk: "days/wk",
     login: "LOG IN", register: "REGISTER", password: "Password", username: "Username",
     noAccount: "Don't have an account?", hasAccount: "Already have an account?",
-    logout: "Logout",
+    logout: "Logout", pickExAndDur: "Pick an exercise and duration",
+    awards: "Awards", awardsTitle: "🏅 AWARDS", awardUnlocked: "🏅 AWARD UNLOCKED", nice: "NICE!",
+    weekSummary: "📊 WEEKLY SUMMARY", weekReview: "Your Beast Mode week in review",
+    sessionsCap: "SESSIONS", pointsCap: "POINTS", rateCap: "RATE", topExercise: "Top exercise",
+    pts: "PTS", streak: "streak", you: "you",
   },
   es: {
     welcomeTitle: "BEAST MODE", welcomeSub: "Evoluciona de ameba a depredador supremo con micro-ejercicios",
     enterName: "Ingresa tu nombre...", legendStart: "TODA LEYENDA EMPIEZA PEQUEÑA", begin: "COMENZAR EVOLUCIÓN →",
-    dailySetup: "⚡ CONFIGURACIÓN DIARIA", alertInterval: "INTERVALO DE ALERTA",
-    exercises: "EJERCICIOS", activateBeast: "ACTIVAR BEAST MODE 🔥",
-    dayStreak: "Racha de Días", today: "HOY", total: "TOTAL", completed: "completados", skipped: "omitidos",
-    nextAlert: "PRÓXIMA ALERTA", extraCredit: "Crédito Extra", leaderboard: "Clasificación",
-    crushedIt: "¡LO LOGRASTE!", goodEffort: "¡BUEN ESFUERZO!", collectPoints: "RECOGER PUNTOS",
+    step1Title: "Empiezas como un", step1Desc: "Completa ejercicios durante el día para ganar puntos y evolucionar en criaturas más poderosas.",
+    step2Title: "50 NIVELES DE EVOLUCIÓN", step2Desc: "De Ameba a Dragón — cada punto te acerca a la siguiente transformación.",
+    step3Title: "CÓMO FUNCIONA", step3Desc: "Configura tu horario. Te alertaremos cuando sea hora de moverte. Completa el ejercicio. Gana puntos. Evoluciona.",
+    dailySetup: "⚡ CONFIGURACIÓN DIARIA", alertInterval: "INTERVALO DE ALERTA", alertIntervalHint: "¿Con qué frecuencia recordarte?",
+    exerciseDuration: "DURACIÓN DEL EJERCICIO", durationHint: "Más largo = mayor multiplicador de puntos",
+    beastModeHours: "HORAS BEAST MODE", hoursHint: "¿Cuándo estás activo?", start: "INICIO", end: "FIN",
+    activeDays: "DÍAS ACTIVOS", activeDaysHint: "¿Qué días debe estar activo?",
+    alarmMessage: "MENSAJE DE ALARMA", alarmHint: "¿Qué debería decir la alarma?",
+    exercises: "EJERCICIOS", allRandom: "Todos (Aleatorio)", customPick: "Elegir",
+    activateBeast: "ACTIVAR BEAST MODE 🔥", language: "IDIOMA",
+    random: "🎲 Aleatorio — ¡sorpréndeme!", multiplier: "multiplicador",
+    min30: "30 min", hour1: "1 hora", hours2: "2 horas",
+    sec30: "30 segundos", min1: "1 minuto", min2: "2 minutos", min3: "3 minutos",
+    min4: "4 minutos", min5: "5 minutos", min6: "6 minutos", min7: "7 minutos",
+    dayStreak: "Racha de Días", bonus: "bonificación", freezes: "congelaciones", daysToNext: "días para siguiente",
+    today: "HOY", total: "TOTAL", completed: "completados", skipped: "omitidos",
+    forStreakFreeze: "para congelar racha", streakSecured: "🔥 ¡Racha asegurada!",
+    nextAlert: "PRÓXIMA ALERTA", restDay: "DÍA DE DESCANSO", noAlarmsToday: "Sin alarmas hoy",
+    extraCreditAvail: "¡Crédito extra disponible!", extraCredit: "Crédito Extra", leaderboard: "Clasificación",
+    sessions: "sesiones", every: "Cada", recentActivity: "ACTIVIDAD RECIENTE",
+    completeFor: "Completa por", startBtn: "▶ INICIAR", skipBtn: "SALTAR",
+    finishEarly: "⏹ TERMINAR ANTES", crushedIt: "¡LO LOGRASTE!", goodEffort: "¡BUEN ESFUERZO!",
+    fullCompletion: "🎉 ¡Completado — multiplicador desbloqueado!", completionBonus: "+25% bonificación",
+    flatRate: "Tarifa fija — sin multiplicador", tryLonger: "Mínimo 30s para ganar puntos — ¡sigue así!",
+    completingWouldEarn: "Completar habría ganado", collectPoints: "RECOGER PUNTOS", base: "base",
+    extraCreditTitle: "⭐ CRÉDITO EXTRA", duration: "DURACIÓN", back: "VOLVER", ptsIfCompleted: "pts si completado",
+    leaderboardTitle: "🏆 CLASIFICACIÓN", levelUp: "¡SUBISTE DE NIVEL!", ptsTo: "pts para", continueBtn: "CONTINUAR",
+    demoNote: "⚡ Demo: Alarmas cada ~20s", endDay: "Terminar Día", missedDay: "❌ Día Perdido",
+    exerciseCount: "ejercicios", everyDay: "Todos los días", weekdays: "Entre semana", daysPerWk: "días/sem",
     login: "INICIAR SESIÓN", register: "REGISTRAR", password: "Contraseña", username: "Usuario",
-    logout: "Cerrar sesión",
+    noAccount: "¿No tienes cuenta?", hasAccount: "¿Ya tienes cuenta?", logout: "Cerrar sesión",
+    pickExAndDur: "Elige un ejercicio y duración",
+    awards: "Premios", awardsTitle: "🏅 PREMIOS", awardUnlocked: "🏅 PREMIO DESBLOQUEADO", nice: "¡GENIAL!",
+    weekSummary: "📊 RESUMEN SEMANAL", weekReview: "Tu semana Beast Mode en resumen",
+    sessionsCap: "SESIONES", pointsCap: "PUNTOS", rateCap: "TASA", topExercise: "Ejercicio top",
+    pts: "PTS", streak: "racha", you: "tú",
   },
   ja: {
     welcomeTitle: "ビーストモード", welcomeSub: "マイクロワークアウトでアメーバから頂点捕食者へ進化せよ",
-    dailySetup: "⚡ デイリーセットアップ", exercises: "エクササイズ",
-    dayStreak: "連続日数", today: "今日", total: "合計",
-    crushedIt: "やったぜ！", collectPoints: "ポイント獲得",
+    enterName: "名前を入力...", legendStart: "すべての伝説は小さく始まる", begin: "進化を始める →",
+    step1Title: "最初は", step1Desc: "一日を通してエクササイズを完了し、ポイントを獲得して強力な生物に進化しましょう。",
+    step2Title: "50の進化段階", step2Desc: "アメーバからドラゴンへ — 各ポイントが次の変身へ近づける。",
+    step3Title: "やり方", step3Desc: "スケジュールを設定。動く時間をお知らせ。エクササイズを完了。ポイント獲得。進化。",
+    dailySetup: "⚡ デイリーセットアップ", alertInterval: "アラート間隔", alertIntervalHint: "どのくらいの頻度でリマインドしますか？",
+    exerciseDuration: "エクササイズ時間", durationHint: "長い = ポイント倍率アップ",
+    beastModeHours: "ビーストモード時間", hoursHint: "活動時間は？", start: "開始", end: "終了",
+    activeDays: "活動日", activeDaysHint: "ビーストモードをオンにする曜日は？",
+    alarmMessage: "アラームメッセージ", alarmHint: "アラームのメッセージは？",
+    exercises: "エクササイズ", allRandom: "全て（ランダム）", customPick: "カスタム",
+    activateBeast: "ビーストモード起動 🔥", language: "言語",
+    random: "🎲 ランダム", multiplier: "倍率",
+    min30: "30分", hour1: "1時間", hours2: "2時間",
+    sec30: "30秒", min1: "1分", min2: "2分", min3: "3分",
+    min4: "4分", min5: "5分", min6: "6分", min7: "7分",
+    dayStreak: "連続日数", bonus: "ボーナス", freezes: "フリーズ", daysToNext: "次まで",
+    today: "今日", total: "合計", completed: "完了", skipped: "スキップ",
+    forStreakFreeze: "ストリークフリーズまで", streakSecured: "🔥 ストリーク確保！",
+    nextAlert: "次のアラート", restDay: "休息日", noAlarmsToday: "今日はアラームなし",
+    extraCreditAvail: "エクストラクレジット可能！", extraCredit: "エクストラ", leaderboard: "ランキング",
+    sessions: "セッション", every: "毎", recentActivity: "最近のアクティビティ",
+    completeFor: "完了で", startBtn: "▶ スタート", skipBtn: "スキップ",
+    finishEarly: "⏹ 早期終了", crushedIt: "やったぜ！", goodEffort: "いい調子！",
+    fullCompletion: "🎉 完了 — 倍率アンロック！", completionBonus: "+25% ボーナス",
+    flatRate: "固定レート — 倍率なし", tryLonger: "30秒以上でポイント獲得 — 次回頑張ろう！",
+    completingWouldEarn: "完了すれば獲得できた", collectPoints: "ポイント獲得", base: "ベース",
+    extraCreditTitle: "⭐ エクストラクレジット", duration: "時間", back: "戻る", ptsIfCompleted: "pts（完了時）",
+    leaderboardTitle: "🏆 ランキング", levelUp: "レベルアップ！", ptsTo: "pts 次まで", continueBtn: "続ける",
+    demoNote: "⚡ デモ: 20秒ごとにアラーム", endDay: "一日終了", missedDay: "❌ 欠席日",
+    exerciseCount: "種目", everyDay: "毎日", weekdays: "平日", daysPerWk: "日/週",
     login: "ログイン", register: "登録", password: "パスワード", username: "ユーザー名",
-    logout: "ログアウト",
+    noAccount: "アカウントがない？", hasAccount: "アカウントをお持ち？", logout: "ログアウト",
+    pickExAndDur: "エクササイズと時間を選択",
+    awards: "アワード", awardsTitle: "🏅 アワード", awardUnlocked: "🏅 アワード解除", nice: "ナイス！",
+    weekSummary: "📊 週間サマリー", weekReview: "今週のビーストモードまとめ",
+    sessionsCap: "セッション", pointsCap: "ポイント", rateCap: "達成率", topExercise: "トップ種目",
+    pts: "PTS", streak: "ストリーク", you: "あなた",
   },
 };
 
@@ -250,7 +320,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontSize: 60, marginBottom: 12 }}>🦠</div>
           <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, background: "linear-gradient(135deg, #FF4D00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 }}>BEAST MODE</h1>
-          <p style={{ color: "#666", fontSize: 14 }}>Evolve through micro-workouts</p>
+          <p style={{ color: "#666", fontSize: 14 }}>{t("welcomeSub")}</p>
         </div>
 
         <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 20, padding: 28, border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -278,7 +348,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
           {["en","es","ja"].map(l => (
             <button key={l} onClick={() => setLang(l)}
               style={{ padding: "6px 14px", background: lang === l ? "rgba(255,77,0,0.2)" : "rgba(255,255,255,0.04)", border: lang === l ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, color: lang === l ? "#FF8C00" : "#555", fontSize: 12, fontWeight: 600 }}>
-              {l === "en" ? "🇺🇸 EN" : l === "es" ? "🇪🇸 ES" : "🇯🇵 JA"}
+              {l.toUpperCase()}
             </button>
           ))}
         </div>
@@ -444,8 +514,8 @@ function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
 }
 
 // ─── WORKOUT TIMER ───────────────────────────────
-function WorkoutTimer({ exercise, durationMinutes, onComplete }) {
-  const t = useT("en");
+function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
+  const t = useT(lang || "en");
   const totalSeconds = Math.round(durationMinutes * 60);
   const [remaining, setRemaining] = useState(totalSeconds);
   const [started, setStarted] = useState(false);
@@ -549,21 +619,21 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete }) {
 }
 
 // ─── EXTRA CREDIT MODAL ──────────────────────────
-function ExtraCreditModal({ exercises, duration, onComplete, onClose }) {
-  const t = useT("en");
+function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang }) {
+  const t = useT(lang || "en");
   const [selectedEx, setSelectedEx] = useState(null);
   const [selectedDur, setSelectedDur] = useState(duration === "random" ? 2 : duration);
   const [running, setRunning] = useState(false);
 
   if (running && selectedEx) {
-    return <WorkoutTimer exercise={selectedEx} durationMinutes={selectedDur} onComplete={(pts, wasCompleted) => { onComplete(pts, selectedEx, wasCompleted); }} />;
+    return <WorkoutTimer exercise={selectedEx} durationMinutes={selectedDur} lang={lang} onComplete={(pts, wasCompleted) => { onComplete(pts, selectedEx, wasCompleted); }} />;
   }
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
       <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "28px 24px", maxWidth: 400, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "1px solid rgba(255,215,0,0.15)" }}>
         <div style={{ fontSize: 22, fontWeight: 800, textAlign: "center", marginBottom: 4 }}>{t("extraCreditTitle")}</div>
-        <div style={{ fontSize: 13, color: "#888", textAlign: "center", marginBottom: 20 }}>Pick an exercise and duration</div>
+        <div style={{ fontSize: 13, color: "#888", textAlign: "center", marginBottom: 20 }}>{t("pickExAndDur")}</div>
 
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#FFD700", letterSpacing: 1, marginBottom: 8 }}>{t("exercises")}</div>
@@ -622,27 +692,29 @@ function EvolutionPopup({ oldTier, newTier, onClose }) {
 }
 
 // ─── AWARD POPUP ─────────────────────────────────
-function AwardPopup({ award, onClose }) {
+function AwardPopup({ award, onClose, lang }) {
+  const t = useT(lang || "en");
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1050, padding: 20 }}>
       <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "36px 28px", maxWidth: 340, width: "100%", textAlign: "center", border: "1px solid rgba(255,215,0,0.3)" }}>
-        <div style={{ fontSize: 12, letterSpacing: 3, color: "#888", marginBottom: 8 }}>🏅 AWARD UNLOCKED</div>
+        <div style={{ fontSize: 12, letterSpacing: 3, color: "#888", marginBottom: 8 }}>{t("awardUnlocked")}</div>
         <div style={{ fontSize: 56, marginBottom: 12 }}>{award.emoji}</div>
         <div style={{ fontSize: 20, fontWeight: 900, color: "#FFD700", marginBottom: 8 }}>{award.name}</div>
         <div style={{ fontSize: 13, color: "#888", marginBottom: 24 }}>{award.desc}</div>
-        <button onClick={onClose} style={{ padding: "12px 32px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800 }}>NICE!</button>
+        <button onClick={onClose} style={{ padding: "12px 32px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800 }}>{t("nice")}</button>
       </div>
     </div>
   );
 }
 
 // ─── AWARDS SCREEN ───────────────────────────────
-function AwardsScreen({ unlockedAwards, onBack }) {
+function AwardsScreen({ unlockedAwards, onBack, lang }) {
+  const t = useT(lang || "en");
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>← BACK</button>
-        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>🏅 AWARDS</span>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>← {t("back")}</button>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>{t("awardsTitle")}</span>
         <span style={{ fontSize: 12, color: "#888" }}>{unlockedAwards.size}/{AWARDS.length}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
@@ -662,7 +734,8 @@ function AwardsScreen({ unlockedAwards, onBack }) {
 }
 
 // ─── LEADERBOARD ─────────────────────────────────
-function LeaderboardScreen({ user, totalPoints, streak, onBack }) {
+function LeaderboardScreen({ user, totalPoints, streak, onBack, lang }) {
+  const t = useT(lang || "en");
   const [entries, setEntries] = useState([]);
   const [userRank, setUserRank] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -679,8 +752,8 @@ function LeaderboardScreen({ user, totalPoints, streak, onBack }) {
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>← BACK</button>
-        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>🏆 LEADERBOARD</span>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>← {t("back")}</button>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>{t("leaderboardTitle")}</span>
         <span style={{ fontSize: 12, color: "#888" }}>#{userRank || "?"}</span>
       </div>
       {loading ? <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading...</div> :
@@ -693,12 +766,12 @@ function LeaderboardScreen({ user, totalPoints, streak, onBack }) {
                 <div style={{ width: 32, textAlign: "center", fontSize: i < 3 ? 20 : 14, fontWeight: 800, color: i < 3 ? "#FFD700" : "#555" }}>{i < 3 ? medals[i] : i + 1}</div>
                 <EvolutionBadge points={e.total_points} size={36} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700 }}>{e.username}{isYou && " (you)"}</div>
-                  <div style={{ fontSize: 11, color: "#999" }}>🔥 {e.streak} streak</div>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{e.username}{isYou && ` (${t("you")})`}</div>
+                  <div style={{ fontSize: 11, color: "#999" }}>🔥 {e.streak} {t("streak")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <span style={{ fontSize: 18, fontWeight: 900, color: "#FFD700" }}>{Math.round(e.total_points).toLocaleString()}</span>
-                  <span style={{ fontSize: 10, color: "#888", display: "block", letterSpacing: 1 }}>PTS</span>
+                  <span style={{ fontSize: 10, color: "#888", display: "block", letterSpacing: 1 }}>{t("pts")}</span>
                 </div>
               </div>
             );
@@ -710,20 +783,21 @@ function LeaderboardScreen({ user, totalPoints, streak, onBack }) {
 }
 
 // ─── WEEKLY SUMMARY ──────────────────────────────
-function WeeklySummary({ weekData, streak, totalPoints, onClose }) {
+function WeeklySummary({ weekData, streak, totalPoints, onClose, lang }) {
+  const t = useT(lang || "en");
   if (!weekData) return null;
   const maxPts = Math.max(...weekData.days.map(d => d.points), 1);
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
       <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "28px 24px", maxWidth: 400, width: "100%", border: "1px solid rgba(255,215,0,0.2)", maxHeight: "85vh", overflowY: "auto" }}>
         <div style={{ textAlign: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 14, letterSpacing: 3, color: "#FFD700", marginBottom: 4 }}>📊 WEEKLY SUMMARY</div>
-          <div style={{ fontSize: 11, color: "#555" }}>Your Beast Mode week in review</div>
+          <div style={{ fontSize: 14, letterSpacing: 3, color: "#FFD700", marginBottom: 4 }}>{t("weekSummary")}</div>
+          <div style={{ fontSize: 11, color: "#555" }}>{t("weekReview")}</div>
         </div>
         <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 20 }}>
-          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#FFD700" }}>{weekData.sessions}</div><div style={{ fontSize: 10, color: "#888" }}>SESSIONS</div></div>
-          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#FF8C00" }}>{weekData.points}</div><div style={{ fontSize: 10, color: "#888" }}>POINTS</div></div>
-          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#00E676" }}>{weekData.completionRate}%</div><div style={{ fontSize: 10, color: "#888" }}>RATE</div></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#FFD700" }}>{weekData.sessions}</div><div style={{ fontSize: 10, color: "#888" }}>{t("sessionsCap")}</div></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#FF8C00" }}>{weekData.points}</div><div style={{ fontSize: 10, color: "#888" }}>{t("pointsCap")}</div></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 900, color: "#00E676" }}>{weekData.completionRate}%</div><div style={{ fontSize: 10, color: "#888" }}>{t("rateCap")}</div></div>
         </div>
         <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "flex-end", height: 80, marginBottom: 16 }}>
           {weekData.days.map((d, i) => (
@@ -735,7 +809,7 @@ function WeeklySummary({ weekData, streak, totalPoints, onClose }) {
         </div>
         {weekData.topExercise && (
           <div style={{ padding: "10px 14px", background: "rgba(255,215,0,0.06)", borderRadius: 12, marginBottom: 16, textAlign: "center" }}>
-            <span style={{ fontSize: 11, color: "#888" }}>Top exercise: </span>
+            <span style={{ fontSize: 11, color: "#888" }}>{t("topExercise")}: </span>
             <span style={{ color: "#FFD700", fontWeight: 700 }}>{weekData.topExercise.emoji} {weekData.topExercise.name}</span>
             <span style={{ color: "#888", fontSize: 11 }}> ({weekData.topExercise.count}× / {weekData.topExercise.points} pts)</span>
           </div>
@@ -835,10 +909,11 @@ function BeastModeApp() {
     if (!settings) return;
     if (alarmTimeoutRef.current) clearTimeout(alarmTimeoutRef.current);
     if (retryRef.current) { clearInterval(retryRef.current); retryRef.current = null; }
-    // Demo: cap at 20s for testing
-    const demoIntervalMs = Math.min((settings.intervalMinutes || 60) * 60 * 1000, 20000);
-    setNextAlarmTime(Date.now() + demoIntervalMs);
-    alarmTimeoutRef.current = setTimeout(fireAlarm, demoIntervalMs);
+    // Use real intervals in production, 20s cap in demo mode
+    const intervalMs = (settings.intervalMinutes || 60) * 60 * 1000;
+    const actualMs = DEMO_MODE ? Math.min(intervalMs, 20000) : intervalMs;
+    setNextAlarmTime(Date.now() + actualMs);
+    alarmTimeoutRef.current = setTimeout(fireAlarm, actualMs);
   }, [settings, fireAlarm]);
 
   useEffect(() => {
@@ -935,8 +1010,8 @@ function BeastModeApp() {
   if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>🦠</div></div>;
   if (screen === "auth") return <AuthScreen onAuth={(data) => { setUser(data.user); setScreen("setup"); }} lang={lang} setLang={setLang} />;
   if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); }} settings={settings} lang={lang} />;
-  if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} />;
-  if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} />;
+  if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
+  if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} lang={lang} />;
 
   // ─── DASHBOARD ─────────────────────────────────
   const totalPoints = progress?.totalPoints || 0;
@@ -1019,7 +1094,7 @@ function BeastModeApp() {
             <span style={{ fontSize: 22 }}>⭐</span><span>{t("extraCredit")}</span>
           </button>
           <button onClick={() => setScreen("awards")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, color: "#FFD700", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 22 }}>🏅</span><span>Awards</span>{unlockedAwards.size > 0 && <span style={{ fontSize: 10 }}>{unlockedAwards.size}/{AWARDS.length}</span>}
+            <span style={{ fontSize: 22 }}>🏅</span><span>{t("awards")}</span>{unlockedAwards.size > 0 && <span style={{ fontSize: 10 }}>{unlockedAwards.size}/{AWARDS.length}</span>}
           </button>
           <button onClick={() => setScreen("leaderboard")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,77,0,0.1), rgba(255,77,0,0.05))", border: "1px solid rgba(255,77,0,0.2)", borderRadius: 14, color: "#FF8C00", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 22 }}>🏆</span><span>{t("leaderboard")}</span>
@@ -1062,23 +1137,25 @@ function BeastModeApp() {
           </div>
         )}
 
-        {/* Demo Controls */}
+        {/* Demo Controls — only visible with ?demo=true */}
+        {DEMO_MODE && (
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 8, padding: "12px 0" }}>
-          <div style={{ textAlign: "center", fontSize: 11, color: "#444", marginBottom: 12 }}>⚡ Demo: Alarms trigger every ~20s</div>
+          <div style={{ textAlign: "center", fontSize: 11, color: "#444", marginBottom: 12 }}>⚡ Demo Mode: Alarms every ~20s</div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button onClick={handleEndDay} style={{ padding: "10px 20px", background: "rgba(0,230,118,0.1)", border: "1px solid rgba(0,230,118,0.2)", borderRadius: 10, color: "#00E676", fontSize: 12, fontWeight: 700 }}>{t("endDay")}</button>
             <button onClick={handleMissedDay} style={{ padding: "10px 20px", background: "rgba(255,107,107,0.1)", border: "1px solid rgba(255,107,107,0.2)", borderRadius: 10, color: "#FF6B6B", fontSize: 12, fontWeight: 700 }}>{t("missedDay")}</button>
           </div>
         </div>
+        )}
       </div>
 
       {/* Overlays */}
       {showAlarm && currentExercise && <AlarmPopup message={settings?.alarmMessage} exercise={currentExercise} duration={resolvedDuration} onStart={() => { setShowAlarm(false); setShowTimer(true); }} onSkip={() => { setShowAlarm(false); setProgress(prev => ({ ...prev, sessionsSkipped: (prev?.sessionsSkipped || 0) + 1 })); scheduleNextAlarm(); }} />}
-      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} onComplete={(pts, wasCompleted) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm")} />}
-      {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} onComplete={(pts, ex, wasCompleted) => handleWorkoutComplete(pts, ex, wasCompleted, "extra")} onClose={() => setShowExtraCredit(false)} />}
+      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} lang={lang} onComplete={(pts, wasCompleted) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm")} />}
+      {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} lang={lang} onComplete={(pts, ex, wasCompleted) => handleWorkoutComplete(pts, ex, wasCompleted, "extra")} onClose={() => setShowExtraCredit(false)} />}
       {evoPopup && <EvolutionPopup oldTier={evoPopup.oldTier} newTier={evoPopup.newTier} onClose={() => setEvoPopup(null)} />}
-      {awardPopup && <AwardPopup award={awardPopup} onClose={() => setAwardPopup(null)} />}
-      {showWeeklySummary && <WeeklySummary weekData={weekData} streak={streak} totalPoints={totalPoints} onClose={() => setShowWeeklySummary(false)} />}
+      {awardPopup && <AwardPopup award={awardPopup} lang={lang} onClose={() => setAwardPopup(null)} />}
+      {showWeeklySummary && <WeeklySummary weekData={weekData} streak={streak} totalPoints={totalPoints} lang={lang} onClose={() => setShowWeeklySummary(false)} />}
     </div>
   );
 }
