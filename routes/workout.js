@@ -1,0 +1,286 @@
+const express = require("express");
+const { pool } = require("../db");
+const { authMiddleware } = require("../middleware/auth");
+
+const router = express.Router();
+router.use(authMiddleware);
+
+const MIN_DAILY_SESSIONS = 3;
+const MAX_FREEZES = 3;
+const FREEZE_EARN_INTERVAL = 5;
+
+// POST /api/workout/log
+router.post("/log", async (req, res) => {
+  try {
+    const { exerciseId, exerciseName, exerciseEmoji, points, durationMinutes, wasCompleted, type } = req.body;
+    const today = new Date().toISOString().split("T")[0];
+
+    // Insert workout
+    await pool.query(
+      `INSERT INTO workout_history (user_id, exercise_id, exercise_name, exercise_emoji, points, duration_minutes, was_completed, type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [req.userId, exerciseId, exerciseName, exerciseEmoji, points, durationMinutes, wasCompleted, type || "alarm"]
+    );
+
+    // Get current progress
+    const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
+    const progress = progR.rows[0];
+    const streakMult = Math.pow(1.1, progress.streak - 1);
+    const finalPts = Math.round(points * streakMult * 10) / 10;
+    const newSessionsFinished = wasCompleted ? progress.sessions_finished + 1 : progress.sessions_finished;
+
+    // Update progress
+    await pool.query(`
+      UPDATE user_progress SET
+        total_points = total_points + $1, today_points = today_points + $1,
+        sessions_completed = sessions_completed + 1,
+        sessions_finished = $2,
+        last_active_date = $3, updated_at = NOW()
+      WHERE user_id = $4
+    `, [finalPts, newSessionsFinished, today, req.userId]);
+
+    // Update stats if completed
+    if (wasCompleted) {
+      const statsR = await pool.query("SELECT unique_exercises FROM user_stats WHERE user_id = $1", [req.userId]);
+      const uniqueEx = new Set(statsR.rows[0].unique_exercises || []);
+      uniqueEx.add(exerciseId);
+
+      await pool.query(`
+        UPDATE user_stats SET
+          total_sessions = total_sessions + 1,
+          extra_sessions = extra_sessions + $1,
+          unique_exercises = $2,
+          max_duration_completed = GREATEST(max_duration_completed, $3),
+          max_daily_sessions = GREATEST(max_daily_sessions, $4),
+          updated_at = NOW()
+        WHERE user_id = $5
+      `, [type === "extra" ? 1 : 0, JSON.stringify([...uniqueEx]), durationMinutes || 0, newSessionsFinished, req.userId]);
+    }
+
+    // Upsert daily log
+    await pool.query(`
+      INSERT INTO daily_log (user_id, log_date, points, sessions_finished, qualified)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (user_id, log_date) DO UPDATE SET
+        points = daily_log.points + $3,
+        sessions_finished = daily_log.sessions_finished + $4,
+        qualified = (daily_log.sessions_finished + $4) >= $6
+    `, [req.userId, today, finalPts, wasCompleted ? 1 : 0, (wasCompleted ? 1 : 0) >= MIN_DAILY_SESSIONS, MIN_DAILY_SESSIONS]);
+
+    const newAwards = await checkAndUnlockAwards(req.userId);
+
+    const updated = await pool.query("SELECT total_points, today_points, sessions_finished FROM user_progress WHERE user_id = $1", [req.userId]);
+    const u = updated.rows[0];
+
+    res.json({
+      finalPoints: finalPts,
+      totalPoints: u.total_points,
+      todayPoints: u.today_points,
+      sessionsFinished: u.sessions_finished,
+      newAwards,
+    });
+  } catch (err) {
+    console.error("Workout log error:", err);
+    res.status(500).json({ error: "Failed to log workout" });
+  }
+});
+
+// POST /api/workout/end-day
+router.post("/end-day", async (req, res) => {
+  try {
+    const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
+    const progress = progR.rows[0];
+    const qualified = progress.sessions_finished >= MIN_DAILY_SESSIONS;
+
+    let newStreak = progress.streak;
+    let newFreezes = progress.streak_freezes;
+    let freezeUsed = false, freezeEarned = false;
+
+    if (qualified) {
+      newStreak = progress.streak + 1;
+      if (newStreak % FREEZE_EARN_INTERVAL === 0 && newFreezes < MAX_FREEZES) {
+        newFreezes = Math.min(newFreezes + 1, MAX_FREEZES);
+        freezeEarned = true;
+      }
+    } else {
+      if (newFreezes > 0) { newFreezes -= 1; freezeUsed = true; }
+      else { newStreak = 1; }
+    }
+
+    const newMaxStreak = Math.max(progress.max_streak, newStreak);
+    const newDayCounter = progress.day_counter + 1;
+
+    await pool.query(`
+      UPDATE user_progress SET
+        streak = $1, max_streak = $2, streak_freezes = $3,
+        today_points = 0, sessions_completed = 0, sessions_finished = 0, sessions_skipped = 0,
+        day_counter = $4, updated_at = NOW()
+      WHERE user_id = $5
+    `, [newStreak, newMaxStreak, newFreezes, newDayCounter, req.userId]);
+
+    if (freezeEarned) {
+      await pool.query("UPDATE user_stats SET total_freezes_earned = total_freezes_earned + 1, updated_at = NOW() WHERE user_id = $1", [req.userId]);
+    }
+
+    const newAwards = await checkAndUnlockAwards(req.userId);
+
+    await pool.query("UPDATE user_stats SET max_daily_sessions = 0, updated_at = NOW() WHERE user_id = $1", [req.userId]);
+    const showWeekly = newDayCounter % 7 === 0;
+    const weeklyData = showWeekly ? await getWeeklySummary(req.userId) : null;
+
+    res.json({ streak: newStreak, maxStreak: newMaxStreak, streakFreezes: newFreezes, dayCounter: newDayCounter, qualified, freezeUsed, freezeEarned, newAwards, showWeekly, weeklyData });
+  } catch (err) {
+    console.error("End day error:", err);
+    res.status(500).json({ error: "Failed to end day" });
+  }
+});
+
+// POST /api/workout/missed-day
+router.post("/missed-day", async (req, res) => {
+  try {
+    const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
+    const progress = progR.rows[0];
+
+    let newStreak = progress.streak, newFreezes = progress.streak_freezes, freezeUsed = false;
+    if (newFreezes > 0) { newFreezes -= 1; freezeUsed = true; }
+    else { newStreak = 1; }
+
+    const newDayCounter = progress.day_counter + 1;
+    await pool.query(`
+      UPDATE user_progress SET
+        streak = $1, streak_freezes = $2, today_points = 0,
+        sessions_completed = 0, sessions_finished = 0, sessions_skipped = 0,
+        day_counter = $3, updated_at = NOW()
+      WHERE user_id = $4
+    `, [newStreak, newFreezes, newDayCounter, req.userId]);
+
+    const showWeekly = newDayCounter % 7 === 0;
+    const weeklyData = showWeekly ? await getWeeklySummary(req.userId) : null;
+
+    res.json({ streak: newStreak, streakFreezes: newFreezes, dayCounter: newDayCounter, freezeUsed, showWeekly, weeklyData });
+  } catch (err) {
+    console.error("Missed day error:", err);
+    res.status(500).json({ error: "Failed to process missed day" });
+  }
+});
+
+// GET /api/workout/history
+router.get("/history", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const result = await pool.query(`
+      SELECT exercise_id, exercise_name, exercise_emoji, points, duration_minutes, was_completed, type, created_at
+      FROM workout_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2
+    `, [req.userId, limit]);
+
+    res.json(result.rows.map((r) => ({
+      exercise: { id: r.exercise_id, name: r.exercise_name, emoji: r.exercise_emoji },
+      points: r.points, durationMinutes: r.duration_minutes,
+      wasCompleted: r.was_completed, type: r.type, time: r.created_at,
+    })));
+  } catch (err) {
+    console.error("History error:", err);
+    res.status(500).json({ error: "Failed to load history" });
+  }
+});
+
+// GET /api/workout/weekly
+router.get("/weekly", async (req, res) => {
+  try {
+    const data = await getWeeklySummary(req.userId);
+    res.json(data);
+  } catch (err) {
+    console.error("Weekly error:", err);
+    res.status(500).json({ error: "Failed to load weekly summary" });
+  }
+});
+
+// ─── Helpers ─────────────────────────────────────
+
+async function getWeeklySummary(userId) {
+  const daysR = await pool.query(`
+    SELECT log_date, points, sessions_finished, qualified
+    FROM daily_log WHERE user_id = $1 ORDER BY log_date DESC LIMIT 7
+  `, [userId]);
+
+  const labels = ["M", "T", "W", "T", "F", "S", "S"];
+  const dayData = daysR.rows.reverse().map((d, i) => ({
+    label: labels[i % 7], points: d.points, sessions: d.sessions_finished, active: d.sessions_finished > 0,
+  }));
+  while (dayData.length < 7) dayData.unshift({ label: labels[(7 - dayData.length) % 7], points: 0, sessions: 0, active: false });
+
+  const totalSessions = dayData.reduce((s, d) => s + d.sessions, 0);
+  const totalPts = Math.round(dayData.reduce((s, d) => s + d.points, 0) * 10) / 10;
+  const activeDays = dayData.filter((d) => d.active).length;
+  const completionRate = activeDays > 0 ? Math.round((totalSessions / (activeDays * MIN_DAILY_SESSIONS)) * 100) : 0;
+
+  const topExR = await pool.query(`
+    SELECT exercise_id, exercise_name, exercise_emoji, COUNT(*) as cnt, SUM(points) as total_pts
+    FROM workout_history WHERE user_id = $1 AND was_completed = TRUE AND created_at >= NOW() - INTERVAL '7 days'
+    GROUP BY exercise_id, exercise_name, exercise_emoji ORDER BY cnt DESC LIMIT 1
+  `, [userId]);
+
+  const awardsR = await pool.query("SELECT COUNT(*) as cnt FROM user_awards WHERE user_id = $1 AND unlocked_at >= NOW() - INTERVAL '7 days'", [userId]);
+
+  const topEx = topExR.rows[0];
+  return {
+    sessions: totalSessions, points: totalPts, days: dayData,
+    topExercise: topEx ? { id: topEx.exercise_id, name: topEx.exercise_name, emoji: topEx.exercise_emoji, count: parseInt(topEx.cnt), points: Math.round(topEx.total_pts * 10) / 10 } : null,
+    completionRate: Math.min(completionRate, 100),
+    awardsEarned: parseInt(awardsR.rows[0].cnt),
+  };
+}
+
+const AWARD_CHECKS = [
+  { id: "first_workout", check: (s) => s.totalSessions >= 1 },
+  { id: "sessions_10", check: (s) => s.totalSessions >= 10 },
+  { id: "sessions_50", check: (s) => s.totalSessions >= 50 },
+  { id: "sessions_100", check: (s) => s.totalSessions >= 100 },
+  { id: "sessions_500", check: (s) => s.totalSessions >= 500 },
+  { id: "streak_3", check: (s) => s.maxStreak >= 3 },
+  { id: "streak_7", check: (s) => s.maxStreak >= 7 },
+  { id: "streak_14", check: (s) => s.maxStreak >= 14 },
+  { id: "streak_30", check: (s) => s.maxStreak >= 30 },
+  { id: "streak_100", check: (s) => s.maxStreak >= 100 },
+  { id: "pts_100", check: (s) => s.totalPoints >= 100 },
+  { id: "pts_1000", check: (s) => s.totalPoints >= 1000 },
+  { id: "pts_5000", check: (s) => s.totalPoints >= 5000 },
+  { id: "pts_10000", check: (s) => s.totalPoints >= 10000 },
+  { id: "try_all", check: (s) => s.uniqueExercises >= 10 },
+  { id: "dur_5", check: (s) => s.maxDurationCompleted >= 5 },
+  { id: "dur_7", check: (s) => s.maxDurationCompleted >= 7 },
+  { id: "freeze_earn", check: (s) => s.totalFreezesEarned >= 1 },
+  { id: "extra_1", check: (s) => s.extraSessions >= 1 },
+  { id: "extra_10", check: (s) => s.extraSessions >= 10 },
+  { id: "perfect_day", check: (s) => s.maxDailySessions >= 5 },
+];
+
+async function checkAndUnlockAwards(userId) {
+  const [existingR, progressR, statsR] = await Promise.all([
+    pool.query("SELECT award_id FROM user_awards WHERE user_id = $1", [userId]),
+    pool.query("SELECT * FROM user_progress WHERE user_id = $1", [userId]),
+    pool.query("SELECT * FROM user_stats WHERE user_id = $1", [userId]),
+  ]);
+
+  const existing = new Set(existingR.rows.map((r) => r.award_id));
+  const progress = progressR.rows[0];
+  const stats = statsR.rows[0];
+
+  const snapshot = {
+    totalSessions: stats.total_sessions, extraSessions: stats.extra_sessions,
+    maxStreak: progress.max_streak, uniqueExercises: (stats.unique_exercises || []).length,
+    maxDurationCompleted: stats.max_duration_completed, totalFreezesEarned: stats.total_freezes_earned,
+    maxDailySessions: stats.max_daily_sessions, totalPoints: progress.total_points,
+  };
+
+  const newlyUnlocked = [];
+  for (const award of AWARD_CHECKS) {
+    if (!existing.has(award.id) && award.check(snapshot)) {
+      await pool.query("INSERT INTO user_awards (user_id, award_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [userId, award.id]);
+      newlyUnlocked.push(award.id);
+    }
+  }
+  return newlyUnlocked;
+}
+
+module.exports = router;

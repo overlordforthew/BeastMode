@@ -4,7 +4,9 @@
       "Bash(git -C \"C:\\\\Users\\\\Gil\\\\Documents\\\\BeastMode\" status)",
       "Bash(git -C \"C:\\\\Users\\\\Gil\\\\Documents\\\\BeastMode\" add .)",
       "Bash(git -C \"C:\\\\Users\\\\Gil\\\\Documents\\\\BeastMode\" commit -m \"initial project scaffold\")",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git -C \"C:\\\\Users\\\\Gil\\\\Documents\\\\BeastMode\" remote -v)",
+      "Bash(git -C \"C:\\\\Users\\\\Gil\\\\Documents\\\\BeastMode\" push -u origin main)"
     ]
   }
 }
