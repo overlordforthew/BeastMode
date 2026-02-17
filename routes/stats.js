@@ -57,4 +57,32 @@ router.get("/daily-log", async (req, res) => {
   }
 });
 
+// GET /api/stats/leaderboard
+router.get("/leaderboard", async (req, res) => {
+  try {
+    const boardR = await pool.query(`
+      SELECT u.username, p.total_points, p.streak
+      FROM user_progress p
+      JOIN users u ON u.id = p.user_id
+      ORDER BY p.total_points DESC
+      LIMIT 50
+    `);
+
+    const rankR = await pool.query(`
+      SELECT rank FROM (
+        SELECT user_id, RANK() OVER (ORDER BY total_points DESC) as rank
+        FROM user_progress
+      ) ranked WHERE user_id = $1
+    `, [req.userId]);
+
+    res.json({
+      leaderboard: boardR.rows,
+      userRank: rankR.rows[0]?.rank || null,
+    });
+  } catch (err) {
+    console.error("Leaderboard error:", err);
+    res.status(500).json({ error: "Failed to load leaderboard" });
+  }
+});
+
 module.exports = router;
