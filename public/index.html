@@ -1221,9 +1221,15 @@ function BeastModeApp() {
     const tick = setInterval(() => {
       const diff = Math.max(0, nextAlarmTime - Date.now());
       if (diff === 0) { setCountdown("NOW!"); clearInterval(tick); return; }
-      const m = Math.floor(diff / 60000);
+      const totalMin = Math.floor(diff / 60000);
       const s = Math.floor((diff % 60000) / 1000);
-      setCountdown(`${m}:${s.toString().padStart(2, "0")}`);
+      if (totalMin >= 60) {
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        setCountdown(`${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+      } else {
+        setCountdown(`${totalMin}:${s.toString().padStart(2, "0")}`);
+      }
     }, 1000);
     return () => clearInterval(tick);
   }, [nextAlarmTime]);
