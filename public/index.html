@@ -479,7 +479,7 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
       <div style={sectionStyle}>
         <div style={labelStyle}>{t("alertInterval")}</div>
         <div style={hintStyle}>{t("alertIntervalHint")}</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
           {[30, 60, 120].map(v => <button key={v} onClick={() => setInterval_(v)} style={optBtn(interval === v)}>{v === 30 ? t("min30") : v === 60 ? t("hour1") : t("hours2")}</button>)}
         </div>
       </div>
