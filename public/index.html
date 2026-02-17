@@ -370,7 +370,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "linear-gradient(180deg, #0a0a0f 0%, #1a0a00 100%)" }}>
       <div style={{ maxWidth: 380, width: "100%", animation: "fadeIn 0.6s ease" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 60, marginBottom: 12 }}> </div>
+          <div style={{ fontSize: 60, marginBottom: 12 }}>{"\uD83D\uDD25"}</div>
           <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, background: "linear-gradient(135deg, #FF4D00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 }}>BEAST MODE</h1>
           <p style={{ color: "#666", fontSize: 14 }}>{t("welcomeSub")}</p>
         </div>
@@ -952,7 +952,7 @@ function EvolutionPopup({ oldTier, newTier, onClose }) {
         <div style={{ fontSize: 14, letterSpacing: 3, color: "#FFD700", marginBottom: 8 }}>  LEVEL UP!  </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, margin: "16px 0 20px" }}>
           <div style={{ textAlign: "center" }}><div style={{ fontSize: 40 }}>{oldTier.emoji}</div><div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>{oldTier.name}</div></div>
-          <span style={{ fontSize: 24, color: "#FFD700" }}> </span>
+          <span style={{ fontSize: 24, color: "#FFD700" }}>{"\u27A1\uFE0F"}</span>
           <div style={{ textAlign: "center" }}><div style={{ fontSize: 52 }}>{newTier.emoji}</div><div style={{ fontSize: 13, fontWeight: 700, color: "#FFD700", marginTop: 4 }}>{newTier.name}</div></div>
         </div>
         <button onClick={onClose} style={{ padding: "14px 40px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>CONTINUE</button>
@@ -1346,7 +1346,7 @@ function BeastModeApp() {
   };
 
   //     SCREENS                                    
-  if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}> </div></div>;
+  if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>{"\uD83D\uDD25"}</div></div>;
   if (screen === "auth") return <AuthScreen onAuth={(data) => { setUser(data.user); setScreen("setup"); }} lang={lang} setLang={setLang} />;
   if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); }} settings={settings} lang={lang} setLang={setLang} />;
   if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
@@ -1375,17 +1375,17 @@ function BeastModeApp() {
             <EvolutionBadge points={totalPoints} size={44} glow />
             <div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>{user?.username}</div>
-              <div style={{ fontSize: 12, color: "#FF8C00" }}>  {streak} {t("dayStreak")}   {streakMult}  {t("bonus")}</div>
+              <div style={{ fontSize: 12, color: "#FF8C00" }}>{"\uD83D\uDD25"} {streak} {t("dayStreak")} {"\u00D7"}{streakMult} {t("bonus")}</div>
               <div style={{ fontSize: 11, color: "#69d2e7", marginTop: 2 }}>
-                {Array.from({ length: MAX_FREEZES }).map((_, i) => <span key={i} style={{ marginRight: 3, opacity: i < streakFreezes ? 1 : 0.25 }}> </span>)}
+                {Array.from({ length: MAX_FREEZES }).map((_, i) => <span key={i} style={{ marginRight: 3, opacity: i < streakFreezes ? 1 : 0.25 }}>{"\u2744\uFE0F"}</span>)}
                 <span style={{ marginLeft: 4 }}>{streakFreezes}/{MAX_FREEZES} {t("freezes")}</span>
                 {streak > 0 && streak % FREEZE_EARN_INTERVAL !== 0 && <span style={{ color: "#555", marginLeft: 6 }}>({FREEZE_EARN_INTERVAL - (streak % FREEZE_EARN_INTERVAL)} {t("daysToNext")})</span>}
               </div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setScreen("setup")} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>  </button>
-            <button onClick={handleLogout} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}> </button>
+            <button onClick={() => setScreen("setup")} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>{"\u2699\uFE0F"}</button>
+            <button onClick={handleLogout} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}>{"\uD83D\uDEAA"}</button>
           </div>
         </div>
 
@@ -1431,7 +1431,7 @@ function BeastModeApp() {
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,230,118,0.04)", borderRadius: 16, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,230,118,0.15)" }}>
-            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#00E676" }}>{t("restDay")}</div><div style={{ fontSize: 18, fontWeight: 800, color: "#00E676" }}> </div></div>
+            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#00E676" }}>{t("restDay")}</div><div style={{ fontSize: 18, fontWeight: 800, color: "#00E676" }}>{"\uD83C\uDFD6\uFE0F"}</div></div>
             <div style={{ fontSize: 12, color: "#888" }}>{t("extraCreditAvail")}</div>
           </div>
         )}
@@ -1439,13 +1439,13 @@ function BeastModeApp() {
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
           <button onClick={() => setShowExtraCredit(true)} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, color: "#FFD700", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 22 }}> </span><span>{t("extraCredit")}</span>
+            <span style={{ fontSize: 22 }}>{"\u2B50"}</span><span>{t("extraCredit")}</span>
           </button>
           <button onClick={() => setScreen("awards")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, color: "#FFD700", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 22 }}> </span><span>{t("awards")}</span>{unlockedAwards.size > 0 && <span style={{ fontSize: 10 }}>{unlockedAwards.size}/{AWARDS.length}</span>}
+            <span style={{ fontSize: 22 }}>{"\uD83C\uDFC5"}</span><span>{t("awards")}</span>{unlockedAwards.size > 0 && <span style={{ fontSize: 10 }}>{unlockedAwards.size}/{AWARDS.length}</span>}
           </button>
           <button onClick={() => setScreen("leaderboard")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,77,0,0.1), rgba(255,77,0,0.05))", border: "1px solid rgba(255,77,0,0.2)", borderRadius: 14, color: "#FF8C00", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 22 }}> </span><span>{t("leaderboard")}</span>
+            <span style={{ fontSize: 22 }}>{"\uD83C\uDFC6"}</span><span>{t("leaderboard")}</span>
           </button>
         </div>
 
