@@ -32,10 +32,10 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, createContext, useContext } = React;
 
-// â”€â”€â”€ DEMO MODE (add ?demo=true to URL) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     DEMO MODE (add ?demo=true to URL)           
 const DEMO_MODE = new URLSearchParams(window.location.search).has('demo');
 
-// â”€â”€â”€ API LAYER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     API LAYER                                   
 const API_BASE = '';  // same origin
 
 async function api(path, opts = {}) {
@@ -47,96 +47,96 @@ async function api(path, opts = {}) {
   return data;
 }
 
-// â”€â”€â”€ TRANSLATIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     TRANSLATIONS                                
 const TRANSLATIONS = {
   en: {
     welcomeTitle: "BEAST MODE", welcomeSub: "Evolve from amoeba to apex predator through micro-workouts",
-    enterName: "Enter your name...", legendStart: "EVERY LEGEND STARTS SMALL", begin: "BEGIN EVOLUTION â†’",
+    enterName: "Enter your name...", legendStart: "EVERY LEGEND STARTS SMALL", begin: "BEGIN EVOLUTION \u2192",
     step1Title: "You start as an", step1Desc: "Complete exercises throughout your day to earn points and evolve into increasingly powerful creatures.",
-    step2Title: "50 EVOLUTION TIERS", step2Desc: "From Amoeba to Dragon â€” every point brings you closer to the next transformation.",
+    step2Title: "50 EVOLUTION TIERS", step2Desc: "From Amoeba to Dragon \u2014 every point brings you closer to the next transformation.",
     step3Title: "HOW IT WORKS", step3Desc: "Set your schedule. We'll alert you when it's time to move. Complete the exercise. Earn points. Evolve.",
-    dailySetup: "âš¡ DAILY SETUP", alertInterval: "ALERT INTERVAL", alertIntervalHint: "How often should we remind you to move?",
+    dailySetup: "\u26a1 DAILY SETUP", alertInterval: "ALERT INTERVAL", alertIntervalHint: "How often should we remind you to move?",
     exerciseDuration: "EXERCISE DURATION", durationHint: "Longer = bigger multiplier on points",
     beastModeHours: "BEAST MODE HOURS", hoursHint: "When are you active?", start: "START", end: "END",
     activeDays: "ACTIVE DAYS", activeDaysHint: "Which days should Beast Mode be active?",
     alarmMessage: "ALARM MESSAGE", alarmHint: "What should the alarm say?",
     exercises: "EXERCISES", allRandom: "All (Random)", customPick: "Custom Pick",
-    activateBeast: "ACTIVATE BEAST MODE ðŸ”¥", language: "LANGUAGE",
-    random: "ðŸŽ² Random â€” surprise me!", multiplier: "multiplier",
+    activateBeast: "ACTIVATE BEAST MODE \ud83d\udd25", language: "LANGUAGE",
+    random: "\ud83c\udfb2 Random \u2014 surprise me!", multiplier: "multiplier",
     min30: "30 min", hour1: "1 hour", hours2: "2 hours",
     sec30: "30 seconds", min1: "1 minute", min2: "2 minutes", min3: "3 minutes",
     min4: "4 minutes", min5: "5 minutes", min6: "6 minutes", min7: "7 minutes",
     dayStreak: "Day Streak", bonus: "bonus", freezes: "freezes", daysToNext: "days to next",
     today: "TODAY", total: "TOTAL", completed: "completed", skipped: "skipped",
-    forStreakFreeze: "for streak freeze", streakSecured: "ðŸ”¥ Streak secured!",
+    forStreakFreeze: "for streak freeze", streakSecured: "\ud83d\udd25 Streak secured!",
     nextAlert: "NEXT ALERT", restDay: "REST DAY", noAlarmsToday: "No alarms today",
     extraCreditAvail: "Extra credit still available!", extraCredit: "Extra Credit", leaderboard: "Leaderboard",
     sessions: "sessions", every: "Every", recentActivity: "RECENT ACTIVITY",
-    completeFor: "Complete for", startBtn: "â–¶ START", skipBtn: "SKIP",
-    finishEarly: "â¹ FINISH EARLY", crushedIt: "CRUSHED IT!", goodEffort: "GOOD EFFORT!",
-    fullCompletion: "ðŸŽ‰ Full completion â€” multiplier unlocked!", completionBonus: "+25% completion bonus",
-    flatRate: "Flat rate â€” no multiplier", tryLonger: "Minimum 30s to earn points â€” keep going next time!",
+    completeFor: "Complete for", startBtn: "\u25b6 START", skipBtn: "SKIP",
+    finishEarly: "\u23f9 FINISH EARLY", crushedIt: "CRUSHED IT!", goodEffort: "GOOD EFFORT!",
+    fullCompletion: "\ud83c\udf89 Full completion \u2014 multiplier unlocked!", completionBonus: "+25% completion bonus",
+    flatRate: "Flat rate \u2014 no multiplier", tryLonger: "Minimum 30s to earn points \u2014 keep going next time!",
     completingWouldEarn: "Completing would have earned", collectPoints: "COLLECT POINTS", base: "base",
-    extraCreditTitle: "â­ EXTRA CREDIT", duration: "DURATION", back: "BACK", ptsIfCompleted: "pts if completed",
-    leaderboardTitle: "ðŸ† LEADERBOARD", levelUp: "LEVEL UP!", ptsTo: "pts to", continueBtn: "CONTINUE",
-    demoNote: "âš¡ Demo: Alarms trigger every ~20s (ignores interval & rest days)",
-    endDay: "End Day", missedDay: "âŒ Missed Day", exerciseCount: "exercises",
+    extraCreditTitle: "\u2b50 EXTRA CREDIT", duration: "DURATION", back: "BACK", ptsIfCompleted: "pts if completed",
+    leaderboardTitle: "\ud83c\udfc6 LEADERBOARD", levelUp: "LEVEL UP!", ptsTo: "pts to", continueBtn: "CONTINUE",
+    demoNote: "\u26a1 Demo: Alarms trigger every ~20s (ignores interval & rest days)",
+    endDay: "End Day", missedDay: "\u274c Missed Day", exerciseCount: "exercises",
     everyDay: "Every day", weekdays: "Weekdays", daysPerWk: "days/wk",
     login: "LOG IN", register: "REGISTER", password: "Password", username: "Username",
     noAccount: "Don't have an account?", hasAccount: "Already have an account?",
     logout: "Logout", pickExAndDur: "Pick an exercise and duration",
-    awards: "Awards", awardsTitle: "ðŸ… AWARDS", awardUnlocked: "ðŸ… AWARD UNLOCKED", nice: "NICE!",
-    weekSummary: "ðŸ“Š WEEKLY SUMMARY", weekReview: "Your Beast Mode week in review",
+    awards: "Awards", awardsTitle: "\ud83c\udfc5 AWARDS", awardUnlocked: "\ud83c\udfc5 AWARD UNLOCKED", nice: "NICE!",
+    weekSummary: "\ud83d\udcca WEEKLY SUMMARY", weekReview: "Your Beast Mode week in review",
     sessionsCap: "SESSIONS", pointsCap: "POINTS", rateCap: "RATE", topExercise: "Top exercise",
     pts: "PTS", streak: "streak", you: "you",
-    meditation: "Meditation", meditationType: "MEDITATION TYPE", beginMeditation: "BEGIN MEDITATION 🌸",
+    meditation: "Meditation", meditationType: "MEDITATION TYPE", beginMeditation: "BEGIN MEDITATION \ud83c\udf38",
     medDuration: "DURATION", medSession: "Session", medSessionsToday: "meditation", medSessionsTodayPlural: "meditations",
-    medStreakQualified: "✓ Streak qualified!", medMinPoints: "Minimum 3min to earn points",
-    medPartialSession: "Partial session — proportional points", medFullSession: "🎉 Full session complete!",
+    medStreakQualified: "\u2713 Streak qualified!", medMinPoints: "Minimum 3min to earn points",
+    medPartialSession: "Partial session \u2014 proportional points", medFullSession: "\ud83c\udf89 Full session complete!",
     medSessionBonus: "session bonus", namaste: "NAMASTE", wellDone: "WELL DONE",
     medNextBonus: "Next session", breatheIn: "Breathe in...", breatheHold: "Hold...", breatheOut: "Breathe out...",
-    endSession: "⏹ END SESSION", medToday: "Today", medCompleted: "completed",
-    workoutMode: "💪 WORKOUT", meditationMode: "☮️ MEDITATION", workoutsOrMed: "workouts or 1 meditation",
+    endSession: "\u23f9 END SESSION", medToday: "Today", medCompleted: "completed",
+    workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f MEDITATION", workoutsOrMed: "workouts or 1 meditation",
   },
   es: {
     welcomeTitle: "BEAST MODE", welcomeSub: "Evoluciona de ameba a depredador supremo con micro-ejercicios",
-    enterName: "Ingresa tu nombre...", legendStart: "TODA LEYENDA EMPIEZA PEQUEÃ‘A", begin: "COMENZAR EVOLUCIÃ“N â†’",
-    step1Title: "Empiezas como un", step1Desc: "Completa ejercicios durante el dÃ­a para ganar puntos y evolucionar en criaturas mÃ¡s poderosas.",
-    step2Title: "50 NIVELES DE EVOLUCIÃ“N", step2Desc: "De Ameba a DragÃ³n â€” cada punto te acerca a la siguiente transformaciÃ³n.",
-    step3Title: "CÃ“MO FUNCIONA", step3Desc: "Configura tu horario. Te alertaremos cuando sea hora de moverte. Completa el ejercicio. Gana puntos. Evoluciona.",
-    dailySetup: "âš¡ CONFIGURACIÃ“N DIARIA", alertInterval: "INTERVALO DE ALERTA", alertIntervalHint: "Â¿Con quÃ© frecuencia recordarte?",
-    exerciseDuration: "DURACIÃ“N DEL EJERCICIO", durationHint: "MÃ¡s largo = mayor multiplicador de puntos",
-    beastModeHours: "HORAS BEAST MODE", hoursHint: "Â¿CuÃ¡ndo estÃ¡s activo?", start: "INICIO", end: "FIN",
-    activeDays: "DÃAS ACTIVOS", activeDaysHint: "Â¿QuÃ© dÃ­as debe estar activo?",
-    alarmMessage: "MENSAJE DE ALARMA", alarmHint: "Â¿QuÃ© deberÃ­a decir la alarma?",
+    enterName: "Ingresa tu nombre...", legendStart: "TODA LEYENDA EMPIEZA PEQUE\u00d1A", begin: "COMENZAR EVOLUCI\u00d3N \u2192",
+    step1Title: "Empiezas como un", step1Desc: "Completa ejercicios durante el d\u00eda para ganar puntos y evolucionar en criaturas m\u00e1s poderosas.",
+    step2Title: "50 NIVELES DE EVOLUCI\u00d3N", step2Desc: "De Ameba a Drag\u00f3n \u2014 cada punto te acerca a la siguiente transformaci\u00f3n.",
+    step3Title: "C\u00d3MO FUNCIONA", step3Desc: "Configura tu horario. Te alertaremos cuando sea hora de moverte. Completa el ejercicio. Gana puntos. Evoluciona.",
+    dailySetup: "\u26a1 CONFIGURACI\u00d3N DIARIA", alertInterval: "INTERVALO DE ALERTA", alertIntervalHint: "\u00bfCon qu\u00e9 frecuencia recordarte?",
+    exerciseDuration: "DURACI\u00d3N DEL EJERCICIO", durationHint: "M\u00e1s largo = mayor multiplicador de puntos",
+    beastModeHours: "HORAS BEAST MODE", hoursHint: "\u00bfCu\u00e1ndo est\u00e1s activo?", start: "INICIO", end: "FIN",
+    activeDays: "D\u00cdAS ACTIVOS", activeDaysHint: "\u00bfQu\u00e9 d\u00edas debe estar activo?",
+    alarmMessage: "MENSAJE DE ALARMA", alarmHint: "\u00bfQu\u00e9 deber\u00eda decir la alarma?",
     exercises: "EJERCICIOS", allRandom: "Todos (Aleatorio)", customPick: "Elegir",
-    activateBeast: "ACTIVAR BEAST MODE ðŸ”¥", language: "IDIOMA",
-    random: "ðŸŽ² Aleatorio â€” Â¡sorprÃ©ndeme!", multiplier: "multiplicador",
+    activateBeast: "ACTIVAR BEAST MODE \ud83d\udd25", language: "IDIOMA",
+    random: "\ud83c\udfb2 Aleatorio \u2014 \u00a1sorpr\u00e9ndeme!", multiplier: "multiplicador",
     min30: "30 min", hour1: "1 hora", hours2: "2 horas",
     sec30: "30 segundos", min1: "1 minuto", min2: "2 minutos", min3: "3 minutos",
     min4: "4 minutos", min5: "5 minutos", min6: "6 minutos", min7: "7 minutos",
-    dayStreak: "Racha de DÃ­as", bonus: "bonificaciÃ³n", freezes: "congelaciones", daysToNext: "dÃ­as para siguiente",
+    dayStreak: "Racha de D\u00edas", bonus: "bonificaci\u00f3n", freezes: "congelaciones", daysToNext: "d\u00edas para siguiente",
     today: "HOY", total: "TOTAL", completed: "completados", skipped: "omitidos",
-    forStreakFreeze: "para congelar racha", streakSecured: "ðŸ”¥ Â¡Racha asegurada!",
-    nextAlert: "PRÃ“XIMA ALERTA", restDay: "DÃA DE DESCANSO", noAlarmsToday: "Sin alarmas hoy",
-    extraCreditAvail: "Â¡CrÃ©dito extra disponible!", extraCredit: "CrÃ©dito Extra", leaderboard: "ClasificaciÃ³n",
+    forStreakFreeze: "para congelar racha", streakSecured: "\ud83d\udd25 \u00a1Racha asegurada!",
+    nextAlert: "PR\u00d3XIMA ALERTA", restDay: "D\u00cdA DE DESCANSO", noAlarmsToday: "Sin alarmas hoy",
+    extraCreditAvail: "\u00a1Cr\u00e9dito extra disponible!", extraCredit: "Cr\u00e9dito Extra", leaderboard: "Clasificaci\u00f3n",
     sessions: "sesiones", every: "Cada", recentActivity: "ACTIVIDAD RECIENTE",
-    completeFor: "Completa por", startBtn: "â–¶ INICIAR", skipBtn: "SALTAR",
-    finishEarly: "â¹ TERMINAR ANTES", crushedIt: "Â¡LO LOGRASTE!", goodEffort: "Â¡BUEN ESFUERZO!",
-    fullCompletion: "ðŸŽ‰ Â¡Completado â€” multiplicador desbloqueado!", completionBonus: "+25% bonificaciÃ³n",
-    flatRate: "Tarifa fija â€” sin multiplicador", tryLonger: "MÃ­nimo 30s para ganar puntos â€” Â¡sigue asÃ­!",
-    completingWouldEarn: "Completar habrÃ­a ganado", collectPoints: "RECOGER PUNTOS", base: "base",
-    extraCreditTitle: "â­ CRÃ‰DITO EXTRA", duration: "DURACIÃ“N", back: "VOLVER", ptsIfCompleted: "pts si completado",
-    leaderboardTitle: "ðŸ† CLASIFICACIÃ“N", levelUp: "Â¡SUBISTE DE NIVEL!", ptsTo: "pts para", continueBtn: "CONTINUAR",
-    demoNote: "âš¡ Demo: Alarmas cada ~20s", endDay: "Terminar DÃ­a", missedDay: "âŒ DÃ­a Perdido",
-    exerciseCount: "ejercicios", everyDay: "Todos los dÃ­as", weekdays: "Entre semana", daysPerWk: "dÃ­as/sem",
-    login: "INICIAR SESIÃ“N", register: "REGISTRAR", password: "ContraseÃ±a", username: "Usuario",
-    noAccount: "Â¿No tienes cuenta?", hasAccount: "Â¿Ya tienes cuenta?", logout: "Cerrar sesiÃ³n",
-    pickExAndDur: "Elige un ejercicio y duraciÃ³n",
-    awards: "Premios", awardsTitle: "ðŸ… PREMIOS", awardUnlocked: "ðŸ… PREMIO DESBLOQUEADO", nice: "Â¡GENIAL!",
-    weekSummary: "ðŸ“Š RESUMEN SEMANAL", weekReview: "Tu semana Beast Mode en resumen",
+    completeFor: "Completa por", startBtn: "\u25b6 INICIAR", skipBtn: "SALTAR",
+    finishEarly: "\u23f9 TERMINAR ANTES", crushedIt: "\u00a1LO LOGRASTE!", goodEffort: "\u00a1BUEN ESFUERZO!",
+    fullCompletion: "\ud83c\udf89 \u00a1Completado \u2014 multiplicador desbloqueado!", completionBonus: "+25% bonificaci\u00f3n",
+    flatRate: "Tarifa fija \u2014 sin multiplicador", tryLonger: "M\u00ednimo 30s para ganar puntos \u2014 \u00a1sigue as\u00ed!",
+    completingWouldEarn: "Completar habr\u00eda ganado", collectPoints: "RECOGER PUNTOS", base: "base",
+    extraCreditTitle: "\u2b50 CR\u00c9DITO EXTRA", duration: "DURACI\u00d3N", back: "VOLVER", ptsIfCompleted: "pts si completado",
+    leaderboardTitle: "\ud83c\udfc6 CLASIFICACI\u00d3N", levelUp: "\u00a1SUBISTE DE NIVEL!", ptsTo: "pts para", continueBtn: "CONTINUAR",
+    demoNote: "\u26a1 Demo: Alarmas cada ~20s", endDay: "Terminar D\u00eda", missedDay: "\u274c D\u00eda Perdido",
+    exerciseCount: "ejercicios", everyDay: "Todos los d\u00edas", weekdays: "Entre semana", daysPerWk: "d\u00edas/sem",
+    login: "INICIAR SESI\u00d3N", register: "REGISTRAR", password: "Contrase\u00f1a", username: "Usuario",
+    noAccount: "\u00bfNo tienes cuenta?", hasAccount: "\u00bfYa tienes cuenta?", logout: "Cerrar sesi\u00f3n",
+    pickExAndDur: "Elige un ejercicio y duraci\u00f3n",
+    awards: "Premios", awardsTitle: "\ud83c\udfc5 PREMIOS", awardUnlocked: "\ud83c\udfc5 PREMIO DESBLOQUEADO", nice: "\u00a1GENIAL!",
+    weekSummary: "\ud83d\udcca RESUMEN SEMANAL", weekReview: "Tu semana Beast Mode en resumen",
     sessionsCap: "SESIONES", pointsCap: "PUNTOS", rateCap: "TASA", topExercise: "Ejercicio top",
-    pts: "PTS", streak: "racha", you: "tÃº",
+    pts: "PTS", streak: "racha", you: "t\u00fa",
     meditation: "Meditaci\u00f3n", meditationType: "TIPO DE MEDITACI\u00d3N", beginMeditation: "COMENZAR MEDITACI\u00d3N \ud83c\udf38",
     medDuration: "DURACI\u00d3N", medSession: "Sesi\u00f3n", medSessionsToday: "meditaci\u00f3n", medSessionsTodayPlural: "meditaciones",
     medStreakQualified: "\u2713 \u00a1Racha calificada!", medMinPoints: "M\u00ednimo 3min para ganar puntos",
@@ -147,75 +147,75 @@ const TRANSLATIONS = {
     workoutMode: "\ud83d\udcaa EJERCICIO", meditationMode: "\u262e\ufe0f MEDITACI\u00d3N", workoutsOrMed: "ejercicios o 1 meditaci\u00f3n",
   },
   ja: {
-    welcomeTitle: "ãƒ“ãƒ¼ã‚¹ãƒˆãƒ¢ãƒ¼ãƒ‰", welcomeSub: "ãƒžã‚¤ã‚¯ãƒ­ãƒ¯ãƒ¼ã‚¯ã‚¢ã‚¦ãƒˆã§ã‚¢ãƒ¡ãƒ¼ãƒã‹ã‚‰é ‚ç‚¹æ•é£Ÿè€…ã¸é€²åŒ–ã›ã‚ˆ",
-    enterName: "åå‰ã‚’å…¥åŠ›...", legendStart: "ã™ã¹ã¦ã®ä¼èª¬ã¯å°ã•ãå§‹ã¾ã‚‹", begin: "é€²åŒ–ã‚’å§‹ã‚ã‚‹ â†’",
-    step1Title: "æœ€åˆã¯", step1Desc: "ä¸€æ—¥ã‚’é€šã—ã¦ã‚¨ã‚¯ã‚µã‚µã‚¤ã‚ºã‚’å®Œäº†ã—ã€ãƒã‚¤ãƒ³ãƒˆã‚’ç²å¾—ã—ã¦å¼·åŠ›ãªç”Ÿç‰©ã«é€²åŒ–ã—ã¾ã—ã‚‡ã†ã€‚",
-    step2Title: "50ã®é€²åŒ–æ®µéšŽ", step2Desc: "ã‚¢ãƒ¡ãƒ¼ãƒã‹ã‚‰ãƒ‰ãƒ©ã‚´ãƒ³ã¸ â€” å„ãƒã‚¤ãƒ³ãƒˆãŒæ¬¡ã®å¤‰èº«ã¸è¿‘ã¥ã‘ã‚‹ã€‚",
-    step3Title: "ã‚„ã‚Šæ–¹", step3Desc: "ã‚¹ã‚±ã‚¸ãƒ¥ãƒ¼ãƒ«ã‚’è¨­å®šã€‚å‹•ãæ™‚é–“ã‚’ãŠçŸ¥ã‚‰ã›ã€‚ã‚¨ã‚¯ã‚µã‚µã‚¤ã‚ºã‚’å®Œäº†ã€‚ãƒã‚¤ãƒ³ãƒˆç²å¾—ã€‚é€²åŒ–ã€‚",
-    dailySetup: "âš¡ ãƒ‡ã‚¤ãƒªãƒ¼ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—", alertInterval: "ã‚¢ãƒ©ãƒ¼ãƒˆé–“éš”", alertIntervalHint: "ã©ã®ãã‚‰ã„ã®é »åº¦ã§ãƒªãƒžã‚¤ãƒ³ãƒ‰ã—ã¾ã™ã‹ï¼Ÿ",
-    exerciseDuration: "ã‚¨ã‚¯ã‚µã‚µã‚¤ã‚ºæ™‚é–“", durationHint: "é•·ã„ = ãƒã‚¤ãƒ³ãƒˆå€çŽ‡ã‚¢ãƒƒãƒ—",
-    beastModeHours: "ãƒ“ãƒ¼ã‚¹ãƒˆãƒ¢ãƒ¼ãƒ‰æ™‚é–“", hoursHint: "æ´»å‹•æ™‚é–“ã¯ï¼Ÿ", start: "é–‹å§‹", end: "çµ‚äº†",
-    activeDays: "æ´»å‹•æ—¥", activeDaysHint: "ãƒ“ãƒ¼ã‚¹ãƒˆãƒ¢ãƒ¼ãƒ‰ã‚’ã‚ªãƒ³ã«ã™ã‚‹æ›œæ—¥ã¯ï¼Ÿ",
-    alarmMessage: "ã‚¢ãƒ©ãƒ¼ãƒ ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸", alarmHint: "ã‚¢ãƒ©ãƒ¼ãƒ ã®ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã¯ï¼Ÿ",
-    exercises: "ã‚¨ã‚¯ã‚µã‚µã‚¤ã‚º", allRandom: "å…¨ã¦ï¼ˆãƒ©ãƒ³ãƒ€ãƒ ï¼‰", customPick: "ã‚«ã‚¹ã‚¿ãƒ ",
-    activateBeast: "ãƒ“ãƒ¼ã‚¹ãƒˆãƒ¢ãƒ¼ãƒ‰èµ·å‹• ðŸ”¥", language: "è¨€èªž",
-    random: "ðŸŽ² ãƒ©ãƒ³ãƒ€ãƒ ", multiplier: "å€çŽ‡",
-    min30: "30åˆ†", hour1: "1æ™‚é–“", hours2: "2æ™‚é–“",
-    sec30: "30ç§’", min1: "1åˆ†", min2: "2åˆ†", min3: "3åˆ†",
-    min4: "4åˆ†", min5: "5åˆ†", min6: "6åˆ†", min7: "7åˆ†",
-    dayStreak: "é€£ç¶šæ—¥æ•°", bonus: "ãƒœãƒ¼ãƒŠã‚¹", freezes: "ãƒ•ãƒªãƒ¼ã‚º", daysToNext: "æ¬¡ã¾ã§",
-    today: "ä»Šæ—¥", total: "åˆè¨ˆ", completed: "å®Œäº†", skipped: "ã‚¹ã‚­ãƒƒãƒ—",
-    forStreakFreeze: "ã‚¹ãƒˆãƒªãƒ¼ã‚¯ãƒ•ãƒªãƒ¼ã‚ºã¾ã§", streakSecured: "ðŸ”¥ ã‚¹ãƒˆãƒªãƒ¼ã‚¯ç¢ºä¿ï¼",
-    nextAlert: "æ¬¡ã®ã‚¢ãƒ©ãƒ¼ãƒˆ", restDay: "ä¼‘æ¯æ—¥", noAlarmsToday: "ä»Šæ—¥ã¯ã‚¢ãƒ©ãƒ¼ãƒ ãªã—",
-    extraCreditAvail: "ã‚¨ã‚¯ã‚¹ãƒˆãƒ©ã‚¯ãƒ¬ã‚¸ãƒƒãƒˆå¯èƒ½ï¼", extraCredit: "ã‚¨ã‚¯ã‚¹ãƒˆãƒ©", leaderboard: "ãƒ©ãƒ³ã‚­ãƒ³ã‚°",
-    sessions: "ã‚»ãƒƒã‚·ãƒ§ãƒ³", every: "æ¯Ž", recentActivity: "æœ€è¿‘ã®ã‚¢ã‚¯ãƒ†ã‚£ãƒ“ãƒ†ã‚£",
-    completeFor: "å®Œäº†ã§", startBtn: "â–¶ ã‚¹ã‚¿ãƒ¼ãƒˆ", skipBtn: "ã‚¹ã‚­ãƒƒãƒ—",
-    finishEarly: "â¹ æ—©æœŸçµ‚äº†", crushedIt: "ã‚„ã£ãŸãœï¼", goodEffort: "ã„ã„èª¿å­ï¼",
-    fullCompletion: "ðŸŽ‰ å®Œäº† â€” å€çŽ‡ã‚¢ãƒ³ãƒ­ãƒƒã‚¯ï¼", completionBonus: "+25% ãƒœãƒ¼ãƒŠã‚¹",
-    flatRate: "å›ºå®šãƒ¬ãƒ¼ãƒˆ â€” å€çŽ‡ãªã—", tryLonger: "30ç§’ä»¥ä¸Šã§ãƒã‚¤ãƒ³ãƒˆç²å¾— â€” æ¬¡å›žé ‘å¼µã‚ã†ï¼",
-    completingWouldEarn: "å®Œäº†ã™ã‚Œã°ç²å¾—ã§ããŸ", collectPoints: "ãƒã‚¤ãƒ³ãƒˆç²å¾—", base: "ãƒ™ãƒ¼ã‚¹",
-    extraCreditTitle: "â­ ã‚¨ã‚¯ã‚¹ãƒˆãƒ©ã‚¯ãƒ¬ã‚¸ãƒƒãƒˆ", duration: "æ™‚é–“", back: "æˆ»ã‚‹", ptsIfCompleted: "ptsï¼ˆå®Œäº†æ™‚ï¼‰",
-    leaderboardTitle: "ðŸ† ãƒ©ãƒ³ã‚­ãƒ³ã‚°", levelUp: "ãƒ¬ãƒ™ãƒ«ã‚¢ãƒƒãƒ—ï¼", ptsTo: "pts æ¬¡ã¾ã§", continueBtn: "ç¶šã‘ã‚‹",
-    demoNote: "âš¡ ãƒ‡ãƒ¢: 20ç§’ã”ã¨ã«ã‚¢ãƒ©ãƒ¼ãƒ ", endDay: "ä¸€æ—¥çµ‚äº†", missedDay: "âŒ æ¬ å¸­æ—¥",
-    exerciseCount: "ç¨®ç›®", everyDay: "æ¯Žæ—¥", weekdays: "å¹³æ—¥", daysPerWk: "æ—¥/é€±",
-    login: "ãƒ­ã‚°ã‚¤ãƒ³", register: "ç™»éŒ²", password: "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰", username: "ãƒ¦ãƒ¼ã‚¶ãƒ¼å",
-    noAccount: "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆãŒãªã„ï¼Ÿ", hasAccount: "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’ãŠæŒã¡ï¼Ÿ", logout: "ãƒ­ã‚°ã‚¢ã‚¦ãƒˆ",
-    pickExAndDur: "ã‚¨ã‚¯ã‚µã‚µã‚¤ã‚ºã¨æ™‚é–“ã‚’é¸æŠž",
-    awards: "ã‚¢ãƒ¯ãƒ¼ãƒ‰", awardsTitle: "ðŸ… ã‚¢ãƒ¯ãƒ¼ãƒ‰", awardUnlocked: "ðŸ… ã‚¢ãƒ¯ãƒ¼ãƒ‰è§£é™¤", nice: "ãƒŠã‚¤ã‚¹ï¼",
-    weekSummary: "ðŸ“Š é€±é–“ã‚µãƒžãƒªãƒ¼", weekReview: "ä»Šé€±ã®ãƒ“ãƒ¼ã‚¹ãƒˆãƒ¢ãƒ¼ãƒ‰ã¾ã¨ã‚",
-    sessionsCap: "ã‚»ãƒƒã‚·ãƒ§ãƒ³", pointsCap: "ãƒã‚¤ãƒ³ãƒˆ", rateCap: "é”æˆçŽ‡", topExercise: "ãƒˆãƒƒãƒ—ç¨®ç›®",
-    pts: "PTS", streak: "ã‚¹ãƒˆãƒªãƒ¼ã‚¯", you: "ã‚ãªãŸ",
-    meditation: "瑞想", meditationType: "瑞想タイプ", beginMeditation: "BEGIN 🌸",
-    medDuration: "DURATION", medSession: "Session", medSessionsToday: "瑞想", medSessionsTodayPlural: "瑞想",
-    medStreakQualified: "✓ ストリーク達成!", medMinPoints: "3分以上でポイント獲得",
-    medPartialSession: "部分セッション", medFullSession: "🎉 完了!",
-    medSessionBonus: "ボーナス", namaste: "NAMASTE", wellDone: "WELL DONE!",
-    medNextBonus: "次のセッション", breatheIn: "吸って...", breatheHold: "止めて...", breatheOut: "吐いて...",
-    endSession: "⏹ 終了", medToday: "今日", medCompleted: "完了",
-    workoutMode: "💪 WORKOUT", meditationMode: "☮️ 瑞想", workoutsOrMed: "または1回瑞想",
+    welcomeTitle: "\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9", welcomeSub: "\u30de\u30a4\u30af\u30ed\u30ef\u30fc\u30af\u30a2\u30a6\u30c8\u3067\u30a2\u30e1\u30fc\u30d0\u304b\u3089\u9802\u70b9\u6355\u98df\u8005\u3078\u9032\u5316\u305b\u3088",
+    enterName: "\u540d\u524d\u3092\u5165\u529b...", legendStart: "\u3059\u3079\u3066\u306e\u4f1d\u8aac\u306f\u5c0f\u3055\u304f\u59cb\u307e\u308b", begin: "\u9032\u5316\u3092\u59cb\u3081\u308b \u2192",
+    step1Title: "\u6700\u521d\u306f", step1Desc: "\u4e00\u65e5\u3092\u901a\u3057\u3066\u30a8\u30af\u30b5\u30b5\u30a4\u30ba\u3092\u5b8c\u4e86\u3057\u3001\u30dd\u30a4\u30f3\u30c8\u3092\u7372\u5f97\u3057\u3066\u5f37\u529b\u306a\u751f\u7269\u306b\u9032\u5316\u3057\u307e\u3057\u3087\u3046\u3002",
+    step2Title: "50\u306e\u9032\u5316\u6bb5\u968e", step2Desc: "\u30a2\u30e1\u30fc\u30d0\u304b\u3089\u30c9\u30e9\u30b4\u30f3\u3078 -- \u5404\u30dd\u30a4\u30f3\u30c8\u304c\u6b21\u306e\u5909\u8eab\u3078\u8fd1\u3065\u3051\u308b\u3002",
+    step3Title: "\u3084\u308a\u65b9", step3Desc: "\u30b9\u30b1\u30b8\u30e5\u30fc\u30eb\u3092\u8a2d\u5b9a\u3002\u52d5\u304f\u6642\u9593\u3092\u304a\u77e5\u3089\u305b\u3002\u30a8\u30af\u30b5\u30b5\u30a4\u30ba\u3092\u5b8c\u4e86\u3002\u30dd\u30a4\u30f3\u30c8\u7372\u5f97\u3002\u9032\u5316\u3002",
+    dailySetup: "\u26a1 \u30c7\u30a4\u30ea\u30fc\u30bb\u30c3\u30c8\u30a2\u30c3\u30d7", alertInterval: "\u30a2\u30e9\u30fc\u30c8\u9593\u9694", alertIntervalHint: "\u3069\u306e\u304f\u3089\u3044\u306e\u983b\u5ea6\u3067\u30ea\u30de\u30a4\u30f3\u30c9\u3057\u307e\u3059\u304b\uff1f",
+    exerciseDuration: "\u30a8\u30af\u30b5\u30b5\u30a4\u30ba\u6642\u9593", durationHint: "\u9577\u3044 = \u30dd\u30a4\u30f3\u30c8\u500d\u7387\u30a2\u30c3\u30d7",
+    beastModeHours: "\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9\u6642\u9593", hoursHint: "\u6d3b\u52d5\u6642\u9593\u306f\uff1f", start: "\u958b\u59cb", end: "\u7d42\u4e86",
+    activeDays: "\u6d3b\u52d5\u65e5", activeDaysHint: "\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9\u3092\u30aa\u30f3\u306b\u3059\u308b\u66dc\u65e5\u306f\uff1f",
+    alarmMessage: "\u30a2\u30e9\u30fc\u30e0\u30e1\u30c3\u30bb\u30fc\u30b8", alarmHint: "\u30a2\u30e9\u30fc\u30e0\u306e\u30e1\u30c3\u30bb\u30fc\u30b8\u306f\uff1f",
+    exercises: "\u30a8\u30af\u30b5\u30b5\u30a4\u30ba", allRandom: "\u5168\u3066\uff08\u30e9\u30f3\u30c0\u30e0\uff09", customPick: "\u30ab\u30b9\u30bf\u30e0",
+    activateBeast: "\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9\u8d77\u52d5 \ud83d\udd25", language: "\u8a00\u8a9e",
+    random: "\ud83c\udfb2 \u30e9\u30f3\u30c0\u30e0", multiplier: "\u00e5\u20ac\u008d\u7387",
+    min30: "30\u5206", hour1: "1\u6642\u9593", hours2: "2\u6642\u9593",
+    sec30: "30\u79d2", min1: "1\u5206", min2: "2\u5206", min3: "3\u5206",
+    min4: "4\u5206", min5: "5\u5206", min6: "6\u5206", min7: "7\u5206",
+    dayStreak: "\u9023\u7d9a\u65e5\u6570", bonus: "\u30dc\u30fc\u30ca\u30b9", freezes: "\u30d5\u30ea\u30fc\u30ba", daysToNext: "\u6b21\u307e\u3067",
+    today: "\u4eca\u65e5", total: "\u5408\u8a08", completed: "\u5b8c\u4e86", skipped: "\u30b9\u30ad\u30c3\u30d7",
+    forStreakFreeze: "\u30b9\u30c8\u30ea\u30fc\u30af\u30d5\u30ea\u30fc\u30ba\u307e\u3067", streakSecured: "\ud83d\udd25 \u30b9\u30c8\u30ea\u30fc\u30af\u78ba\u4fdd\uff01",
+    nextAlert: "\u6b21\u306e\u30a2\u30e9\u30fc\u30c8", restDay: "\u4f11\u606f\u65e5", noAlarmsToday: "\u4eca\u65e5\u306f\u30a2\u30e9\u30fc\u30e0\u306a\u3057",
+    extraCreditAvail: "\u30a8\u30af\u30b9\u30c8\u30e9\u30af\u30ec\u30b8\u30c3\u30c8\u53ef\u80fd\uff01", extraCredit: "\u30a8\u30af\u30b9\u30c8\u30e9", leaderboard: "\u30e9\u30f3\u30ad\u30f3\u30b0",
+    sessions: "\u30bb\u30c3\u30b7\u30e7\u30f3", every: "\u6bce", recentActivity: "\u6700\u8fd1\u306e\u30a2\u30af\u30c6\u30a3\u30d3\u30c6\u30a3",
+    completeFor: "\u5b8c\u4e86\u3067", startBtn: "\u25b6 \u30b9\u30bf\u30fc\u30c8", skipBtn: "\u30b9\u30ad\u30c3\u30d7",
+    finishEarly: "\u23f9 \u65e9\u671f\u7d42\u4e86", crushedIt: "\u3084\u3063\u305f\u305c\uff01", goodEffort: "\u3044\u3044\u8abf\u5b50\uff01",
+    fullCompletion: "\ud83c\udf89 \u5b8c\u4e86 \u2014 \u00e5\u20ac\u008d\u7387\u30a2\u30f3\u30ed\u30c3\u30af\u00ef\u00bc\u0081", completionBonus: "+25% \u30dc\u30fc\u30ca\u30b9",
+    flatRate: "\u56fa\u5b9a\u30ec\u30fc\u30c8 -- \u500d\u7387\u306a\u3057", tryLonger: "30\u79d2\u4ee5\u4e0a\u3067\u30dd\u30a4\u30f3\u30c8\u7372\u5f97 -- \u6b21\u56de\u9811\u5f35\u308d\u3046\uff01",
+    completingWouldEarn: "\u5b8c\u4e86\u3059\u308c\u3070\u7372\u5f97\u3067\u304d\u305f", collectPoints: "\u30dd\u30a4\u30f3\u30c8\u7372\u5f97", base: "\u30d9\u30fc\u30b9",
+    extraCreditTitle: "\u2b50 \u30a8\u30af\u30b9\u30c8\u30e9\u30af\u30ec\u30b8\u30c3\u30c8", duration: "\u6642\u9593", back: "\u623b\u308b", ptsIfCompleted: "pts\uff08\u5b8c\u4e86\u6642\uff09",
+    leaderboardTitle: "\ud83c\udfc6 \u30e9\u30f3\u30ad\u30f3\u30b0", levelUp: "\u30ec\u30d9\u30eb\u30a2\u30c3\u30d7\uff01", ptsTo: "pts \u6b21\u307e\u3067", continueBtn: "\u7d9a\u3051\u308b",
+    demoNote: "\u26a1 \u30c7\u30e2: 20\u79d2\u3054\u3068\u306b\u30a2\u30e9\u30fc\u30e0", endDay: "\u4e00\u65e5\u7d42\u4e86", missedDay: "\u274c \u6b20\u5e2d\u65e5",
+    exerciseCount: "\u00e7\u00a8\u00ae\u00e7\u203a\u00ae", everyDay: "\u00e6\u00af\u017d\u00e6\u2014\u00a5", weekdays: "\u00e5\u00b9\u00b3\u00e6\u2014\u00a5", daysPerWk: "\u00e6\u2014\u00a5/\u00e9\u20ac\u00b1",
+    login: "\u30ed\u30b0\u30a4\u30f3", register: "\u767b\u9332", password: "\u30d1\u30b9\u30ef\u30fc\u30c9", username: "\u30e6\u30fc\u30b6\u30fc\u540d",
+    noAccount: "\u30a2\u30ab\u30a6\u30f3\u30c8\u304c\u306a\u3044\uff1f", hasAccount: "\u30a2\u30ab\u30a6\u30f3\u30c8\u3092\u304a\u6301\u3061\uff1f", logout: "\u30ed\u30b0\u30a2\u30a6\u30c8",
+    pickExAndDur: "\u30a8\u30af\u30b5\u30b5\u30a4\u30ba\u3068\u6642\u9593\u3092\u9078\u629e",
+    awards: "\u30a2\u30ef\u30fc\u30c9", awardsTitle: "\ud83c\udfc5 \u30a2\u30ef\u30fc\u30c9", awardUnlocked: "\ud83c\udfc5 \u30a2\u30ef\u30fc\u30c9\u89e3\u9664", nice: "\u30ca\u30a4\u30b9\uff01",
+    weekSummary: "\ud83d\udcca \u9031\u9593\u30b5\u30de\u30ea\u30fc", weekReview: "\u4eca\u9031\u306e\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9\u307e\u3068\u3081",
+    sessionsCap: "\u30bb\u30c3\u30b7\u30e7\u30f3", pointsCap: "\u30dd\u30a4\u30f3\u30c8", rateCap: "\u9054\u6210\u7387", topExercise: "\u30c8\u30c3\u30d7\u7a2e\u76ee",
+    pts: "PTS", streak: "\u30b9\u30c8\u30ea\u30fc\u30af", you: "\u3042\u306a\u305f",
+    meditation: "\u745e\u60f3", meditationType: "\u745e\u60f3\u30bf\u30a4\u30d7", beginMeditation: "BEGIN \ud83c\udf38",
+    medDuration: "DURATION", medSession: "Session", medSessionsToday: "\u745e\u60f3", medSessionsTodayPlural: "\u745e\u60f3",
+    medStreakQualified: "\u2713 \u30b9\u30c8\u30ea\u30fc\u30af\u9054\u6210!", medMinPoints: "3\u5206\u4ee5\u4e0a\u3067\u30dd\u30a4\u30f3\u30c8\u7372\u5f97",
+    medPartialSession: "\u90e8\u5206\u30bb\u30c3\u30b7\u30e7\u30f3", medFullSession: "\ud83c\udf89 \u5b8c\u4e86!",
+    medSessionBonus: "\u30dc\u30fc\u30ca\u30b9", namaste: "NAMASTE", wellDone: "WELL DONE!",
+    medNextBonus: "\u6b21\u306e\u30bb\u30c3\u30b7\u30e7\u30f3", breatheIn: "\u5438\u3063\u3066...", breatheHold: "\u6b62\u3081\u3066...", breatheOut: "\u5410\u3044\u3066...",
+    endSession: "\u23f9 \u7d42\u4e86", medToday: "\u4eca\u65e5", medCompleted: "\u5b8c\u4e86",
+    workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f \u745e\u60f3", workoutsOrMed: "\u307e\u305f\u306f1\u56de\u745e\u60f3",
   },
 };
 
 function useT(lang) { return (key) => TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || key; }
 
-// â”€â”€â”€ EXERCISES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     EXERCISES                                   
 const EXERCISES = [
-  { id: "plank", name: "Plank", emoji: "ðŸ§±", basePoints: 15 },
-  { id: "pushups", name: "Push-ups", emoji: "ðŸ’ª", basePoints: 12 },
-  { id: "situps", name: "Sit-ups", emoji: "ðŸ”„", basePoints: 10 },
-  { id: "squats", name: "Squats", emoji: "ðŸ¦µ", basePoints: 11 },
-  { id: "lunges", name: "Lunges", emoji: "ðŸš¶", basePoints: 11 },
-  { id: "burpees", name: "Burpees", emoji: "âš¡", basePoints: 18 },
-  { id: "chair_pose", name: "Chair Pose", emoji: "ðŸª‘", basePoints: 13 },
-  { id: "jumping_jacks", name: "Jumping Jacks", emoji: "â­", basePoints: 9 },
-  { id: "high_knees", name: "High Knees", emoji: "ðŸƒ", basePoints: 14 },
-  { id: "mountain_climbers", name: "Mt. Climbers", emoji: "ðŸ”ï¸", basePoints: 16 },
+  { id: "plank", name: "Plank", emoji: "\ud83e\uddf1", basePoints: 15 },
+  { id: "pushups", name: "Push-ups", emoji: "\ud83d\udcaa", basePoints: 12 },
+  { id: "situps", name: "Sit-ups", emoji: "\ud83d\udd04", basePoints: 10 },
+  { id: "squats", name: "Squats", emoji: "\ud83e\uddb5", basePoints: 11 },
+  { id: "lunges", name: "Lunges", emoji: "\ud83d\udeb6", basePoints: 11 },
+  { id: "burpees", name: "Burpees", emoji: "\u26a1", basePoints: 18 },
+  { id: "chair_pose", name: "Chair Pose", emoji: "\ud83e\ude91", basePoints: 13 },
+  { id: "jumping_jacks", name: "Jumping Jacks", emoji: "\u2b50", basePoints: 9 },
+  { id: "high_knees", name: "High Knees", emoji: "\ud83c\udfc3", basePoints: 14 },
+  { id: "mountain_climbers", name: "Mt. Climbers", emoji: "\ud83c\udfd4\ufe0f", basePoints: 16 },
 ];
 
 const DURATION_MULTIPLIERS = { 0.5: 1, 1: 1.5, 2: 2.3, 3: 3.8, 4: 5.5, 5: 7.5, 6: 9.8, 7: 12.5 };
 const DURATION_OPTIONS = [0.5, 1, 2, 3, 4, 5, 6, 7];
 
-// ─── MEDITATION CONFIG ──────────────────────────
+//     MEDITATION CONFIG                           
 const MEDITATION_DURATIONS = [3, 5, 10, 30, 60];
 const MEDITATION_POINTS = { 3: 39, 5: 78, 10: 180, 30: 600, 60: 1300 };
 const MEDITATION_COMPOUND = 1.3;
@@ -228,12 +228,12 @@ function calcMeditationPoints(durationMin, sessionNumber) {
 }
 
 const MEDITATION_TYPES = [
-  { id: "breath", name: "Breath Focus", emoji: "💨", desc: "Focus on your breathing" },
-  { id: "body_scan", name: "Body Scan", emoji: "✨", desc: "Scan through body sensations" },
-  { id: "loving_kindness", name: "Loving Kindness", emoji: "💜", desc: "Cultivate compassion" },
-  { id: "visualization", name: "Visualization", emoji: "🌄", desc: "Guided imagery journey" },
-  { id: "mindfulness", name: "Mindfulness", emoji: "🌸", desc: "Present moment awareness" },
-  { id: "mantra", name: "Mantra", emoji: "🔔", desc: "Repeat a calming phrase" },
+  { id: "breath", name: "Breath Focus", emoji: "\ud83d\udca8", desc: "Focus on your breathing" },
+  { id: "body_scan", name: "Body Scan", emoji: "\u2728", desc: "Scan through body sensations" },
+  { id: "loving_kindness", name: "Loving Kindness", emoji: "\ud83d\udc9c", desc: "Cultivate compassion" },
+  { id: "visualization", name: "Visualization", emoji: "\ud83c\udf04", desc: "Guided imagery journey" },
+  { id: "mindfulness", name: "Mindfulness", emoji: "\ud83c\udf38", desc: "Present moment awareness" },
+  { id: "mantra", name: "Mantra", emoji: "\ud83d\udd14", desc: "Repeat a calming phrase" },
 ];
 
 function calcPoints(basePoints, durationMinutes) {
@@ -243,38 +243,38 @@ function calcPoints(basePoints, durationMinutes) {
 function fmtDuration(d) { return d < 1 ? `${Math.round(d * 60)}s` : `${d}m`; }
 function resolveDuration(d) { return d === "random" ? DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)] : d; }
 
-// â”€â”€â”€ AWARDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     AWARDS                                       
 const AWARDS = [
-  { id: "first_workout", emoji: "ðŸŽ¯", name: "First Blood", desc: "Complete your first workout" },
-  { id: "sessions_10", emoji: "ðŸ”Ÿ", name: "Getting Started", desc: "Complete 10 sessions" },
-  { id: "sessions_50", emoji: "5ï¸âƒ£0ï¸âƒ£", name: "Halfway Hero", desc: "Complete 50 sessions" },
-  { id: "sessions_100", emoji: "ðŸ’¯", name: "Centurion", desc: "Complete 100 sessions" },
-  { id: "sessions_500", emoji: "ðŸ›ï¸", name: "Legend", desc: "Complete 500 sessions" },
-  { id: "streak_3", emoji: "ðŸ”¥", name: "On Fire", desc: "3-day streak" },
-  { id: "streak_7", emoji: "ðŸ“…", name: "Full Week", desc: "7-day streak" },
-  { id: "streak_14", emoji: "ðŸŒ™", name: "Fortnight", desc: "14-day streak" },
-  { id: "streak_30", emoji: "ðŸ“†", name: "Monthly", desc: "30-day streak" },
-  { id: "streak_100", emoji: "â­", name: "Unstoppable", desc: "100-day streak" },
-  { id: "pts_100", emoji: "ðŸ¥‰", name: "Bronze", desc: "Earn 100 points" },
-  { id: "pts_1000", emoji: "ðŸ¥ˆ", name: "Silver", desc: "Earn 1,000 points" },
-  { id: "pts_5000", emoji: "ðŸ¥‡", name: "Gold", desc: "Earn 5,000 points" },
-  { id: "pts_10000", emoji: "ðŸ’Ž", name: "Diamond", desc: "Earn 10,000 points" },
-  { id: "try_all", emoji: "ðŸŽ¨", name: "Well Rounded", desc: "Try all 10 exercises" },
-  { id: "dur_5", emoji: "â±ï¸", name: "Endurance", desc: "Complete 5min workout" },
-  { id: "dur_7", emoji: "ðŸ¦¾", name: "Iron Will", desc: "Complete 7min workout" },
-  { id: "freeze_earn", emoji: "ðŸ§Š", name: "Ice Bank", desc: "Earn a streak freeze" },
-  { id: "extra_1", emoji: "â­", name: "Extra Mile", desc: "Do 1 extra credit session" },
-  { id: "extra_10", emoji: "ðŸŒŸ", name: "Overachiever", desc: "Do 10 extra sessions" },
-  { id: "perfect_day", emoji: "ðŸ‘‘", name: "Perfect Day", desc: "5+ sessions in one day" },
-  { id: "first_meditation", emoji: "☮️", name: "Inner Peace", desc: "Complete your first meditation" },
-  { id: "med_sessions_10", emoji: "🌸", name: "Zen Beginner", desc: "Complete 10 meditations" },
-  { id: "med_sessions_50", emoji: "☯️", name: "Enlightened", desc: "Complete 50 meditations" },
-  { id: "med_60", emoji: "⏳", name: "Deep Dive", desc: "Complete a 60min meditation" },
-  { id: "med_3_in_day", emoji: "🌟", name: "Triple Zen", desc: "3 meditations in one day" },
-  { id: "try_all_med", emoji: "🎭", name: "Mindful Explorer", desc: "Try all 6 meditation types" },
+  { id: "first_workout", emoji: "\ud83c\udfaf", name: "First Blood", desc: "Complete your first workout" },
+  { id: "sessions_10", emoji: "\ud83d\udd1f", name: "Getting Started", desc: "Complete 10 sessions" },
+  { id: "sessions_50", emoji: "5\ufe0f\u20e30\ufe0f\u20e3", name: "Halfway Hero", desc: "Complete 50 sessions" },
+  { id: "sessions_100", emoji: "\ud83d\udcaf", name: "Centurion", desc: "Complete 100 sessions" },
+  { id: "sessions_500", emoji: "\ud83c\udfdb\ufe0f", name: "Legend", desc: "Complete 500 sessions" },
+  { id: "streak_3", emoji: "\ud83d\udd25", name: "On Fire", desc: "3-day streak" },
+  { id: "streak_7", emoji: "\ud83d\udcc5", name: "Full Week", desc: "7-day streak" },
+  { id: "streak_14", emoji: "\ud83c\udf19", name: "Fortnight", desc: "14-day streak" },
+  { id: "streak_30", emoji: "\ud83d\udcc6", name: "Monthly", desc: "30-day streak" },
+  { id: "streak_100", emoji: "\u2b50", name: "Unstoppable", desc: "100-day streak" },
+  { id: "pts_100", emoji: "\ud83e\udd49", name: "Bronze", desc: "Earn 100 points" },
+  { id: "pts_1000", emoji: "\ud83e\udd48", name: "Silver", desc: "Earn 1,000 points" },
+  { id: "pts_5000", emoji: "\ud83e\udd47", name: "Gold", desc: "Earn 5,000 points" },
+  { id: "pts_10000", emoji: "\ud83d\udc8e", name: "Diamond", desc: "Earn 10,000 points" },
+  { id: "try_all", emoji: "\ud83c\udfa8", name: "Well Rounded", desc: "Try all 10 exercises" },
+  { id: "dur_5", emoji: "\u23f1\ufe0f", name: "Endurance", desc: "Complete 5min workout" },
+  { id: "dur_7", emoji: "\ud83e\uddbe", name: "Iron Will", desc: "Complete 7min workout" },
+  { id: "freeze_earn", emoji: "\ud83e\uddca", name: "Ice Bank", desc: "Earn a streak freeze" },
+  { id: "extra_1", emoji: "\u2b50", name: "Extra Mile", desc: "Do 1 extra credit session" },
+  { id: "extra_10", emoji: "\ud83c\udf1f", name: "Overachiever", desc: "Do 10 extra sessions" },
+  { id: "perfect_day", emoji: "\ud83d\udc51", name: "Perfect Day", desc: "5+ sessions in one day" },
+  { id: "first_meditation", emoji: "\u262e\ufe0f", name: "Inner Peace", desc: "Complete your first meditation" },
+  { id: "med_sessions_10", emoji: "\ud83c\udf38", name: "Zen Beginner", desc: "Complete 10 meditations" },
+  { id: "med_sessions_50", emoji: "\u262f\ufe0f", name: "Enlightened", desc: "Complete 50 meditations" },
+  { id: "med_60", emoji: "\u23f3", name: "Deep Dive", desc: "Complete a 60min meditation" },
+  { id: "med_3_in_day", emoji: "\ud83c\udf1f", name: "Triple Zen", desc: "3 meditations in one day" },
+  { id: "try_all_med", emoji: "\ud83c\udfad", name: "Mindful Explorer", desc: "Try all 6 meditation types" },
 ];
 
-// â”€â”€â”€ DAYS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     DAYS                                         
 const DAYS_OF_WEEK = [
   { key: "mon", label: "M" }, { key: "tue", label: "T" }, { key: "wed", label: "W" },
   { key: "thu", label: "T" }, { key: "fri", label: "F" }, { key: "sat", label: "S" }, { key: "sun", label: "S" },
@@ -285,33 +285,33 @@ function getTodayKey() {
   return ["sun","mon","tue","wed","thu","fri","sat"][d];
 }
 
-// â”€â”€â”€ EVOLUTION TIERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     EVOLUTION TIERS                              
 const EVOLUTION_TIERS = [
-  { name: "Amoeba", emoji: "ðŸ¦ ", threshold: 0 }, { name: "Plankton", emoji: "ðŸ«§", threshold: 50 },
-  { name: "Jellyfish", emoji: "ðŸª¼", threshold: 120 }, { name: "Shrimp", emoji: "ðŸ¦", threshold: 200 },
-  { name: "Snail", emoji: "ðŸŒ", threshold: 300 }, { name: "Crab", emoji: "ðŸ¦€", threshold: 420 },
-  { name: "Fish", emoji: "ðŸŸ", threshold: 560 }, { name: "Frog", emoji: "ðŸ¸", threshold: 720 },
-  { name: "Turtle", emoji: "ðŸ¢", threshold: 900 }, { name: "Snake", emoji: "ðŸ", threshold: 1100 },
-  { name: "Lizard", emoji: "ðŸ¦Ž", threshold: 1350 }, { name: "Rabbit", emoji: "ðŸ°", threshold: 1650 },
-  { name: "Fox", emoji: "ðŸ¦Š", threshold: 2000 }, { name: "Dog", emoji: "ðŸ•", threshold: 2400 },
-  { name: "Cat", emoji: "ðŸˆ", threshold: 2850 }, { name: "Raccoon", emoji: "ðŸ¦", threshold: 3350 },
-  { name: "Deer", emoji: "ðŸ¦Œ", threshold: 3900 }, { name: "Wolf", emoji: "ðŸº", threshold: 4500 },
-  { name: "Horse", emoji: "ðŸ´", threshold: 5200 }, { name: "Dolphin", emoji: "ðŸ¬", threshold: 6000 },
-  { name: "Shark", emoji: "ðŸ¦ˆ", threshold: 6900 }, { name: "Octopus", emoji: "ðŸ™", threshold: 7900 },
-  { name: "Eagle", emoji: "ðŸ¦…", threshold: 9000 }, { name: "Owl", emoji: "ðŸ¦‰", threshold: 10200 },
-  { name: "Gorilla", emoji: "ðŸ¦", threshold: 11500 }, { name: "Panther", emoji: "ðŸ†", threshold: 13000 },
-  { name: "Bear", emoji: "ðŸ»", threshold: 14700 }, { name: "Lion", emoji: "ðŸ¦", threshold: 16600 },
-  { name: "Tiger", emoji: "ðŸ¯", threshold: 18700 }, { name: "Elephant", emoji: "ðŸ˜", threshold: 21000 },
-  { name: "Rhino", emoji: "ðŸ¦", threshold: 23500 }, { name: "Hippo", emoji: "ðŸ¦›", threshold: 26200 },
-  { name: "Whale", emoji: "ðŸ‹", threshold: 29200 }, { name: "T-Rex", emoji: "ðŸ¦–", threshold: 32500 },
-  { name: "Mammoth", emoji: "ðŸ¦£", threshold: 36000 }, { name: "Saber-tooth", emoji: "ðŸ…", threshold: 40000 },
-  { name: "Phoenix", emoji: "ðŸ”¥", threshold: 44500 }, { name: "Unicorn", emoji: "ðŸ¦„", threshold: 49500 },
-  { name: "Griffin", emoji: "ðŸ¦…", threshold: 55000 }, { name: "Kraken", emoji: "ðŸ¦‘", threshold: 61000 },
-  { name: "Hydra", emoji: "ðŸ‰", threshold: 68000 }, { name: "Cerberus", emoji: "ðŸ•â€ðŸ¦º", threshold: 76000 },
-  { name: "Thunderbird", emoji: "âš¡", threshold: 85000 }, { name: "Leviathan", emoji: "ðŸŒŠ", threshold: 95000 },
-  { name: "Titan", emoji: "ðŸ—¿", threshold: 106000 }, { name: "Behemoth", emoji: "ðŸ’€", threshold: 118000 },
-  { name: "Colossus", emoji: "ðŸ›ï¸", threshold: 132000 }, { name: "Wyvern", emoji: "ðŸª½", threshold: 148000 },
-  { name: "Bahamut", emoji: "ðŸ‘‘", threshold: 166000 }, { name: "Dragon", emoji: "ðŸ²", threshold: 200000 },
+  { name: "Amoeba", emoji: "\ud83e\udda0", threshold: 0 }, { name: "Plankton", emoji: "\ud83e\udee7", threshold: 50 },
+  { name: "Jellyfish", emoji: "\ud83e\udebc", threshold: 120 }, { name: "Shrimp", emoji: "\ud83e\udd90", threshold: 200 },
+  { name: "Snail", emoji: "\ud83d\udc0c", threshold: 300 }, { name: "Crab", emoji: "\ud83e\udd80", threshold: 420 },
+  { name: "Fish", emoji: "\ud83d\udc1f", threshold: 560 }, { name: "Frog", emoji: "\ud83d\udc38", threshold: 720 },
+  { name: "Turtle", emoji: "\ud83d\udc22", threshold: 900 }, { name: "Snake", emoji: "\ud83d\udc0d", threshold: 1100 },
+  { name: "Lizard", emoji: "\ud83e\udd8e", threshold: 1350 }, { name: "Rabbit", emoji: "\ud83d\udc30", threshold: 1650 },
+  { name: "Fox", emoji: "\ud83e\udd8a", threshold: 2000 }, { name: "Dog", emoji: "\ud83d\udc15", threshold: 2400 },
+  { name: "Cat", emoji: "\ud83d\udc08", threshold: 2850 }, { name: "Raccoon", emoji: "\ud83e\udd9d", threshold: 3350 },
+  { name: "Deer", emoji: "\ud83e\udd8c", threshold: 3900 }, { name: "Wolf", emoji: "\ud83d\udc3a", threshold: 4500 },
+  { name: "Horse", emoji: "\ud83d\udc34", threshold: 5200 }, { name: "Dolphin", emoji: "\ud83d\udc2c", threshold: 6000 },
+  { name: "Shark", emoji: "\ud83e\udd88", threshold: 6900 }, { name: "Octopus", emoji: "\ud83d\udc19", threshold: 7900 },
+  { name: "Eagle", emoji: "\ud83e\udd85", threshold: 9000 }, { name: "Owl", emoji: "\ud83e\udd89", threshold: 10200 },
+  { name: "Gorilla", emoji: "\ud83e\udd8d", threshold: 11500 }, { name: "Panther", emoji: "\ud83d\udc06", threshold: 13000 },
+  { name: "Bear", emoji: "\ud83d\udc3b", threshold: 14700 }, { name: "Lion", emoji: "\ud83e\udd81", threshold: 16600 },
+  { name: "Tiger", emoji: "\ud83d\udc2f", threshold: 18700 }, { name: "Elephant", emoji: "\ud83d\udc18", threshold: 21000 },
+  { name: "Rhino", emoji: "\ud83e\udd8f", threshold: 23500 }, { name: "Hippo", emoji: "\ud83e\udd9b", threshold: 26200 },
+  { name: "Whale", emoji: "\ud83d\udc0b", threshold: 29200 }, { name: "T-Rex", emoji: "\ud83e\udd96", threshold: 32500 },
+  { name: "Mammoth", emoji: "\ud83e\udda3", threshold: 36000 }, { name: "Saber-tooth", emoji: "\ud83d\udc05", threshold: 40000 },
+  { name: "Phoenix", emoji: "\ud83d\udd25", threshold: 44500 }, { name: "Unicorn", emoji: "\ud83e\udd84", threshold: 49500 },
+  { name: "Griffin", emoji: "\ud83e\udd85", threshold: 55000 }, { name: "Kraken", emoji: "\ud83e\udd91", threshold: 61000 },
+  { name: "Hydra", emoji: "\ud83d\udc09", threshold: 68000 }, { name: "Cerberus", emoji: "\ud83d\udc15\u200d\ud83e\uddba", threshold: 76000 },
+  { name: "Thunderbird", emoji: "\u26a1", threshold: 85000 }, { name: "Leviathan", emoji: "\ud83c\udf0a", threshold: 95000 },
+  { name: "Titan", emoji: "\ud83d\uddff", threshold: 106000 }, { name: "Behemoth", emoji: "\ud83d\udc80", threshold: 118000 },
+  { name: "Colossus", emoji: "\ud83c\udfdb\ufe0f", threshold: 132000 }, { name: "Wyvern", emoji: "\ud83e\udebd", threshold: 148000 },
+  { name: "Bahamut", emoji: "\ud83d\udc51", threshold: 166000 }, { name: "Dragon", emoji: "\ud83d\udc32", threshold: 200000 },
 ];
 
 function getEvolution(points) {
@@ -330,7 +330,7 @@ function getEvolutionProgress(points) {
   return (points - current.threshold) / (next.threshold - current.threshold);
 }
 
-// â”€â”€â”€ SOUND PLAYER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     SOUND PLAYER                                 
 function playSound(type) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -344,7 +344,7 @@ function playSound(type) {
   } catch(e) {}
 }
 
-// â”€â”€â”€ AUTH SCREEN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     AUTH SCREEN                                  
 function AuthScreen({ onAuth, lang, setLang }) {
   const t = useT(lang);
   const [mode, setMode] = useState("login");
@@ -370,7 +370,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "linear-gradient(180deg, #0a0a0f 0%, #1a0a00 100%)" }}>
       <div style={{ maxWidth: 380, width: "100%", animation: "fadeIn 0.6s ease" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 60, marginBottom: 12 }}>ðŸ¦ </div>
+          <div style={{ fontSize: 60, marginBottom: 12 }}> </div>
           <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, background: "linear-gradient(135deg, #FF4D00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 }}>BEAST MODE</h1>
           <p style={{ color: "#666", fontSize: 14 }}>{t("welcomeSub")}</p>
         </div>
@@ -397,10 +397,10 @@ function AuthScreen({ onAuth, lang, setLang }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
-          {["en","es","ja"].map(l => (
-            <button key={l} onClick={() => setLang(l)}
-              style={{ padding: "6px 14px", background: lang === l ? "rgba(255,77,0,0.2)" : "rgba(255,255,255,0.04)", border: lang === l ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, color: lang === l ? "#FF8C00" : "#555", fontSize: 12, fontWeight: 600 }}>
-              {l.toUpperCase()}
+          {[{code:"en",label:"EN"},{code:"es",label:"ES"},{code:"ja",label:"JP"}].map(l => (
+            <button key={l.code} onClick={() => setLang(l.code)}
+              style={{ padding: "6px 14px", background: lang === l.code ? "rgba(255,77,0,0.2)" : "rgba(255,255,255,0.04)", border: lang === l.code ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, color: lang === l.code ? "#FF8C00" : "#555", fontSize: 12, fontWeight: 600 }}>
+              {l.label}
             </button>
           ))}
         </div>
@@ -409,7 +409,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
   );
 }
 
-// â”€â”€â”€ EVOLUTION BADGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     EVOLUTION BADGE                              
 function EvolutionBadge({ points, size = 48, glow = false }) {
   const evo = getEvolution(points);
   return (
@@ -419,7 +419,7 @@ function EvolutionBadge({ points, size = 48, glow = false }) {
   );
 }
 
-// â”€â”€â”€ EVOLUTION BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     EVOLUTION BAR                                
 function EvolutionBar({ points }) {
   const current = getEvolution(points);
   const next = getNextEvolution(points);
@@ -442,7 +442,7 @@ function EvolutionBar({ points }) {
   );
 }
 
-// â”€â”€â”€ SETUP SCREEN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     SETUP SCREEN                                 
 function DailySetupScreen({ onComplete, settings, lang, setLang }) {
   const t = useT(lang);
   const [interval, setInterval_] = useState(settings?.intervalMinutes || 60);
@@ -451,6 +451,8 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
   const [selectedExercises, setSelectedExercises] = useState(settings?.selectedExercises || EXERCISES.map(e => e.id));
   const [activeDays, setActiveDays] = useState(settings?.activeDays || ALL_DAYS);
   const [alarmMessage, setAlarmMessage] = useState("Let's Be Our Best!");
+  const [startHour, setStartHour] = useState(settings?.startHour || 8);
+  const [endHour, setEndHour] = useState(settings?.endHour || 17);
 
   const toggleDay = (key) => {
     setActiveDays(prev => prev.includes(key) ? prev.filter(d => d !== key) : [...prev, key]);
@@ -460,7 +462,7 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
   };
 
   const handleActivate = async () => {
-    const s = { duration, intervalMinutes: interval, selectedExercises: exerciseMode === "all" ? EXERCISES.map(e => e.id) : selectedExercises, activeDays, alarmMessage };
+    const s = { duration, intervalMinutes: interval, selectedExercises: exerciseMode === "all" ? EXERCISES.map(e => e.id) : selectedExercises, activeDays, alarmMessage, startHour, endHour };
     try { await api("/api/user/settings", { method: "PUT", body: JSON.stringify(s) }); } catch(e) { console.error("Failed to save settings:", e); }
     onComplete(s);
   };
@@ -485,13 +487,34 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
       <div style={sectionStyle}>
         <div style={labelStyle}>{t("exerciseDuration")}</div>
         <div style={hintStyle}>{t("durationHint")}</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => setDuration("random")} style={optBtn(duration === "random")}>{t("random")}</button>
+        <select value={duration} onChange={e => setDuration(e.target.value === "random" ? "random" : Number(e.target.value))}
+          style={{ width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 600, appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FF8C00' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center" }}>
+          <option value="random">{"\ud83c\udfb2"} Random -- surprise me!</option>
           {DURATION_OPTIONS.map(d => (
-            <button key={d} onClick={() => setDuration(d)} style={optBtn(duration === d)}>
-              {fmtDuration(d)} <span style={{ fontSize: 10, opacity: 0.6 }}>Ã—{DURATION_MULTIPLIERS[d]}</span>
-            </button>
+            <option key={d} value={d}>{fmtDuration(d)} -- {"\u00d7"}{DURATION_MULTIPLIERS[d]} {t("multiplier")}</option>
           ))}
+        </select>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("beastModeHours")}</div>
+        <div style={hintStyle}>{t("hoursHint")}</div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: "#888", marginBottom: 6, letterSpacing: 1 }}>{t("start")}</div>
+            <select value={startHour} onChange={e => setStartHour(Number(e.target.value))}
+              style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 600, appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FF8C00' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+              {Array.from({length: 24}, (_, i) => <option key={i} value={i}>{i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i-12}:00 PM`}</option>)}
+            </select>
+          </div>
+          <div style={{ color: "#555", fontSize: 18, marginTop: 18 }}>{"\u2192"}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: "#888", marginBottom: 6, letterSpacing: 1 }}>{t("end")}</div>
+            <select value={endHour} onChange={e => setEndHour(Number(e.target.value))}
+              style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 600, appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FF8C00' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+              {Array.from({length: 24}, (_, i) => <option key={i} value={i}>{i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i-12}:00 PM`}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -551,7 +574,7 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
   );
 }
 
-// â”€â”€â”€ ALARM POPUP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     ALARM POPUP                                  
 function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
@@ -559,17 +582,17 @@ function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
       <div style={{ background: "linear-gradient(145deg, #1a0a00, #2d1400)", borderRadius: 24, padding: "32px 24px", maxWidth: 380, width: "100%", textAlign: "center", border: "2px solid rgba(255,77,0,0.4)", animation: "glow 2s infinite", opacity: visible ? 1 : 0, transform: visible ? "scale(1)" : "scale(0.9)", transition: "all 0.3s ease" }}>
-        <div style={{ fontSize: 14, color: "#888", marginBottom: 8, letterSpacing: 2 }}>â° BEAST MODE</div>
+        <div style={{ fontSize: 14, color: "#888", marginBottom: 8, letterSpacing: 2 }}>  BEAST MODE</div>
         <div style={{ fontSize: 18, fontWeight: 800, color: "#FFD700", marginBottom: 16 }}>{message || "Time to move!"}</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 8 }}>
           <span style={{ fontSize: 36 }}>{exercise.emoji}</span>
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{exercise.name}</div>
-            <div style={{ fontSize: 13, color: "#FF8C00" }}>{calcPoints(exercise.basePoints, duration)} pts â€¢ {fmtDuration(duration)}</div>
+            <div style={{ fontSize: 13, color: "#FF8C00" }}>{calcPoints(exercise.basePoints, duration)} pts   {fmtDuration(duration)}</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-          <button onClick={onStart} style={{ flex: 2, padding: "14px 20px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, letterSpacing: 1 }}>â–¶ START</button>
+          <button onClick={onStart} style={{ flex: 2, padding: "14px 20px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, letterSpacing: 1 }}>  START</button>
           <button onClick={onSkip} style={{ flex: 1, padding: "14px 16px", background: "rgba(255,255,255,0.08)", color: "#888", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, fontWeight: 600 }}>SKIP</button>
         </div>
       </div>
@@ -577,7 +600,7 @@ function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
   );
 }
 
-// â”€â”€â”€ WORKOUT TIMER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     WORKOUT TIMER                                
 function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
   const t = useT(lang || "en");
   const totalSeconds = Math.round(durationMinutes * 60);
@@ -635,11 +658,11 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
     return (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
         <div style={{ background: "linear-gradient(145deg, #0d0d1a, #1a1a2e)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,77,0,0.15)" }}>
-          <div style={{ fontSize: 60, marginBottom: 12 }}>{completed ? "ðŸ†" : "ðŸ’ª"}</div>
+          <div style={{ fontSize: 60, marginBottom: 12 }}>{completed ? "\ud83c\udfc6" : "\ud83d\udcaa"}</div>
           <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 2, color: "#FFD700", marginBottom: 16 }}>{completed ? t("crushedIt") : t("goodEffort")}</div>
           {earnedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #FF4D00, #FFD700)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#000", marginBottom: 12 }}>+{earnedPoints} pts</div>}
           {completed && <div style={{ fontSize: 13, color: "#00E676", marginBottom: 8 }}>{t("fullCompletion")}</div>}
-          {stoppedEarly && earnedPoints > 0 && <div style={{ fontSize: 13, color: "#FF8C00", marginBottom: 8 }}>{Math.round(timeFraction * 100)}% completed â€” flat rate</div>}
+          {stoppedEarly && earnedPoints > 0 && <div style={{ fontSize: 13, color: "#FF8C00", marginBottom: 8 }}>{Math.round(timeFraction * 100)}% completed   flat rate</div>}
           {stoppedEarly && earnedPoints === 0 && <div style={{ fontSize: 13, color: "#FF6B6B", marginBottom: 8 }}>{t("tryLonger")}</div>}
           <button onClick={handleCollect} style={{ width: "100%", maxWidth: 260, padding: "14px 28px", background: "linear-gradient(135deg, #FF4D00, #FF8C00)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 800, letterSpacing: 1, marginTop: 12 }}>{t("collectPoints")}</button>
         </div>
@@ -659,7 +682,7 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
           <div>
             <div style={{ fontSize: 48, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace", marginBottom: 24 }}>{fmtDuration(durationMinutes)}</div>
             <button onClick={() => setStarted(true)}
-              style={{ padding: "16px 40px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 14, fontSize: 18, fontWeight: 800, letterSpacing: 2 }}>â–¶ GO!</button>
+              style={{ padding: "16px 40px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 14, fontSize: 18, fontWeight: 800, letterSpacing: 2 }}>  GO!</button>
           </div>
         ) : (
           <div>
@@ -682,7 +705,7 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
   );
 }
 
-// â”€â”€â”€ EXTRA CREDIT MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     EXTRA CREDIT MODAL                           
 function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang }) {
   const t = useT(lang || "en");
   const [selectedEx, setSelectedEx] = useState(null);
@@ -717,7 +740,7 @@ function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang }) {
             {DURATION_OPTIONS.map(d => (
               <button key={d} onClick={() => setSelectedDur(d)}
                 style={{ padding: "8px 14px", background: selectedDur === d ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.04)", border: selectedDur === d ? "1px solid rgba(255,215,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, color: selectedDur === d ? "#FFD700" : "#888", fontSize: 13, fontWeight: 600 }}>
-                {fmtDuration(d)} <span style={{ fontSize: 10, opacity: 0.5 }}>Ã—{DURATION_MULTIPLIERS[d]}</span>
+                {fmtDuration(d)} <span style={{ fontSize: 10, opacity: 0.5 }}> {DURATION_MULTIPLIERS[d]}</span>
               </button>
             ))}
           </div>
@@ -728,14 +751,14 @@ function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang }) {
         <div style={{ display: "flex", gap: 12 }}>
           <button onClick={onClose} style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#888", fontSize: 14, fontWeight: 600 }}>{t("back")}</button>
           <button onClick={() => selectedEx && setRunning(true)} disabled={!selectedEx}
-            style={{ flex: 2, padding: "14px", background: selectedEx ? "linear-gradient(135deg, #FFD700, #FF8C00)" : "#333", border: "none", borderRadius: 12, color: selectedEx ? "#000" : "#666", fontSize: 14, fontWeight: 800, letterSpacing: 1 }}>â–¶ START</button>
+            style={{ flex: 2, padding: "14px", background: selectedEx ? "linear-gradient(135deg, #FFD700, #FF8C00)" : "#333", border: "none", borderRadius: 12, color: selectedEx ? "#000" : "#666", fontSize: 14, fontWeight: 800, letterSpacing: 1 }}>  START</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── MEDITATION TIMER ───────────────────────────
+//     MEDITATION TIMER                            
 function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, lang }) {
   const t = useT(lang || "en");
   const totalSeconds = durationMinutes * 60;
@@ -804,7 +827,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
           <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 2, color: "#C4B5FD", marginBottom: 16 }}>{completed ? t("namaste") : t("wellDone")}</div>
           {earnedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#fff", marginBottom: 12 }}>+{earnedPoints} pts</div>}
           {completed && <div style={{ fontSize: 13, color: "#A78BFA", marginBottom: 8 }}>{t("medFullSession")}</div>}
-          {sessionNumber > 1 && completed && <div style={{ fontSize: 12, color: "#8B5CF6", marginBottom: 8 }}>{t("medSession")} #{sessionNumber} — ×{Math.pow(MEDITATION_COMPOUND, sessionNumber - 1).toFixed(2)} {t("medSessionBonus")}!</div>}
+          {sessionNumber > 1 && completed && <div style={{ fontSize: 12, color: "#8B5CF6", marginBottom: 8 }}>{t("medSession")} #{sessionNumber}    {Math.pow(MEDITATION_COMPOUND, sessionNumber - 1).toFixed(2)} {t("medSessionBonus")}!</div>}
           {stoppedEarly && earnedPoints > 0 && <div style={{ fontSize: 13, color: "#A78BFA", marginBottom: 8 }}>{t("medPartialSession")}</div>}
           {stoppedEarly && earnedPoints === 0 && <div style={{ fontSize: 13, color: "#FF6B6B", marginBottom: 8 }}>{t("medMinPoints")}</div>}
           <button onClick={() => onComplete(earnedPoints, !stoppedEarly)} style={{ width: "100%", maxWidth: 260, padding: "14px 28px", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 800, letterSpacing: 1, marginTop: 12 }}>{t("collectPoints")}</button>
@@ -828,7 +851,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
         {!started ? (
           <div>
             <div style={{ fontSize: 48, fontWeight: 900, color: "#A78BFA", fontFamily: "'Courier New', monospace", marginBottom: 8 }}>{durationMinutes}:00</div>
-            <div style={{ fontSize: 13, color: "#6D5BA3", marginBottom: 24 }}>{calcMeditationPoints(durationMinutes, sessionNumber)} pts — {t("medSession")} #{sessionNumber}</div>
+            <div style={{ fontSize: 13, color: "#6D5BA3", marginBottom: 24 }}>{calcMeditationPoints(durationMinutes, sessionNumber)} pts   {t("medSession")} #{sessionNumber}</div>
             <button onClick={() => { setStarted(true); playSound("bell"); }} style={{ padding: "16px 40px", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", color: "#fff", border: "none", borderRadius: 14, fontSize: 18, fontWeight: 800, letterSpacing: 2 }}>{t("beginMeditation")}</button>
           </div>
         ) : (
@@ -851,7 +874,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
   );
 }
 
-// ─── MEDITATION PANEL ───────────────────────────
+//     MEDITATION PANEL                            
 function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lang }) {
   const t = useT(lang || "en");
   const [selectedType, setSelectedType] = useState(null);
@@ -870,7 +893,7 @@ function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lan
         </div>
         {nextSession > 1 && (
           <div style={{ display: "inline-block", padding: "4px 12px", background: "rgba(138,92,246,0.15)", borderRadius: 20, fontSize: 12, color: "#A78BFA", marginBottom: 8 }}>
-            {t("medNextBonus")}: ×{Math.pow(MEDITATION_COMPOUND, nextSession - 1).toFixed(2)} {t("medSessionBonus")}
+            {t("medNextBonus")}:  {Math.pow(MEDITATION_COMPOUND, nextSession - 1).toFixed(2)} {t("medSessionBonus")}
           </div>
         )}
       </div>
@@ -895,7 +918,7 @@ function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lan
           style={{ width: "100%", padding: "14px 16px", background: "rgba(138,92,246,0.1)", color: "#C4B5FD", border: "1px solid rgba(138,92,246,0.3)", borderRadius: 12, fontSize: 16, fontWeight: 700, appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23A78BFA' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center" }}>
           {MEDITATION_DURATIONS.map(d => (
             <option key={d} value={d} style={{ background: "#1a1a2e", color: "#C4B5FD" }}>
-              {d} {t("min1").replace("1 ", "")} — {calcMeditationPoints(d, nextSession)} pts
+              {d} {t("min1").replace("1 ", "")}   {calcMeditationPoints(d, nextSession)} pts
             </option>
           ))}
         </select>
@@ -903,9 +926,9 @@ function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lan
 
       {selectedType && (
         <div style={{ textAlign: "center", padding: "16px", background: "rgba(138,92,246,0.06)", borderRadius: 16, marginBottom: 16, border: "1px solid rgba(138,92,246,0.1)" }}>
-          <div style={{ fontSize: 13, color: "#6D5BA3", marginBottom: 4 }}>{selectedType.emoji} {selectedType.name} — {selectedDur}min</div>
+          <div style={{ fontSize: 13, color: "#6D5BA3", marginBottom: 4 }}>{selectedType.emoji} {selectedType.name}   {selectedDur}min</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: "#A78BFA" }}>{pts} pts</div>
-          {nextSession > 1 && <div style={{ fontSize: 11, color: "#6D5BA3" }}>×{Math.pow(MEDITATION_COMPOUND, nextSession - 1).toFixed(2)} {t("medSessionBonus")}</div>}
+          {nextSession > 1 && <div style={{ fontSize: 11, color: "#6D5BA3" }}> {Math.pow(MEDITATION_COMPOUND, nextSession - 1).toFixed(2)} {t("medSessionBonus")}</div>}
         </div>
       )}
 
@@ -918,7 +941,7 @@ function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lan
 }
 
 
-// â”€â”€â”€ EVOLUTION POPUP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     EVOLUTION POPUP                              
 function EvolutionPopup({ oldTier, newTier, onClose }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { setTimeout(() => setVisible(true), 100); playSound("levelup"); }, []);
@@ -926,10 +949,10 @@ function EvolutionPopup({ oldTier, newTier, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
       <div style={{ background: "linear-gradient(145deg, #1a1a2e, #0d0d1a)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,215,0,0.3)", opacity: visible ? 1 : 0, transform: visible ? "scale(1)" : "scale(0.8)", transition: "all 0.5s ease" }}>
-        <div style={{ fontSize: 14, letterSpacing: 3, color: "#FFD700", marginBottom: 8 }}>âš¡ LEVEL UP! âš¡</div>
+        <div style={{ fontSize: 14, letterSpacing: 3, color: "#FFD700", marginBottom: 8 }}>  LEVEL UP!  </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, margin: "16px 0 20px" }}>
           <div style={{ textAlign: "center" }}><div style={{ fontSize: 40 }}>{oldTier.emoji}</div><div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>{oldTier.name}</div></div>
-          <span style={{ fontSize: 24, color: "#FFD700" }}>â†’</span>
+          <span style={{ fontSize: 24, color: "#FFD700" }}> </span>
           <div style={{ textAlign: "center" }}><div style={{ fontSize: 52 }}>{newTier.emoji}</div><div style={{ fontSize: 13, fontWeight: 700, color: "#FFD700", marginTop: 4 }}>{newTier.name}</div></div>
         </div>
         <button onClick={onClose} style={{ padding: "14px 40px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>CONTINUE</button>
@@ -938,7 +961,7 @@ function EvolutionPopup({ oldTier, newTier, onClose }) {
   );
 }
 
-// â”€â”€â”€ AWARD POPUP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     AWARD POPUP                                  
 function AwardPopup({ award, onClose, lang }) {
   const t = useT(lang || "en");
   return (
@@ -954,13 +977,13 @@ function AwardPopup({ award, onClose, lang }) {
   );
 }
 
-// â”€â”€â”€ AWARDS SCREEN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     AWARDS SCREEN                                
 function AwardsScreen({ unlockedAwards, onBack, lang }) {
   const t = useT(lang || "en");
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>â† {t("back")}</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>  {t("back")}</button>
         <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>{t("awardsTitle")}</span>
         <span style={{ fontSize: 12, color: "#888" }}>{unlockedAwards.size}/{AWARDS.length}</span>
       </div>
@@ -980,7 +1003,7 @@ function AwardsScreen({ unlockedAwards, onBack, lang }) {
   );
 }
 
-// â”€â”€â”€ LEADERBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     LEADERBOARD                                  
 function LeaderboardScreen({ user, totalPoints, streak, onBack, lang }) {
   const t = useT(lang || "en");
   const [entries, setEntries] = useState([]);
@@ -995,16 +1018,16 @@ function LeaderboardScreen({ user, totalPoints, streak, onBack, lang }) {
     }).catch(() => setLoading(false));
   }, []);
 
-  const medals = ["ðŸ¥‡", "ðŸ¥ˆ", "ðŸ¥‰"];
+  const medals = ["\ud83e\udd47", "\ud83e\udd48", "\ud83e\udd49"];
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>â† {t("back")}</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>  {t("back")}</button>
         <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>{t("leaderboardTitle")}</span>
         <span style={{ fontSize: 12, color: "#888" }}>#{userRank || "?"}</span>
       </div>
       {loading ? <div style={{ textAlign: "center", color: "#555", padding: 40 }}>Loading...</div> :
-        entries.length === 0 ? <div style={{ textAlign: "center", color: "#555", padding: 40 }}>No entries yet â€” be the first!</div> :
+        entries.length === 0 ? <div style={{ textAlign: "center", color: "#555", padding: 40 }}>No entries yet   be the first!</div> :
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {entries.map((e, i) => {
             const isYou = e.username === user?.username;
@@ -1014,7 +1037,7 @@ function LeaderboardScreen({ user, totalPoints, streak, onBack, lang }) {
                 <EvolutionBadge points={e.total_points} size={36} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{e.username}{isYou && ` (${t("you")})`}</div>
-                  <div style={{ fontSize: 11, color: "#999" }}>ðŸ”¥ {e.streak} {t("streak")}</div>
+                  <div style={{ fontSize: 11, color: "#999" }}>  {e.streak} {t("streak")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <span style={{ fontSize: 18, fontWeight: 900, color: "#FFD700" }}>{Math.round(e.total_points).toLocaleString()}</span>
@@ -1029,7 +1052,7 @@ function LeaderboardScreen({ user, totalPoints, streak, onBack, lang }) {
   );
 }
 
-// â”€â”€â”€ WEEKLY SUMMARY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     WEEKLY SUMMARY                               
 function WeeklySummary({ weekData, streak, totalPoints, onClose, lang }) {
   const t = useT(lang || "en");
   if (!weekData) return null;
@@ -1058,7 +1081,7 @@ function WeeklySummary({ weekData, streak, totalPoints, onClose, lang }) {
           <div style={{ padding: "10px 14px", background: "rgba(255,215,0,0.06)", borderRadius: 12, marginBottom: 16, textAlign: "center" }}>
             <span style={{ fontSize: 11, color: "#888" }}>{t("topExercise")}: </span>
             <span style={{ color: "#FFD700", fontWeight: 700 }}>{weekData.topExercise.emoji} {weekData.topExercise.name}</span>
-            <span style={{ color: "#888", fontSize: 11 }}> ({weekData.topExercise.count}Ã— / {weekData.topExercise.points} pts)</span>
+            <span style={{ color: "#888", fontSize: 11 }}> ({weekData.topExercise.count}  / {weekData.topExercise.points} pts)</span>
           </div>
         )}
         <button onClick={onClose} style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #FFD700, #FF8C00)", color: "#000", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, letterSpacing: 2 }}>CONTINUE</button>
@@ -1067,7 +1090,7 @@ function WeeklySummary({ weekData, streak, totalPoints, onClose, lang }) {
   );
 }
 
-// â”€â”€â”€ MAIN APP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//     MAIN APP                                     
 function BeastModeApp() {
   const [screen, setScreen] = useState("loading");
   const [lang, setLang] = useState("en");
@@ -1110,7 +1133,7 @@ function BeastModeApp() {
     workoutActiveRef.current = showTimer || showExtraCredit || showAlarm || showMedTimer || !!evoPopup || !!awardPopup || showWeeklySummary;
   }, [showTimer, showExtraCredit, showAlarm, showMedTimer, evoPopup, awardPopup, showWeeklySummary]);
 
-  // â”€â”€â”€ INIT: Check token and load profile â”€â”€â”€â”€â”€
+  //     INIT: Check token and load profile      
   useEffect(() => {
     const token = localStorage.getItem("bm_token");
     if (!token) { setScreen("auth"); return; }
@@ -1132,7 +1155,7 @@ function BeastModeApp() {
     });
   }, []);
 
-  // â”€â”€â”€ ALARM SCHEDULING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //     ALARM SCHEDULING                           
   const getRandomExercise = useCallback(() => {
     if (!settings?.selectedExercises) return EXERCISES[0];
     const pool = EXERCISES.filter(e => settings.selectedExercises.includes(e.id));
@@ -1164,11 +1187,33 @@ function BeastModeApp() {
     if (!settings) return;
     if (alarmTimeoutRef.current) clearTimeout(alarmTimeoutRef.current);
     if (retryRef.current) { clearInterval(retryRef.current); retryRef.current = null; }
-    // Use real intervals in production, 20s cap in demo mode
     const intervalMs = (settings.intervalMinutes || 60) * 60 * 1000;
-    const actualMs = DEMO_MODE ? Math.min(intervalMs, 20000) : intervalMs;
-    setNextAlarmTime(Date.now() + actualMs);
-    alarmTimeoutRef.current = setTimeout(fireAlarm, actualMs);
+    const actualInterval = DEMO_MODE ? Math.min(intervalMs, 20000) : intervalMs;
+    const now = new Date();
+    const currentHour = now.getHours();
+    const sh = settings.startHour != null ? settings.startHour : 0;
+    const eh = settings.endHour != null ? settings.endHour : 23;
+    let delayMs = actualInterval;
+    if (!DEMO_MODE && sh !== eh) {
+      if (currentHour < sh) {
+        // Before start: schedule for start hour
+        const startTime = new Date(now); startTime.setHours(sh, 0, 0, 0);
+        delayMs = startTime - now;
+      } else if (currentHour >= eh) {
+        // After end: schedule for start hour tomorrow
+        const startTomorrow = new Date(now); startTomorrow.setDate(startTomorrow.getDate() + 1); startTomorrow.setHours(sh, 0, 0, 0);
+        delayMs = startTomorrow - now;
+      }
+      // else: within hours, use normal interval but clamp to end time
+      else {
+        const endTime = new Date(now); endTime.setHours(eh, 0, 0, 0);
+        const msUntilEnd = endTime - now;
+        if (actualInterval > msUntilEnd) delayMs = msUntilEnd;
+      }
+    }
+    if (delayMs <= 0) delayMs = actualInterval;
+    setNextAlarmTime(Date.now() + delayMs);
+    alarmTimeoutRef.current = setTimeout(fireAlarm, delayMs);
   }, [settings, fireAlarm]);
 
   useEffect(() => {
@@ -1191,7 +1236,7 @@ function BeastModeApp() {
     };
   }, [settings, screen, scheduleNextAlarm]);
 
-  // â”€â”€â”€ WORKOUT COMPLETE HANDLER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //     WORKOUT COMPLETE HANDLER                   
   const handleWorkoutComplete = async (pts, exercise, wasCompleted, type = "alarm") => {
     setShowTimer(false);
     setShowExtraCredit(false);
@@ -1238,7 +1283,7 @@ function BeastModeApp() {
     scheduleNextAlarm();
   };
 
-  // ─── MEDITATION COMPLETE HANDLER ──────────────────
+  //     MEDITATION COMPLETE HANDLER                   
   const handleMeditationComplete = async (pts, wasCompleted) => {
     setShowMedTimer(false);
     const oldTotal = progress?.totalPoints || 0;
@@ -1277,7 +1322,7 @@ function BeastModeApp() {
   };
 
 
-  // â”€â”€â”€ END DAY / MISSED DAY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //     END DAY / MISSED DAY                      
   const handleEndDay = async () => {
     try {
       const result = await api("/api/workout/end-day", { method: "POST" });
@@ -1300,14 +1345,14 @@ function BeastModeApp() {
     setScreen("auth");
   };
 
-  // â”€â”€â”€ SCREENS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>ðŸ¦ </div></div>;
+  //     SCREENS                                    
+  if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}> </div></div>;
   if (screen === "auth") return <AuthScreen onAuth={(data) => { setUser(data.user); setScreen("setup"); }} lang={lang} setLang={setLang} />;
   if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); }} settings={settings} lang={lang} setLang={setLang} />;
   if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} lang={lang} />;
 
-  // â”€â”€â”€ DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //     DASHBOARD                                  
   const totalPoints = progress?.totalPoints || 0;
   const todayPoints = progress?.todayPoints || 0;
   const streak = progress?.streak || 1;
@@ -1330,17 +1375,17 @@ function BeastModeApp() {
             <EvolutionBadge points={totalPoints} size={44} glow />
             <div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>{user?.username}</div>
-              <div style={{ fontSize: 12, color: "#FF8C00" }}>ðŸ”¥ {streak} {t("dayStreak")} â€¢ {streakMult}Ã— {t("bonus")}</div>
+              <div style={{ fontSize: 12, color: "#FF8C00" }}>  {streak} {t("dayStreak")}   {streakMult}  {t("bonus")}</div>
               <div style={{ fontSize: 11, color: "#69d2e7", marginTop: 2 }}>
-                {Array.from({ length: MAX_FREEZES }).map((_, i) => <span key={i} style={{ marginRight: 3, opacity: i < streakFreezes ? 1 : 0.25 }}>ðŸ§Š</span>)}
+                {Array.from({ length: MAX_FREEZES }).map((_, i) => <span key={i} style={{ marginRight: 3, opacity: i < streakFreezes ? 1 : 0.25 }}> </span>)}
                 <span style={{ marginLeft: 4 }}>{streakFreezes}/{MAX_FREEZES} {t("freezes")}</span>
                 {streak > 0 && streak % FREEZE_EARN_INTERVAL !== 0 && <span style={{ color: "#555", marginLeft: 6 }}>({FREEZE_EARN_INTERVAL - (streak % FREEZE_EARN_INTERVAL)} {t("daysToNext")})</span>}
               </div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setScreen("setup")} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>âš™ï¸</button>
-            <button onClick={handleLogout} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}>ðŸ”‘</button>
+            <button onClick={() => setScreen("setup")} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>  </button>
+            <button onClick={handleLogout} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}> </button>
           </div>
         </div>
 
@@ -1361,7 +1406,7 @@ function BeastModeApp() {
             <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#888", marginBottom: 4 }}>{t("total")}</div><div style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace" }}>{Math.round(totalPoints).toLocaleString()}</div></div>
           </div>
           <div style={{ display: "flex", justifyContent: "center", gap: 20, fontSize: 13, color: "#888" }}>
-            <span>âœ… {sessionsCompleted} {t("completed")}</span>
+            <span>  {sessionsCompleted} {t("completed")}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
             <div style={{ flex: 1, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
@@ -1377,15 +1422,16 @@ function BeastModeApp() {
         {/* Next Alarm / Rest Day */}
         {isActiveToday ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", borderRadius: 16, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#666", marginBottom: 4 }}>{t("nextAlert")}</div><div style={{ fontSize: 28, fontWeight: 900, color: "#FF4D00", fontFamily: "'Courier New', monospace" }}>{countdown || "â€”"}</div></div>
+            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#666", marginBottom: 4 }}>{t("nextAlert")}</div><div style={{ fontSize: 28, fontWeight: 900, color: "#FF4D00", fontFamily: "'Courier New', monospace" }}>{countdown || "\u2014"}</div></div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
               <span style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>"{settings?.alarmMessage || "Let's go!"}"</span>
               <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,77,0,0.12)", borderRadius: 20, color: "#FF8C00" }}>{t("every")} {settings?.intervalMinutes || 60}m</span>
+              {settings?.startHour != null && settings?.endHour != null && <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.06)", borderRadius: 20, color: "#888" }}>{settings.startHour === 0 ? "12AM" : settings.startHour <= 12 ? settings.startHour + (settings.startHour < 12 ? "AM" : "PM") : (settings.startHour-12) + "PM"} - {settings.endHour === 0 ? "12AM" : settings.endHour <= 12 ? settings.endHour + (settings.endHour < 12 ? "AM" : "PM") : (settings.endHour-12) + "PM"}</span>}
             </div>
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,230,118,0.04)", borderRadius: 16, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,230,118,0.15)" }}>
-            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#00E676" }}>{t("restDay")}</div><div style={{ fontSize: 18, fontWeight: 800, color: "#00E676" }}>ðŸ˜´</div></div>
+            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#00E676" }}>{t("restDay")}</div><div style={{ fontSize: 18, fontWeight: 800, color: "#00E676" }}> </div></div>
             <div style={{ fontSize: 12, color: "#888" }}>{t("extraCreditAvail")}</div>
           </div>
         )}
@@ -1393,23 +1439,23 @@ function BeastModeApp() {
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
           <button onClick={() => setShowExtraCredit(true)} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, color: "#FFD700", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 22 }}>â­</span><span>{t("extraCredit")}</span>
+            <span style={{ fontSize: 22 }}> </span><span>{t("extraCredit")}</span>
           </button>
           <button onClick={() => setScreen("awards")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 14, color: "#FFD700", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 22 }}>ðŸ…</span><span>{t("awards")}</span>{unlockedAwards.size > 0 && <span style={{ fontSize: 10 }}>{unlockedAwards.size}/{AWARDS.length}</span>}
+            <span style={{ fontSize: 22 }}> </span><span>{t("awards")}</span>{unlockedAwards.size > 0 && <span style={{ fontSize: 10 }}>{unlockedAwards.size}/{AWARDS.length}</span>}
           </button>
           <button onClick={() => setScreen("leaderboard")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, rgba(255,77,0,0.1), rgba(255,77,0,0.05))", border: "1px solid rgba(255,77,0,0.2)", borderRadius: 14, color: "#FF8C00", fontSize: 14, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 22 }}>ðŸ†</span><span>{t("leaderboard")}</span>
+            <span style={{ fontSize: 22 }}> </span><span>{t("leaderboard")}</span>
           </button>
         </div>
 
         {/* Info Pills */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
           <div style={{ padding: "6px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 20, fontSize: 12, color: "#777", border: "1px solid rgba(255,255,255,0.06)" }}>
-            â±ï¸ {settings?.duration === "random" ? "ðŸŽ² Random" : `${fmtDuration(settings?.duration || 2)} ${t("sessions")}`}
+               {settings?.duration === "random" ? "\ud83c\udfb2 Random" : `${fmtDuration(settings?.duration || 2)} ${t("sessions")}`}
           </div>
           <div style={{ padding: "6px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 20, fontSize: 12, color: "#777", border: "1px solid rgba(255,255,255,0.06)" }}>
-            Ã—{settings?.duration === "random" ? "?" : DURATION_MULTIPLIERS[settings?.duration || 2]} {t("multiplier")}
+             {settings?.duration === "random" ? "?" : DURATION_MULTIPLIERS[settings?.duration || 2]} {t("multiplier")}
           </div>
           <div style={{ padding: "6px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 20, fontSize: 12, color: "#777", border: "1px solid rgba(255,255,255,0.06)" }}>
             {settings?.selectedExercises?.length || 10} {t("exerciseCount")}
@@ -1446,10 +1492,10 @@ function BeastModeApp() {
           </div>
         )}
 
-        {/* Demo Controls â€” only visible with ?demo=true */}
+        {/* Demo Controls   only visible with ?demo=true */}
         {DEMO_MODE && (
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 8, padding: "12px 0" }}>
-          <div style={{ textAlign: "center", fontSize: 11, color: "#444", marginBottom: 12 }}>âš¡ Demo Mode: Alarms every ~20s</div>
+          <div style={{ textAlign: "center", fontSize: 11, color: "#444", marginBottom: 12 }}>  Demo Mode: Alarms every ~20s</div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button onClick={handleEndDay} style={{ padding: "10px 20px", background: "rgba(0,230,118,0.1)", border: "1px solid rgba(0,230,118,0.2)", borderRadius: 10, color: "#00E676", fontSize: 12, fontWeight: 700 }}>{t("endDay")}</button>
             <button onClick={handleMissedDay} style={{ padding: "10px 20px", background: "rgba(255,107,107,0.1)", border: "1px solid rgba(255,107,107,0.2)", borderRadius: 10, color: "#FF6B6B", fontSize: 12, fontWeight: 700 }}>{t("missedDay")}</button>
