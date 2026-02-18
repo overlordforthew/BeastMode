@@ -839,10 +839,10 @@ class AmbientAudio {
 
   // Breath Focus: deep oceanic drone
   _breathScape() {
-    this._osc("sine", 60, 0.12);
-    this._osc("sine", 120, 0.06);
-    this._osc("sine", 180, 0.03);
-    this._noise("brown", 0.04, "lowpass", 200);
+    this._osc("sine", 60, 0.25);
+    this._osc("sine", 120, 0.12);
+    this._osc("sine", 180, 0.06);
+    this._noise("brown", 0.10, "lowpass", 200);
   }
 
   // Body Scan: sweeping filtered noise
@@ -850,10 +850,10 @@ class AmbientAudio {
     const src = createNoiseBuffer(this.ctx, "white", 2);
     const filter = this.ctx.createBiquadFilter();
     filter.type = "bandpass"; filter.frequency.value = 200; filter.Q.value = 5;
-    const g = this.ctx.createGain(); g.gain.value = 0.08;
+    const g = this.ctx.createGain(); g.gain.value = 0.18;
     src.connect(filter); filter.connect(g); g.connect(this.master);
     src.start(); this.nodes.push(src, filter, g);
-    this._osc("sine", 174, 0.05);
+    this._osc("sine", 174, 0.10);
     // Sweep filter between 200-800Hz
     const sweep = () => {
       const now = this.ctx.currentTime;
@@ -874,7 +874,7 @@ class AmbientAudio {
       const o = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       o.type = "sine"; o.frequency.value = freq; o.detune.value = det;
-      g.gain.value = i < 3 ? 0.04 : 0.015;
+      g.gain.value = i < 3 ? 0.09 : 0.035;
       o.connect(g); g.connect(filter);
       o.start(); this.nodes.push(o, g);
     });
@@ -886,26 +886,26 @@ class AmbientAudio {
     const oL = this.ctx.createOscillator();
     const gL = this.ctx.createGain();
     const panL = this.ctx.createStereoPanner();
-    oL.type = "sine"; oL.frequency.value = 200; gL.gain.value = 0.06; panL.pan.value = -1;
+    oL.type = "sine"; oL.frequency.value = 200; gL.gain.value = 0.12; panL.pan.value = -1;
     oL.connect(gL); gL.connect(panL); panL.connect(this.master);
     oL.start(); this.nodes.push(oL, gL, panL);
     // Right ear 210Hz (10Hz alpha binaural)
     const oR = this.ctx.createOscillator();
     const gR = this.ctx.createGain();
     const panR = this.ctx.createStereoPanner();
-    oR.type = "sine"; oR.frequency.value = 210; gR.gain.value = 0.06; panR.pan.value = 1;
+    oR.type = "sine"; oR.frequency.value = 210; gR.gain.value = 0.12; panR.pan.value = 1;
     oR.connect(gR); gR.connect(panR); panR.connect(this.master);
     oR.start(); this.nodes.push(oR, gR, panR);
     // Brown noise pad
-    this._noise("brown", 0.05, "lowpass", 400);
+    this._noise("brown", 0.12, "lowpass", 400);
   }
 
   // Mindfulness: rain-like texture
   _mindfulnessScape() {
     // High rain hiss
-    const n1 = this._noise("white", 0.03, "highpass", 1000);
+    const n1 = this._noise("white", 0.07, "highpass", 1000);
     // Drizzle texture
-    this._noise("white", 0.02, "bandpass", 3000, 1);
+    this._noise("white", 0.05, "bandpass", 3000, 1);
     // LFO for gentle ebb and flow on rain
     const lfo = this.ctx.createOscillator();
     const lfoGain = this.ctx.createGain();
@@ -919,9 +919,9 @@ class AmbientAudio {
   _mantraScape() {
     const lfo = this.ctx.createOscillator();
     const lfoGain = this.ctx.createGain();
-    lfo.type = "sine"; lfo.frequency.value = 0.08; lfoGain.gain.value = 0.008;
+    lfo.type = "sine"; lfo.frequency.value = 0.08; lfoGain.gain.value = 0.015;
     lfo.connect(lfoGain); lfo.start(); this.nodes.push(lfo, lfoGain);
-    [[ 396, 0.05 ], [ 793, 0.025 ], [ 1188, 0.012 ]].forEach(([freq, vol]) => {
+    [[ 396, 0.10 ], [ 793, 0.05 ], [ 1188, 0.025 ]].forEach(([freq, vol]) => {
       const o = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       o.type = "sine"; o.frequency.value = freq; g.gain.value = vol;
@@ -1379,9 +1379,35 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
   const breathRef = useRef(0);
   const [breathPhase, setBreathPhase] = useState("inhale");
   const ambientRef = useRef(null);
-  const [ambientVol, setAmbientVol] = useState(() => parseFloat(localStorage.getItem("bm_ambientVol") || "0.5"));
+  const [ambientVol, setAmbientVol] = useState(() => parseFloat(localStorage.getItem("bm_ambientVol") || "0.8"));
   const [ambientMuted, setAmbientMuted] = useState(false);
   const [guidedText, setGuidedText] = useState("");
+  const [voiceEnabled, setVoiceEnabled] = useState(() => localStorage.getItem("bm_voiceGuide") !== "false");
+  const lastSpokenRef = useRef("");
+
+  // Speak guided text when it changes
+  useEffect(() => {
+    if (!voiceEnabled || !guidedText || guidedText === lastSpokenRef.current) return;
+    if (!window.speechSynthesis) return;
+    lastSpokenRef.current = guidedText;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(guidedText);
+    utter.rate = 0.85;
+    utter.pitch = 0.9;
+    utter.volume = 0.9;
+    // Try to find a calm/natural voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => /samantha|karen|moira|tessa|google.*female|microsoft.*zira/i.test(v.name))
+      || voices.find(v => v.lang.startsWith("en") && /female/i.test(v.name))
+      || voices.find(v => v.lang.startsWith("en"));
+    if (preferred) utter.voice = preferred;
+    window.speechSynthesis.speak(utter);
+  }, [guidedText, voiceEnabled]);
+
+  // Stop speech on unmount or when meditation ends
+  useEffect(() => {
+    return () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); };
+  }, []);
 
   useEffect(() => {
     if (!ambientRef.current) return;
@@ -1414,6 +1440,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
             setEarnedPoints(pts);
             setCompleted(true);
             playSound("bell");
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
             if (ambientRef.current) { ambientRef.current.stop(3); ambientRef.current = null; }
             return 0;
           }
@@ -1428,6 +1455,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
 
   const handleStopEarly = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
     if (ambientRef.current) { ambientRef.current.stop(2); ambientRef.current = null; }
     const elapsed = totalSeconds - remaining;
     if (elapsed < MEDITATION_MIN_SECONDS) { setEarnedPoints(0); }
@@ -1489,15 +1517,21 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
                 <span style={{ fontSize: 36, fontWeight: 900, fontFamily: "'Courier New', monospace", color: "#C4B5FD" }}>{mins}:{secs.toString().padStart(2, "0")}</span>
               </div>
             </div>
-            <div style={{ fontSize: 16, color: "#A78BFA", fontWeight: 600, marginBottom: 4, letterSpacing: 1, minHeight: 24 }}>{breathLabel}</div>
-            {guidedText && <div style={{ fontSize: 14, color: "rgba(196,181,253,0.85)", lineHeight: 1.6, padding: "12px 16px", margin: "8px auto 4px", maxWidth: 320, minHeight: 48, background: "rgba(138,92,246,0.06)", borderRadius: 12, border: "1px solid rgba(138,92,246,0.1)", transition: "opacity 0.8s ease", fontStyle: "italic" }}>{guidedText}</div>}
+            {guidedText ? (
+              <div style={{ fontSize: 15, color: "rgba(196,181,253,0.9)", lineHeight: 1.7, padding: "14px 18px", margin: "8px auto 4px", maxWidth: 320, minHeight: 52, background: "rgba(138,92,246,0.08)", borderRadius: 14, border: "1px solid rgba(138,92,246,0.12)", fontStyle: "italic", letterSpacing: 0.3 }}>{guidedText}</div>
+            ) : (
+              <div style={{ fontSize: 16, color: "#A78BFA", fontWeight: 600, marginBottom: 4, letterSpacing: 1, minHeight: 24 }}>{breathLabel}</div>
+            )}
             <div style={{ width: "80%", height: 4, background: "rgba(138,92,246,0.1)", borderRadius: 2, margin: "12px auto 20px", overflow: "hidden" }}>
               <div style={{ height: "100%", borderRadius: 2, width: `${progress * 100}%`, background: "linear-gradient(90deg, #7C3AED, #A78BFA)", transition: "width 1s linear" }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 14, padding: "8px 16px", background: "rgba(138,92,246,0.06)", borderRadius: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14, padding: "8px 12px", background: "rgba(138,92,246,0.06)", borderRadius: 10 }}>
               <button onClick={() => { setAmbientMuted(!ambientMuted); localStorage.setItem("bm_ambientMuted", !ambientMuted); }} style={{ background: "none", border: "none", fontSize: 16, color: ambientMuted ? "#555" : "#A78BFA", padding: 4, cursor: "pointer" }}>{ambientMuted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}</button>
-              <input type="range" min="0" max="100" value={ambientMuted ? 0 : Math.round(ambientVol * 100)} onChange={e => { const v = e.target.value / 100; setAmbientVol(v); localStorage.setItem("bm_ambientVol", v); if (ambientMuted) setAmbientMuted(false); }} style={{ width: 90, accentColor: "#A78BFA", height: 4 }} />
-              <span style={{ fontSize: 10, color: "#6D5BA3", minWidth: 28 }}>{ambientMuted ? "OFF" : Math.round(ambientVol * 100) + "%"}</span>
+              <input type="range" min="0" max="100" value={ambientMuted ? 0 : Math.round(ambientVol * 100)} onChange={e => { const v = e.target.value / 100; setAmbientVol(v); localStorage.setItem("bm_ambientVol", v); if (ambientMuted) setAmbientMuted(false); }} style={{ width: 80, accentColor: "#A78BFA", height: 4 }} />
+              <span style={{ fontSize: 10, color: "#6D5BA3", minWidth: 26 }}>{ambientMuted ? "OFF" : Math.round(ambientVol * 100) + "%"}</span>
+              <div style={{ width: 1, height: 16, background: "rgba(138,92,246,0.2)", margin: "0 2px" }} />
+              <button onClick={() => { const next = !voiceEnabled; setVoiceEnabled(next); localStorage.setItem("bm_voiceGuide", next); if (!next && window.speechSynthesis) window.speechSynthesis.cancel(); }} style={{ background: "none", border: "none", fontSize: 16, color: voiceEnabled ? "#A78BFA" : "#555", padding: 4, cursor: "pointer" }}>{voiceEnabled ? "\uD83D\uDDE3\uFE0F" : "\uD83E\uDD10"}</button>
+              <span style={{ fontSize: 10, color: "#6D5BA3" }}>{voiceEnabled ? "Voice" : "Mute"}</span>
             </div>
             <button onClick={handleStopEarly} style={{ padding: "12px 24px", background: "rgba(138,92,246,0.15)", color: "#A78BFA", border: "1px solid rgba(138,92,246,0.3)", borderRadius: 12, fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>{t("endSession")}</button>
           </div>
