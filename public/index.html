@@ -83,6 +83,10 @@ const TRANSLATIONS = {
     endDay: "End Day", missedDay: "\u274c Missed Day", exerciseCount: "exercises",
     everyDay: "Every day", weekdays: "Weekdays", daysPerWk: "days/wk",
     login: "LOG IN", register: "REGISTER", password: "Password", username: "Username",
+    email: "Email (optional)", emailRequired: "Email", forgotPassword: "Forgot password?",
+    sendCode: "SEND RESET CODE", resetPassword: "RESET PASSWORD", newPassword: "New Password",
+    enterCode: "Enter 6-digit code", codeSent: "Check your email for the reset code.",
+    backToLogin: "Back to login", googleComingSoon: "Google Sign-In (Coming Soon)",
     noAccount: "Don't have an account?", hasAccount: "Already have an account?",
     logout: "Logout", pickExAndDur: "Pick an exercise and duration",
     awards: "Awards", awardsTitle: "\ud83c\udfc5 AWARDS", awardUnlocked: "\ud83c\udfc5 AWARD UNLOCKED", nice: "NICE!",
@@ -132,6 +136,10 @@ const TRANSLATIONS = {
     demoNote: "\u26a1 Demo: Alarmas cada ~20s", endDay: "Terminar D\u00eda", missedDay: "\u274c D\u00eda Perdido",
     exerciseCount: "ejercicios", everyDay: "Todos los d\u00edas", weekdays: "Entre semana", daysPerWk: "d\u00edas/sem",
     login: "INICIAR SESI\u00d3N", register: "REGISTRAR", password: "Contrase\u00f1a", username: "Usuario",
+    email: "Email (opcional)", emailRequired: "Email", forgotPassword: "\u00bfOlvidaste tu contrase\u00f1a?",
+    sendCode: "ENVIAR C\u00d3DIGO", resetPassword: "RESTABLECER CONTRASE\u00d1A", newPassword: "Nueva contrase\u00f1a",
+    enterCode: "Ingresa c\u00f3digo de 6 d\u00edgitos", codeSent: "Revisa tu email para el c\u00f3digo.",
+    backToLogin: "Volver al inicio", googleComingSoon: "Google Sign-In (Pr\u00f3ximamente)",
     noAccount: "\u00bfNo tienes cuenta?", hasAccount: "\u00bfYa tienes cuenta?", logout: "Cerrar sesi\u00f3n",
     pickExAndDur: "Elige un ejercicio y duraci\u00f3n",
     awards: "Premios", awardsTitle: "\ud83c\udfc5 PREMIOS", awardUnlocked: "\ud83c\udfc5 PREMIO DESBLOQUEADO", nice: "\u00a1GENIAL!",
@@ -181,6 +189,10 @@ const TRANSLATIONS = {
     demoNote: "\u26a1 \u30c7\u30e2: 20\u79d2\u3054\u3068\u306b\u30a2\u30e9\u30fc\u30e0", endDay: "\u4e00\u65e5\u7d42\u4e86", missedDay: "\u274c \u6b20\u5e2d\u65e5",
     exerciseCount: "\u00e7\u00a8\u00ae\u00e7\u203a\u00ae", everyDay: "\u00e6\u00af\u017d\u00e6\u2014\u00a5", weekdays: "\u00e5\u00b9\u00b3\u00e6\u2014\u00a5", daysPerWk: "\u00e6\u2014\u00a5/\u00e9\u20ac\u00b1",
     login: "\u30ed\u30b0\u30a4\u30f3", register: "\u767b\u9332", password: "\u30d1\u30b9\u30ef\u30fc\u30c9", username: "\u30e6\u30fc\u30b6\u30fc\u540d",
+    email: "\u30e1\u30fc\u30eb\uff08\u4efb\u610f\uff09", emailRequired: "\u30e1\u30fc\u30eb", forgotPassword: "\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u304a\u5fd8\u308c\uff1f",
+    sendCode: "\u30b3\u30fc\u30c9\u9001\u4fe1", resetPassword: "\u30d1\u30b9\u30ef\u30fc\u30c9\u30ea\u30bb\u30c3\u30c8", newPassword: "\u65b0\u3057\u3044\u30d1\u30b9\u30ef\u30fc\u30c9",
+    enterCode: "6\u6841\u306e\u30b3\u30fc\u30c9\u3092\u5165\u529b", codeSent: "\u30e1\u30fc\u30eb\u3067\u30b3\u30fc\u30c9\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+    backToLogin: "\u30ed\u30b0\u30a4\u30f3\u306b\u623b\u308b", googleComingSoon: "Google\u30b5\u30a4\u30f3\u30a4\u30f3\uff08\u8fd1\u65e5\u516c\u958b\uff09",
     noAccount: "\u30a2\u30ab\u30a6\u30f3\u30c8\u304c\u306a\u3044\uff1f", hasAccount: "\u30a2\u30ab\u30a6\u30f3\u30c8\u3092\u304a\u6301\u3061\uff1f", logout: "\u30ed\u30b0\u30a2\u30a6\u30c8",
     pickExAndDur: "\u30a8\u30af\u30b5\u30b5\u30a4\u30ba\u3068\u6642\u9593\u3092\u9078\u629e",
     awards: "\u30a2\u30ef\u30fc\u30c9", awardsTitle: "\ud83c\udfc5 \u30a2\u30ef\u30fc\u30c9", awardUnlocked: "\ud83c\udfc5 \u30a2\u30ef\u30fc\u30c9\u89e3\u9664", nice: "\u30ca\u30a4\u30b9\uff01",
@@ -665,65 +677,67 @@ function getTodayKey() {
   return ["sun","mon","tue","wed","thu","fri","sat"][d];
 }
 
-//     EVOLUTION TIERS (first 3 easy, then exponential)
+//     EVOLUTION TIERS — ordered by mass, 1.33x exponential from 50pts
 const EVOLUTION_TIERS = [
-  // Easy start: day 1 quick wins
-  { name: "Amoeba", emoji: "\ud83e\udda0", threshold: 0 },
-  { name: "Plankton", emoji: "\ud83e\udee7", threshold: 10 },
-  { name: "Jellyfish", emoji: "\ud83e\udebc", threshold: 25 },
-  // Week 1 (~25-50 pts/day)
-  { name: "Shrimp", emoji: "\ud83e\udd90", threshold: 50 },
-  { name: "Snail", emoji: "\ud83d\udc0c", threshold: 80 },
-  { name: "Crab", emoji: "\ud83e\udd80", threshold: 120 },
-  { name: "Fish", emoji: "\ud83d\udc1f", threshold: 170 },
-  { name: "Frog", emoji: "\ud83d\udc38", threshold: 230 },
-  { name: "Turtle", emoji: "\ud83d\udc22", threshold: 310 },
-  { name: "Snake", emoji: "\ud83d\udc0d", threshold: 420 },
-  // Month 1 (~50-80 pts/day)
-  { name: "Lizard", emoji: "\ud83e\udd8e", threshold: 560 },
-  { name: "Rabbit", emoji: "\ud83d\udc30", threshold: 750 },
-  { name: "Fox", emoji: "\ud83e\udd8a", threshold: 1000 },
-  { name: "Dog", emoji: "\ud83d\udc15", threshold: 1300 },
-  { name: "Cat", emoji: "\ud83d\udc08", threshold: 1700 },
-  { name: "Raccoon", emoji: "\ud83e\udd9d", threshold: 2200 },
-  { name: "Deer", emoji: "\ud83e\udd8c", threshold: 2900 },
-  { name: "Wolf", emoji: "\ud83d\udc3a", threshold: 3800 },
-  { name: "Horse", emoji: "\ud83d\udc34", threshold: 5000 },
-  { name: "Dolphin", emoji: "\ud83d\udc2c", threshold: 6500 },
-  // 3-6 months
-  { name: "Shark", emoji: "\ud83e\udd88", threshold: 8500 },
-  { name: "Octopus", emoji: "\ud83d\udc19", threshold: 11000 },
-  { name: "Eagle", emoji: "\ud83e\udd85", threshold: 14000 },
-  { name: "Owl", emoji: "\ud83e\udd89", threshold: 18000 },
-  { name: "Gorilla", emoji: "\ud83e\udd8d", threshold: 23000 },
-  { name: "Panther", emoji: "\ud83d\udc06", threshold: 30000 },
-  { name: "Bear", emoji: "\ud83d\udc3b", threshold: 38000 },
-  { name: "Lion", emoji: "\ud83e\udd81", threshold: 48000 },
-  { name: "Tiger", emoji: "\ud83d\udc2f", threshold: 60000 },
-  { name: "Elephant", emoji: "\ud83d\udc18", threshold: 75000 },
-  // 1-2 years
-  { name: "Rhino", emoji: "\ud83e\udd8f", threshold: 95000 },
-  { name: "Hippo", emoji: "\ud83e\udd9b", threshold: 120000 },
-  { name: "Whale", emoji: "\ud83d\udc0b", threshold: 150000 },
-  { name: "T-Rex", emoji: "\ud83e\udd96", threshold: 190000 },
-  { name: "Mammoth", emoji: "\ud83e\udda3", threshold: 240000 },
-  { name: "Saber-tooth", emoji: "\ud83d\udc05", threshold: 300000 },
-  // Mythic: 2-3 years
-  { name: "Phoenix", emoji: "\ud83d\udd25", threshold: 375000 },
-  { name: "Unicorn", emoji: "\ud83e\udd84", threshold: 470000 },
-  { name: "Griffin", emoji: "\ud83e\udd85", threshold: 580000 },
-  { name: "Kraken", emoji: "\ud83e\udd91", threshold: 720000 },
-  { name: "Hydra", emoji: "\ud83d\udc09", threshold: 900000 },
-  { name: "Cerberus", emoji: "\ud83d\udc15\u200d\ud83e\uddba", threshold: 1100000 },
-  { name: "Thunderbird", emoji: "\u26a1", threshold: 1350000 },
-  { name: "Leviathan", emoji: "\ud83c\udf0a", threshold: 1650000 },
-  // Godlike: 3+ years
-  { name: "Titan", emoji: "\ud83d\uddff", threshold: 2000000 },
-  { name: "Behemoth", emoji: "\ud83d\udc80", threshold: 2500000 },
-  { name: "Colossus", emoji: "\ud83c\udfdb\ufe0f", threshold: 3200000 },
-  { name: "Wyvern", emoji: "\ud83e\udebd", threshold: 4000000 },
-  { name: "Bahamut", emoji: "\ud83d\udc51", threshold: 5000000 },
-  { name: "Dragon", emoji: "\ud83d\udc32", threshold: 6500000 },
+  // Micro: day 1 quick wins
+  { name: "Amoeba", emoji: "\ud83e\udda0", threshold: 50 },
+  { name: "Plankton", emoji: "\ud83e\udee7", threshold: 67 },
+  { name: "Jellyfish", emoji: "\ud83e\udebc", threshold: 89 },
+  // Small invertebrates
+  { name: "Shrimp", emoji: "\ud83e\udd90", threshold: 118 },
+  { name: "Snail", emoji: "\ud83d\udc0c", threshold: 157 },
+  { name: "Crab", emoji: "\ud83e\udd80", threshold: 209 },
+  { name: "Fish", emoji: "\ud83d\udc1f", threshold: 278 },
+  { name: "Frog", emoji: "\ud83d\udc38", threshold: 370 },
+  // Small animals (by mass)
+  { name: "Lizard", emoji: "\ud83e\udd8e", threshold: 492 },
+  { name: "Rabbit", emoji: "\ud83d\udc30", threshold: 654 },
+  { name: "Cat", emoji: "\ud83d\udc08", threshold: 870 },
+  { name: "Raccoon", emoji: "\ud83e\udd9d", threshold: 1157 },
+  { name: "Fox", emoji: "\ud83e\udd8a", threshold: 1539 },
+  { name: "Dog", emoji: "\ud83d\udc15", threshold: 2047 },
+  { name: "Snake", emoji: "\ud83d\udc0d", threshold: 2723 },
+  { name: "Turtle", emoji: "\ud83d\udc22", threshold: 3621 },
+  // Medium animals
+  { name: "Deer", emoji: "\ud83e\udd8c", threshold: 4816 },
+  { name: "Wolf", emoji: "\ud83d\udc3a", threshold: 6406 },
+  { name: "Octopus", emoji: "\ud83d\udc19", threshold: 8520 },
+  { name: "Dolphin", emoji: "\ud83d\udc2c", threshold: 11331 },
+  // Large animals
+  { name: "Eagle", emoji: "\ud83e\udd85", threshold: 15071 },
+  { name: "Owl", emoji: "\ud83e\udd89", threshold: 20044 },
+  { name: "Panther", emoji: "\ud83d\udc06", threshold: 26659 },
+  { name: "Lion", emoji: "\ud83e\udd81", threshold: 35456 },
+  { name: "Tiger", emoji: "\ud83d\udc2f", threshold: 47157 },
+  { name: "Gorilla", emoji: "\ud83e\udd8d", threshold: 62719 },
+  { name: "Bear", emoji: "\ud83d\udc3b", threshold: 83416 },
+  { name: "Horse", emoji: "\ud83d\udc34", threshold: 110943 },
+  { name: "Shark", emoji: "\ud83e\udd88", threshold: 147554 },
+  { name: "Rhino", emoji: "\ud83e\udd8f", threshold: 196247 },
+  // Massive animals
+  { name: "Hippo", emoji: "\ud83e\udd9b", threshold: 261008 },
+  { name: "Elephant", emoji: "\ud83d\udc18", threshold: 347141 },
+  { name: "Whale", emoji: "\ud83d\udc0b", threshold: 461698 },
+  // Prehistoric
+  { name: "T-Rex", emoji: "\ud83e\udd96", threshold: 614058 },
+  { name: "Mammoth", emoji: "\ud83e\udda3", threshold: 816697 },
+  { name: "Saber-tooth", emoji: "\ud83d\udc05", threshold: 1086207 },
+  // Mythic
+  { name: "Phoenix", emoji: "\ud83d\udd25", threshold: 1444655 },
+  { name: "Unicorn", emoji: "\ud83e\udd84", threshold: 1921391 },
+  { name: "Griffin", emoji: "\ud83e\udd85", threshold: 2555450 },
+  { name: "Kraken", emoji: "\ud83e\udd91", threshold: 3398749 },
+  { name: "Hydra", emoji: "\ud83d\udc09", threshold: 4520336 },
+  { name: "Cerberus", emoji: "\ud83d\udc15\u200d\ud83e\uddba", threshold: 6012047 },
+  { name: "Thunderbird", emoji: "\u26a1", threshold: 7996023 },
+  { name: "Leviathan", emoji: "\ud83c\udf0a", threshold: 10634710 },
+  // Godlike
+  { name: "Titan", emoji: "\ud83d\uddff", threshold: 14144165 },
+  { name: "Behemoth", emoji: "\ud83d\udc80", threshold: 18811739 },
+  { name: "Colossus", emoji: "\ud83c\udfdb\ufe0f", threshold: 25019613 },
+  { name: "Wyvern", emoji: "\ud83e\udebd", threshold: 33276085 },
+  { name: "Bahamut", emoji: "\ud83d\udc51", threshold: 44257193 },
+  { name: "Dragon", emoji: "\ud83d\udc32", threshold: 58862067 },
 ];
 
 function getEvolution(points) {
@@ -967,24 +981,56 @@ class AmbientAudio {
 //     AUTH SCREEN
 function AuthScreen({ onAuth, lang, setLang }) {
   const t = useT(lang);
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState("login"); // "login" | "register" | "forgot" | "reset"
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const inputStyle = { width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 16, marginBottom: 12 };
 
   const handleSubmit = async () => {
     if (!username.trim() || !password) return;
     setLoading(true); setError("");
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
-      const data = await api(endpoint, { method: "POST", body: JSON.stringify({ username: username.trim(), password }) });
+      const body = mode === "register" ? { username: username.trim(), password, email: email.trim() || undefined } : { username: username.trim(), password };
+      const data = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       localStorage.setItem("bm_token", data.token);
       onAuth(data);
     } catch(e) {
       setError(e.message);
     } finally { setLoading(false); }
   };
+
+  const handleForgotSubmit = async () => {
+    if (!email.trim()) return;
+    setLoading(true); setError(""); setMessage("");
+    try {
+      const data = await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
+      setMessage(t("codeSent"));
+      setMode("reset");
+    } catch(e) {
+      setError(e.message);
+    } finally { setLoading(false); }
+  };
+
+  const handleResetSubmit = async () => {
+    if (!email.trim() || !resetCode.trim() || !newPassword) return;
+    setLoading(true); setError(""); setMessage("");
+    try {
+      await api("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ email: email.trim(), code: resetCode.trim(), newPassword }) });
+      setMessage("Password reset! You can now log in.");
+      setMode("login"); setResetCode(""); setNewPassword("");
+    } catch(e) {
+      setError(e.message);
+    } finally { setLoading(false); }
+  };
+
+  const switchMode = (m) => { setMode(m); setError(""); setMessage(""); };
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "linear-gradient(180deg, #0a0a0f 0%, #1a0a00 100%)" }}>
@@ -996,24 +1042,78 @@ function AuthScreen({ onAuth, lang, setLang }) {
         </div>
 
         <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 20, padding: 28, border: "1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-            <button onClick={() => { setMode("login"); setError(""); }} style={{ flex: 1, padding: "10px", background: mode === "login" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "login" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "login" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("login")}</button>
-            <button onClick={() => { setMode("register"); setError(""); }} style={{ flex: 1, padding: "10px", background: mode === "register" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "register" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "register" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("register")}</button>
-          </div>
 
-          <input value={username} onChange={e => setUsername(e.target.value)} placeholder={t("username")}
-            style={{ width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 16, marginBottom: 12 }}
-            onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-          <input value={password} onChange={e => setPassword(e.target.value)} placeholder={t("password")} type="password"
-            style={{ width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 16, marginBottom: 16 }}
-            onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          {(mode === "login" || mode === "register") && (<>
+            <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+              <button onClick={() => switchMode("login")} style={{ flex: 1, padding: "10px", background: mode === "login" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "login" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "login" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("login")}</button>
+              <button onClick={() => switchMode("register")} style={{ flex: 1, padding: "10px", background: mode === "register" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "register" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "register" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("register")}</button>
+            </div>
 
-          {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
+            <input value={username} onChange={e => setUsername(e.target.value)} placeholder={t("username")}
+              style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+            {mode === "register" && (
+              <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t("email")} type="email"
+                style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+            )}
+            <input value={password} onChange={e => setPassword(e.target.value)} placeholder={t("password")} type="password"
+              style={{ ...inputStyle, marginBottom: mode === "login" ? 8 : 16 }} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
 
-          <button onClick={handleSubmit} disabled={loading}
-            style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>
-            {loading ? "..." : mode === "login" ? t("login") : t("register")}
-          </button>
+            {mode === "login" && (
+              <div style={{ textAlign: "right", marginBottom: 16 }}>
+                <button onClick={() => switchMode("forgot")} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 12, padding: 0, textDecoration: "underline", opacity: 0.8 }}>{t("forgotPassword")}</button>
+              </div>
+            )}
+
+            {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
+            {message && <div style={{ color: "#4CAF50", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{message}</div>}
+
+            <button onClick={handleSubmit} disabled={loading}
+              style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>
+              {loading ? "..." : mode === "login" ? t("login") : t("register")}
+            </button>
+
+            <div style={{ position: "relative", textAlign: "center", margin: "20px 0 16px" }}>
+              <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.08)" }} />
+              <span style={{ position: "relative", background: "rgba(26,26,30,0.9)", padding: "0 12px", fontSize: 11, color: "#555" }}>OR</span>
+            </div>
+
+            <button disabled style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, color: "#555", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: 0.6 }}>
+              <span style={{ fontSize: 18 }}>G</span> {t("googleComingSoon")}
+            </button>
+          </>)}
+
+          {mode === "forgot" && (<>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#FF8C00", letterSpacing: 1 }}>{t("forgotPassword")}</div>
+              <p style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{t("codeSent")}</p>
+            </div>
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t("emailRequired")} type="email"
+              style={inputStyle} onKeyDown={e => e.key === "Enter" && handleForgotSubmit()} />
+            {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
+            <button onClick={handleForgotSubmit} disabled={loading}
+              style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2, marginBottom: 12 }}>
+              {loading ? "..." : t("sendCode")}
+            </button>
+            <button onClick={() => switchMode("login")} style={{ width: "100%", background: "none", border: "none", color: "#FF8C00", fontSize: 13, padding: 8 }}>{t("backToLogin")}</button>
+          </>)}
+
+          {mode === "reset" && (<>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#FF8C00", letterSpacing: 1 }}>{t("resetPassword")}</div>
+              {message && <p style={{ fontSize: 12, color: "#4CAF50", marginTop: 6 }}>{message}</p>}
+            </div>
+            <input value={resetCode} onChange={e => setResetCode(e.target.value)} placeholder={t("enterCode")}
+              style={inputStyle} maxLength={6} onKeyDown={e => e.key === "Enter" && handleResetSubmit()} />
+            <input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={t("newPassword")} type="password"
+              style={inputStyle} onKeyDown={e => e.key === "Enter" && handleResetSubmit()} />
+            {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
+            <button onClick={handleResetSubmit} disabled={loading}
+              style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2, marginBottom: 12 }}>
+              {loading ? "..." : t("resetPassword")}
+            </button>
+            <button onClick={() => switchMode("login")} style={{ width: "100%", background: "none", border: "none", color: "#FF8C00", fontSize: 13, padding: 8 }}>{t("backToLogin")}</button>
+          </>)}
+
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
@@ -1417,6 +1517,24 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
   const [voiceEnabled, setVoiceEnabled] = useState(() => localStorage.getItem("bm_voiceGuide") !== "false");
   const lastSpokenRef = useRef("");
 
+  // Cache the best available voice (voices load async in Chrome)
+  const cachedVoiceRef = useRef(null);
+  useEffect(() => {
+    if (!window.speechSynthesis) return;
+    const pickVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return;
+      // Prefer high-quality neural/enhanced voices, then natural-sounding female voices
+      cachedVoiceRef.current = voices.find(v => /microsoft.*(jenny|aria)|samantha.*enhanced|google uk english female/i.test(v.name))
+        || voices.find(v => /samantha|karen|moira|tessa|daniel|google.*female|microsoft.*zira/i.test(v.name))
+        || voices.find(v => v.lang.startsWith("en") && /female/i.test(v.name))
+        || voices.find(v => v.lang.startsWith("en"));
+    };
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
+
   // Speak guided text when it changes
   useEffect(() => {
     if (!voiceEnabled || !guidedText || guidedText === lastSpokenRef.current) return;
@@ -1424,16 +1542,12 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
     lastSpokenRef.current = guidedText;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(guidedText);
-    utter.rate = 0.85;
-    utter.pitch = 0.9;
+    utter.rate = 0.80;
+    utter.pitch = 0.85;
     utter.volume = 0.9;
-    // Try to find a calm/natural voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => /samantha|karen|moira|tessa|google.*female|microsoft.*zira/i.test(v.name))
-      || voices.find(v => v.lang.startsWith("en") && /female/i.test(v.name))
-      || voices.find(v => v.lang.startsWith("en"));
-    if (preferred) utter.voice = preferred;
-    window.speechSynthesis.speak(utter);
+    if (cachedVoiceRef.current) utter.voice = cachedVoiceRef.current;
+    // Small delay for more natural pacing between phrases
+    setTimeout(() => window.speechSynthesis.speak(utter), 250);
   }, [guidedText, voiceEnabled]);
 
   // Stop speech on unmount or when meditation ends
@@ -1964,7 +2078,8 @@ function BeastModeApp() {
     if (!settings) return;
     if (alarmTimeoutRef.current) clearTimeout(alarmTimeoutRef.current);
     if (retryRef.current) { clearInterval(retryRef.current); retryRef.current = null; }
-    const intervalMs = (settings.intervalMinutes || 60) * 60 * 1000;
+    const intervalMin = settings.intervalMinutes || 60;
+    const intervalMs = intervalMin * 60 * 1000;
     const actualInterval = DEMO_MODE ? Math.min(intervalMs, 20000) : intervalMs;
     const now = new Date();
     const currentHour = now.getHours();
@@ -1973,6 +2088,25 @@ function BeastModeApp() {
     const dayKeys = ["sun","mon","tue","wed","thu","fri","sat"];
     const activeDays = settings.activeDays || dayKeys;
 
+    // Snap a Date to the next clock boundary based on interval
+    // 30min → next :00 or :30, 60min → next :00, 120min → next even-hour :00
+    const snapToClockBoundary = (date) => {
+      const d = new Date(date);
+      if (intervalMin <= 30) {
+        // Snap to next :00 or :30
+        if (d.getMinutes() < 30) { d.setMinutes(30, 0, 0); }
+        else { d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); }
+      } else if (intervalMin <= 60) {
+        // Snap to next :00
+        d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1);
+      } else {
+        // Snap to next even-hour :00
+        d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1);
+        if (d.getHours() % 2 !== 0) d.setHours(d.getHours() + 1);
+      }
+      return d;
+    };
+
     // Find the next active day's start time (looking up to 7 days ahead)
     const findNextActiveStart = (fromDate) => {
       for (let i = 0; i < 7; i++) {
@@ -1980,7 +2114,6 @@ function BeastModeApp() {
         d.setDate(d.getDate() + i);
         if (activeDays.includes(dayKeys[d.getDay()])) {
           if (i === 0) {
-            // Same day — only valid if we haven't passed end hour
             if (d.getHours() < eh || sh >= eh) return d;
           } else {
             d.setHours(sh, 0, 0, 0);
@@ -1991,7 +2124,6 @@ function BeastModeApp() {
       return null;
     };
 
-    // Check if today is an active day
     const todayKey = dayKeys[now.getDay()];
     const todayActive = activeDays.includes(todayKey);
 
@@ -2000,28 +2132,29 @@ function BeastModeApp() {
     if (DEMO_MODE) {
       delayMs = actualInterval;
     } else if (!todayActive || (sh !== eh && currentHour >= eh) || (sh !== eh && currentHour < sh)) {
-      // Not active today, or outside hours — find next active day/time
       let target;
       if (todayActive && sh !== eh && currentHour < sh) {
-        // Today is active but before start hour
         target = new Date(now); target.setHours(sh, 0, 0, 0);
       } else {
-        // Find next active day starting from tomorrow
         const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(sh, 0, 0, 0);
         target = findNextActiveStart(tomorrow);
       }
       if (target) {
         delayMs = target - now;
       } else {
-        // No active days selected — don't schedule
         setNextAlarmTime(null);
         return;
       }
-    } else if (sh !== eh) {
-      // Active today, within hours — use normal interval but clamp to end time
-      const endTime = new Date(now); endTime.setHours(eh, 0, 0, 0);
-      const msUntilEnd = endTime - now;
-      if (actualInterval > msUntilEnd) delayMs = msUntilEnd;
+    } else {
+      // Active today, within hours — snap to next clock boundary
+      const snapped = snapToClockBoundary(now);
+      delayMs = snapped - now;
+      // Clamp to end hour if set
+      if (sh !== eh) {
+        const endTime = new Date(now); endTime.setHours(eh, 0, 0, 0);
+        const msUntilEnd = endTime - now;
+        if (delayMs > msUntilEnd) delayMs = msUntilEnd;
+      }
     }
 
     if (delayMs <= 0) delayMs = actualInterval;
@@ -2205,7 +2338,7 @@ function BeastModeApp() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setScreen("setup")} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>{"\u2699\uFE0F"}</button>
-            <button onClick={handleLogout} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}>{"\uD83D\uDEAA"}</button>
+            <button onClick={handleLogout} style={{ width: 40, height: 40, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>{"\uD83D\uDEAA"}</button>
           </div>
         </div>
 
