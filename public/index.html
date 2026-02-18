@@ -1831,6 +1831,14 @@ function BeastModeApp() {
 
   const fireAlarm = useCallback(() => {
     if (retryRef.current) { clearInterval(retryRef.current); retryRef.current = null; }
+    // Check if today is still an active day and within hours
+    const now = new Date();
+    const dayKeys = ["sun","mon","tue","wed","thu","fri","sat"];
+    const activeDays = settings?.activeDays || dayKeys;
+    if (!activeDays.includes(dayKeys[now.getDay()])) return;
+    const sh = settings?.startHour != null ? settings.startHour : 0;
+    const eh = settings?.endHour != null ? settings.endHour : 23;
+    if (sh !== eh && (now.getHours() < sh || now.getHours() >= eh)) return;
     const dur = resolveDuration(settings?.duration || 2);
     if (workoutActiveRef.current) {
       retryRef.current = setInterval(() => {
@@ -1860,24 +1868,60 @@ function BeastModeApp() {
     const currentHour = now.getHours();
     const sh = settings.startHour != null ? settings.startHour : 0;
     const eh = settings.endHour != null ? settings.endHour : 23;
+    const dayKeys = ["sun","mon","tue","wed","thu","fri","sat"];
+    const activeDays = settings.activeDays || dayKeys;
+
+    // Find the next active day's start time (looking up to 7 days ahead)
+    const findNextActiveStart = (fromDate) => {
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(fromDate);
+        d.setDate(d.getDate() + i);
+        if (activeDays.includes(dayKeys[d.getDay()])) {
+          if (i === 0) {
+            // Same day — only valid if we haven't passed end hour
+            if (d.getHours() < eh || sh >= eh) return d;
+          } else {
+            d.setHours(sh, 0, 0, 0);
+            return d;
+          }
+        }
+      }
+      return null;
+    };
+
+    // Check if today is an active day
+    const todayKey = dayKeys[now.getDay()];
+    const todayActive = activeDays.includes(todayKey);
+
     let delayMs = actualInterval;
-    if (!DEMO_MODE && sh !== eh) {
-      if (currentHour < sh) {
-        // Before start: schedule for start hour
-        const startTime = new Date(now); startTime.setHours(sh, 0, 0, 0);
-        delayMs = startTime - now;
-      } else if (currentHour >= eh) {
-        // After end: schedule for start hour tomorrow
-        const startTomorrow = new Date(now); startTomorrow.setDate(startTomorrow.getDate() + 1); startTomorrow.setHours(sh, 0, 0, 0);
-        delayMs = startTomorrow - now;
+
+    if (DEMO_MODE) {
+      delayMs = actualInterval;
+    } else if (!todayActive || (sh !== eh && currentHour >= eh) || (sh !== eh && currentHour < sh)) {
+      // Not active today, or outside hours — find next active day/time
+      let target;
+      if (todayActive && sh !== eh && currentHour < sh) {
+        // Today is active but before start hour
+        target = new Date(now); target.setHours(sh, 0, 0, 0);
+      } else {
+        // Find next active day starting from tomorrow
+        const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(sh, 0, 0, 0);
+        target = findNextActiveStart(tomorrow);
       }
-      // else: within hours, use normal interval but clamp to end time
-      else {
-        const endTime = new Date(now); endTime.setHours(eh, 0, 0, 0);
-        const msUntilEnd = endTime - now;
-        if (actualInterval > msUntilEnd) delayMs = msUntilEnd;
+      if (target) {
+        delayMs = target - now;
+      } else {
+        // No active days selected — don't schedule
+        setNextAlarmTime(null);
+        return;
       }
+    } else if (sh !== eh) {
+      // Active today, within hours — use normal interval but clamp to end time
+      const endTime = new Date(now); endTime.setHours(eh, 0, 0, 0);
+      const msUntilEnd = endTime - now;
+      if (actualInterval > msUntilEnd) delayMs = msUntilEnd;
     }
+
     if (delayMs <= 0) delayMs = actualInterval;
     setNextAlarmTime(Date.now() + delayMs);
     alarmTimeoutRef.current = setTimeout(fireAlarm, delayMs);
@@ -2104,7 +2148,11 @@ function BeastModeApp() {
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,230,118,0.04)", borderRadius: 16, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,230,118,0.15)" }}>
-            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#00E676" }}>{t("restDay")}</div><div style={{ fontSize: 18, fontWeight: 800, color: "#00E676" }}>{"\uD83C\uDFD6\uFE0F"}</div></div>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: "#00E676" }}>{t("restDay")}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#00E676" }}>{"\uD83C\uDFD6\uFE0F"}</div>
+              {countdown && <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>{t("nextAlert")}: {countdown}</div>}
+            </div>
             <div style={{ fontSize: 12, color: "#888" }}>{t("extraCreditAvail")}</div>
           </div>
         )}
