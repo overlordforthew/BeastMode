@@ -665,33 +665,65 @@ function getTodayKey() {
   return ["sun","mon","tue","wed","thu","fri","sat"][d];
 }
 
-//     EVOLUTION TIERS                              
+//     EVOLUTION TIERS (first 3 easy, then exponential)
 const EVOLUTION_TIERS = [
-  { name: "Amoeba", emoji: "\ud83e\udda0", threshold: 0 }, { name: "Plankton", emoji: "\ud83e\udee7", threshold: 50 },
-  { name: "Jellyfish", emoji: "\ud83e\udebc", threshold: 120 }, { name: "Shrimp", emoji: "\ud83e\udd90", threshold: 200 },
-  { name: "Snail", emoji: "\ud83d\udc0c", threshold: 300 }, { name: "Crab", emoji: "\ud83e\udd80", threshold: 420 },
-  { name: "Fish", emoji: "\ud83d\udc1f", threshold: 560 }, { name: "Frog", emoji: "\ud83d\udc38", threshold: 720 },
-  { name: "Turtle", emoji: "\ud83d\udc22", threshold: 900 }, { name: "Snake", emoji: "\ud83d\udc0d", threshold: 1100 },
-  { name: "Lizard", emoji: "\ud83e\udd8e", threshold: 1350 }, { name: "Rabbit", emoji: "\ud83d\udc30", threshold: 1650 },
-  { name: "Fox", emoji: "\ud83e\udd8a", threshold: 2000 }, { name: "Dog", emoji: "\ud83d\udc15", threshold: 2400 },
-  { name: "Cat", emoji: "\ud83d\udc08", threshold: 2850 }, { name: "Raccoon", emoji: "\ud83e\udd9d", threshold: 3350 },
-  { name: "Deer", emoji: "\ud83e\udd8c", threshold: 3900 }, { name: "Wolf", emoji: "\ud83d\udc3a", threshold: 4500 },
-  { name: "Horse", emoji: "\ud83d\udc34", threshold: 5200 }, { name: "Dolphin", emoji: "\ud83d\udc2c", threshold: 6000 },
-  { name: "Shark", emoji: "\ud83e\udd88", threshold: 6900 }, { name: "Octopus", emoji: "\ud83d\udc19", threshold: 7900 },
-  { name: "Eagle", emoji: "\ud83e\udd85", threshold: 9000 }, { name: "Owl", emoji: "\ud83e\udd89", threshold: 10200 },
-  { name: "Gorilla", emoji: "\ud83e\udd8d", threshold: 11500 }, { name: "Panther", emoji: "\ud83d\udc06", threshold: 13000 },
-  { name: "Bear", emoji: "\ud83d\udc3b", threshold: 14700 }, { name: "Lion", emoji: "\ud83e\udd81", threshold: 16600 },
-  { name: "Tiger", emoji: "\ud83d\udc2f", threshold: 18700 }, { name: "Elephant", emoji: "\ud83d\udc18", threshold: 21000 },
-  { name: "Rhino", emoji: "\ud83e\udd8f", threshold: 23500 }, { name: "Hippo", emoji: "\ud83e\udd9b", threshold: 26200 },
-  { name: "Whale", emoji: "\ud83d\udc0b", threshold: 29200 }, { name: "T-Rex", emoji: "\ud83e\udd96", threshold: 32500 },
-  { name: "Mammoth", emoji: "\ud83e\udda3", threshold: 36000 }, { name: "Saber-tooth", emoji: "\ud83d\udc05", threshold: 40000 },
-  { name: "Phoenix", emoji: "\ud83d\udd25", threshold: 44500 }, { name: "Unicorn", emoji: "\ud83e\udd84", threshold: 49500 },
-  { name: "Griffin", emoji: "\ud83e\udd85", threshold: 55000 }, { name: "Kraken", emoji: "\ud83e\udd91", threshold: 61000 },
-  { name: "Hydra", emoji: "\ud83d\udc09", threshold: 68000 }, { name: "Cerberus", emoji: "\ud83d\udc15\u200d\ud83e\uddba", threshold: 76000 },
-  { name: "Thunderbird", emoji: "\u26a1", threshold: 85000 }, { name: "Leviathan", emoji: "\ud83c\udf0a", threshold: 95000 },
-  { name: "Titan", emoji: "\ud83d\uddff", threshold: 106000 }, { name: "Behemoth", emoji: "\ud83d\udc80", threshold: 118000 },
-  { name: "Colossus", emoji: "\ud83c\udfdb\ufe0f", threshold: 132000 }, { name: "Wyvern", emoji: "\ud83e\udebd", threshold: 148000 },
-  { name: "Bahamut", emoji: "\ud83d\udc51", threshold: 166000 }, { name: "Dragon", emoji: "\ud83d\udc32", threshold: 200000 },
+  // Easy start: day 1 quick wins
+  { name: "Amoeba", emoji: "\ud83e\udda0", threshold: 0 },
+  { name: "Plankton", emoji: "\ud83e\udee7", threshold: 10 },
+  { name: "Jellyfish", emoji: "\ud83e\udebc", threshold: 25 },
+  // Week 1 (~25-50 pts/day)
+  { name: "Shrimp", emoji: "\ud83e\udd90", threshold: 50 },
+  { name: "Snail", emoji: "\ud83d\udc0c", threshold: 80 },
+  { name: "Crab", emoji: "\ud83e\udd80", threshold: 120 },
+  { name: "Fish", emoji: "\ud83d\udc1f", threshold: 170 },
+  { name: "Frog", emoji: "\ud83d\udc38", threshold: 230 },
+  { name: "Turtle", emoji: "\ud83d\udc22", threshold: 310 },
+  { name: "Snake", emoji: "\ud83d\udc0d", threshold: 420 },
+  // Month 1 (~50-80 pts/day)
+  { name: "Lizard", emoji: "\ud83e\udd8e", threshold: 560 },
+  { name: "Rabbit", emoji: "\ud83d\udc30", threshold: 750 },
+  { name: "Fox", emoji: "\ud83e\udd8a", threshold: 1000 },
+  { name: "Dog", emoji: "\ud83d\udc15", threshold: 1300 },
+  { name: "Cat", emoji: "\ud83d\udc08", threshold: 1700 },
+  { name: "Raccoon", emoji: "\ud83e\udd9d", threshold: 2200 },
+  { name: "Deer", emoji: "\ud83e\udd8c", threshold: 2900 },
+  { name: "Wolf", emoji: "\ud83d\udc3a", threshold: 3800 },
+  { name: "Horse", emoji: "\ud83d\udc34", threshold: 5000 },
+  { name: "Dolphin", emoji: "\ud83d\udc2c", threshold: 6500 },
+  // 3-6 months
+  { name: "Shark", emoji: "\ud83e\udd88", threshold: 8500 },
+  { name: "Octopus", emoji: "\ud83d\udc19", threshold: 11000 },
+  { name: "Eagle", emoji: "\ud83e\udd85", threshold: 14000 },
+  { name: "Owl", emoji: "\ud83e\udd89", threshold: 18000 },
+  { name: "Gorilla", emoji: "\ud83e\udd8d", threshold: 23000 },
+  { name: "Panther", emoji: "\ud83d\udc06", threshold: 30000 },
+  { name: "Bear", emoji: "\ud83d\udc3b", threshold: 38000 },
+  { name: "Lion", emoji: "\ud83e\udd81", threshold: 48000 },
+  { name: "Tiger", emoji: "\ud83d\udc2f", threshold: 60000 },
+  { name: "Elephant", emoji: "\ud83d\udc18", threshold: 75000 },
+  // 1-2 years
+  { name: "Rhino", emoji: "\ud83e\udd8f", threshold: 95000 },
+  { name: "Hippo", emoji: "\ud83e\udd9b", threshold: 120000 },
+  { name: "Whale", emoji: "\ud83d\udc0b", threshold: 150000 },
+  { name: "T-Rex", emoji: "\ud83e\udd96", threshold: 190000 },
+  { name: "Mammoth", emoji: "\ud83e\udda3", threshold: 240000 },
+  { name: "Saber-tooth", emoji: "\ud83d\udc05", threshold: 300000 },
+  // Mythic: 2-3 years
+  { name: "Phoenix", emoji: "\ud83d\udd25", threshold: 375000 },
+  { name: "Unicorn", emoji: "\ud83e\udd84", threshold: 470000 },
+  { name: "Griffin", emoji: "\ud83e\udd85", threshold: 580000 },
+  { name: "Kraken", emoji: "\ud83e\udd91", threshold: 720000 },
+  { name: "Hydra", emoji: "\ud83d\udc09", threshold: 900000 },
+  { name: "Cerberus", emoji: "\ud83d\udc15\u200d\ud83e\uddba", threshold: 1100000 },
+  { name: "Thunderbird", emoji: "\u26a1", threshold: 1350000 },
+  { name: "Leviathan", emoji: "\ud83c\udf0a", threshold: 1650000 },
+  // Godlike: 3+ years
+  { name: "Titan", emoji: "\ud83d\uddff", threshold: 2000000 },
+  { name: "Behemoth", emoji: "\ud83d\udc80", threshold: 2500000 },
+  { name: "Colossus", emoji: "\ud83c\udfdb\ufe0f", threshold: 3200000 },
+  { name: "Wyvern", emoji: "\ud83e\udebd", threshold: 4000000 },
+  { name: "Bahamut", emoji: "\ud83d\udc51", threshold: 5000000 },
+  { name: "Dragon", emoji: "\ud83d\udc32", threshold: 6500000 },
 ];
 
 function getEvolution(points) {
@@ -1023,7 +1055,7 @@ function EvolutionBar({ points }) {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 2px" }}>
         <span style={{ fontSize: 18 }}>{current.emoji}</span>
-        <span style={{ fontSize: 11, color: "#555" }}>{Math.round(progress * 100)}%</span>
+        <span style={{ fontSize: 11, color: "#444" }}>Tap to see all levels {"\u203A"}</span>
         {next && <span style={{ fontSize: 18, opacity: 0.4 }}>{next.emoji}</span>}
       </div>
     </div>
@@ -1628,7 +1660,77 @@ function EvolutionPopup({ oldTier, newTier, onClose }) {
   );
 }
 
-//     AWARD POPUP                                  
+//     EVOLUTION PROGRESSION SCREEN
+function EvolutionScreen({ points, onBack }) {
+  const current = getEvolution(points);
+  const currentIdx = EVOLUTION_TIERS.indexOf(current);
+  const listRef = React.useRef(null);
+
+  useEffect(() => {
+    if (listRef.current) {
+      const activeEl = listRef.current.querySelector('[data-active="true"]');
+      if (activeEl) activeEl.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, []);
+
+  return (
+    <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", minHeight: "100vh", background: "#0a0a0f" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 14, fontWeight: 600, padding: "8px 0" }}>{"\u2190"} Back</button>
+        <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "#FFD700" }}>EVOLUTION</span>
+        <span style={{ fontSize: 12, color: "#888" }}>Lv {currentIdx + 1}/{EVOLUTION_TIERS.length}</span>
+      </div>
+
+      <div style={{ textAlign: "center", marginBottom: 20, padding: "16px 12px", background: "linear-gradient(135deg, #1a0a00, #2d1400)", borderRadius: 18, border: "1px solid rgba(255,77,0,0.25)" }}>
+        <div style={{ fontSize: 48, marginBottom: 6 }}>{current.emoji}</div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#FFD700" }}>{current.name}</div>
+        <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>{Math.round(points).toLocaleString()} total points</div>
+      </div>
+
+      <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {EVOLUTION_TIERS.map((tier, i) => {
+          const isUnlocked = points >= tier.threshold;
+          const isCurrent = i === currentIdx;
+          const nextTier = EVOLUTION_TIERS[i + 1];
+          const ptsNeeded = tier.threshold - points;
+          const tierProgress = isCurrent && nextTier ? (points - tier.threshold) / (nextTier.threshold - tier.threshold) : isUnlocked ? 1 : 0;
+
+          return (
+            <div key={i} data-active={isCurrent ? "true" : "false"} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+              background: isCurrent ? "linear-gradient(135deg, rgba(255,77,0,0.15), rgba(255,140,0,0.1))" : isUnlocked ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
+              border: isCurrent ? "1px solid rgba(255,77,0,0.4)" : "1px solid rgba(255,255,255,0.04)",
+              borderRadius: 14, opacity: isUnlocked ? 1 : 0.5, transition: "all 0.3s ease",
+            }}>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", background: isCurrent ? "linear-gradient(135deg, #FF4D00, #FF8C00)" : isUnlocked ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, border: isCurrent ? "2px solid #FFD700" : "none" }}>
+                {tier.emoji}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                  <span style={{ fontSize: 14, fontWeight: isCurrent ? 800 : 600, color: isCurrent ? "#FFD700" : isUnlocked ? "#ddd" : "#666" }}>{tier.name}</span>
+                  <span style={{ fontSize: 11, color: "#555" }}>Lv {i + 1}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: isCurrent ? "#FF8C00" : "#555" }}>{tier.threshold.toLocaleString()} pts</span>
+                  {isCurrent && nextTier && <span style={{ fontSize: 11, color: "#FF8C00", fontWeight: 700 }}>{Math.round(nextTier.threshold - points).toLocaleString()} pts to next</span>}
+                  {!isUnlocked && !isCurrent && <span style={{ fontSize: 11, color: "#444" }}>{Math.round(ptsNeeded).toLocaleString()} pts away</span>}
+                  {isUnlocked && !isCurrent && <span style={{ fontSize: 11, color: "#4a4" }}>{"\u2713"}</span>}
+                </div>
+                {isCurrent && nextTier && (
+                  <div style={{ width: "100%", height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginTop: 6, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 2, width: `${tierProgress * 100}%`, background: "linear-gradient(90deg, #FF4D00, #FFD700)" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+//     AWARD POPUP
 function AwardPopup({ award, onClose, lang }) {
   const t = useT(lang || "en");
   return (
@@ -2068,6 +2170,7 @@ function BeastModeApp() {
   if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); }} settings={settings} lang={lang} setLang={setLang} />;
   if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} lang={lang} />;
+  if (screen === "evolution") return <EvolutionScreen points={progress?.totalPoints || 0} onBack={() => setScreen("dashboard")} />;
 
   //     DASHBOARD                                  
   const totalPoints = progress?.totalPoints || 0;
@@ -2089,7 +2192,7 @@ function BeastModeApp() {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <EvolutionBadge points={totalPoints} size={44} glow />
+            <div onClick={() => setScreen("evolution")} style={{ cursor: "pointer" }}><EvolutionBadge points={totalPoints} size={44} glow /></div>
             <div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>{user?.username}</div>
               <div style={{ fontSize: 12, color: "#FF8C00" }}>{"\uD83D\uDD25"} {streak} {t("dayStreak")} {"\u00D7"}{streakMult} {t("bonus")}</div>
@@ -2106,7 +2209,9 @@ function BeastModeApp() {
           </div>
         </div>
 
-        <EvolutionBar points={totalPoints} />
+        <div onClick={() => setScreen("evolution")} style={{ cursor: "pointer" }}>
+          <EvolutionBar points={totalPoints} />
+        </div>
 
         {/* Mode Toggle */}
         <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: 4, border: "1px solid rgba(255,255,255,0.06)" }}>
