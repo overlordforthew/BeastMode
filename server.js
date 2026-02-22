@@ -18,6 +18,16 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
 app.use(express.json());
 
+// Service Worker — must be served from root with correct headers
+app.get("/sw.js", (req, res) => {
+  res.set({
+    "Content-Type": "application/javascript",
+    "Service-Worker-Allowed": "/",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+  });
+  res.sendFile(path.join(__dirname, "public", "sw.js"));
+});
+
 // Static frontend
 app.use(express.static(path.join(__dirname, "public")));
 

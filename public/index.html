@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0a0f">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>Beast Mode</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2476,6 +2478,22 @@ function BeastModeApp() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<BeastModeApp />);
+</script>
+<script>
+// Register Service Worker for PWA support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((reg) => {
+        console.log('Service Worker registered, scope:', reg.scope);
+        // Check for updates periodically
+        setInterval(() => reg.update(), 60 * 60 * 1000); // hourly
+      })
+      .catch((err) => {
+        console.warn('Service Worker registration failed:', err);
+      });
+  });
+}
 </script>
 </body>
 </html>
