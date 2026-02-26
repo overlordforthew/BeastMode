@@ -15,7 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || "https://beastmode.namibarden.com", credentials: true }));
 app.use(express.json());
 
 // Service Worker — must be served from root with correct headers
