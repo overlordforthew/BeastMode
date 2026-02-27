@@ -233,7 +233,6 @@ const EXERCISES = [
 const _exStyleInjected = { current: false };
 function ExerciseAnimation({ exerciseId, size }) {
   const s = size || 64;
-  const sc = s / 80;
   useEffect(() => {
     if (_exStyleInjected.current) return;
     _exStyleInjected.current = true;
@@ -1012,7 +1011,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
     if (!email.trim()) return;
     setLoading(true); setError(""); setMessage("");
     try {
-      const data = await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
+      await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
       setMessage(t("codeSent"));
       setMode("reset");
     } catch(e) {
@@ -1983,7 +1982,6 @@ function BeastModeApp() {
   const [user, setUser] = useState(null);
   const [settings, setSettings] = useState(null);
   const [progress, setProgress] = useState(null);
-  const [stats, setStats] = useState(null);
   const [unlockedAwards, setUnlockedAwards] = useState(new Set());
   const [history, setHistory] = useState([]);
 
@@ -2027,7 +2025,6 @@ function BeastModeApp() {
       setLang(data.user.language || "en");
       setSettings(data.settings);
       setProgress(data.progress);
-      setStats(data.stats);
       setUnlockedAwards(new Set(data.awards));
       // Load history
       api("/api/workout/history?limit=20").then(h => setHistory(h)).catch(() => {});
@@ -2485,7 +2482,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((reg) => {
-        console.log('Service Worker registered, scope:', reg.scope);
+        // Service Worker registered
         // Check for updates periodically
         setInterval(() => reg.update(), 60 * 60 * 1000); // hourly
       })

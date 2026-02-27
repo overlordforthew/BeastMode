@@ -160,8 +160,10 @@ router.post("/forgot-password", async (req, res) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     resetCodes.set(email.toLowerCase(), { code, expires: Date.now() + RESET_CODE_TTL });
 
-    // TODO: Send code via email. For now, log to console.
-    console.log(`[PASSWORD RESET] Code for ${email}: ${code}`);
+    // TODO: Send code via email
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[PASSWORD RESET] Code for ${email}: ${code}`);
+    }
 
     res.json({ message: "If an account with that email exists, a reset code has been sent." });
   } catch (err) {
