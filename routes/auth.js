@@ -7,8 +7,18 @@ const { generateToken } = require("../middleware/auth");
 const router = express.Router();
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
-// In-memory store for password reset codes (TTL: 15 minutes)
-// TODO: Replace with email delivery (e.g. Nodemailer + SendGrid) for production
+// ⚠️  WARNING: Password reset is NOT production-ready.
+// Reset codes are stored in an in-memory Map — they are lost on every server
+// restart, deploy, or process crash. Additionally, codes are never emailed to
+// the user; they are only logged to the console in development mode. In
+// production, the forgot-password flow silently generates a code that the user
+// has no way to receive.
+//
+// To make this work for real:
+//   1. Send codes via email (e.g. Nodemailer + SendGrid/SES)
+//   2. Move code storage to the database or Redis so it survives restarts
+//
+// Keeping this scaffolding so it can be wired up later.
 const resetCodes = new Map();
 const RESET_CODE_TTL = 15 * 60 * 1000;
 

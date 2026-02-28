@@ -22,4 +22,4 @@ function generateToken(userId) {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "30d" });
 }
 
-module.exports = { authMiddleware, generateToken, JWT_SECRET };
+module.exports = { authMiddleware, generateToken };

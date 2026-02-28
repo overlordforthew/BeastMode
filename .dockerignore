@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.env.example
+.claude
+node_modules
+npm-debug.log
+README.md
+Dockerfile
+docker-compose.yml
+deploy.sh
+*.log
+.DS_Store
