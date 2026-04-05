@@ -21,6 +21,8 @@ const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env
 // Keeping this scaffolding so it can be wired up later.
 const resetCodes = new Map();
 const RESET_CODE_TTL = 15 * 60 * 1000;
+const RESET_ATTEMPTS = new Map(); // Track brute-force attempts
+const MAX_RESET_ATTEMPTS = 5;
 
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
@@ -29,8 +31,8 @@ router.post("/register", async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password are required" });
     }
-    if (password.length < 4) {
-      return res.status(400).json({ error: "Password must be at least 4 characters" });
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
 
     const existing = await pool.query("SELECT id FROM users WHERE username = $1", [username]);
@@ -189,14 +191,24 @@ router.post("/reset-password", async (req, res) => {
     if (!email || !code || !newPassword) {
       return res.status(400).json({ error: "Email, code, and new password are required" });
     }
-    if (newPassword.length < 4) {
-      return res.status(400).json({ error: "Password must be at least 4 characters" });
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
 
-    const entry = resetCodes.get(email.toLowerCase());
+    const emailKey = email.toLowerCase();
+    const attempts = RESET_ATTEMPTS.get(emailKey) || 0;
+    if (attempts >= MAX_RESET_ATTEMPTS) {
+      resetCodes.delete(emailKey);
+      RESET_ATTEMPTS.delete(emailKey);
+      return res.status(429).json({ error: "Too many attempts. Request a new code." });
+    }
+
+    const entry = resetCodes.get(emailKey);
     if (!entry || entry.code !== code || Date.now() > entry.expires) {
+      RESET_ATTEMPTS.set(emailKey, attempts + 1);
       return res.status(400).json({ error: "Invalid or expired reset code" });
     }
+    RESET_ATTEMPTS.delete(emailKey);
 
     const hash = await bcrypt.hash(newPassword, 10);
     const result = await pool.query("UPDATE users SET password_hash = $1 WHERE email = $2 RETURNING id", [hash, email]);

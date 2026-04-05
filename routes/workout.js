@@ -13,13 +13,23 @@ const FREEZE_EARN_INTERVAL = 5;
 router.post("/log", async (req, res) => {
   try {
     const { exerciseId, exerciseName, exerciseEmoji, points, durationMinutes, wasCompleted, type } = req.body;
+
+    // Input validation
+    if (!exerciseId || typeof exerciseName !== 'string' || exerciseName.length > 100) {
+      return res.status(400).json({ error: "Invalid exercise data" });
+    }
+    const safePoints = Math.max(0, Math.min(Number(points) || 0, 1000));
+    const safeDuration = Math.max(0, Math.min(Number(durationMinutes) || 0, 120));
+    const safeType = ["alarm", "extra"].includes(type) ? type : "alarm";
+    const safeEmoji = (exerciseEmoji || "").slice(0, 10);
+
     const today = new Date().toISOString().split("T")[0];
 
     // Insert workout
     await pool.query(
       `INSERT INTO workout_history (user_id, exercise_id, exercise_name, exercise_emoji, points, duration_minutes, was_completed, type)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [req.userId, exerciseId, exerciseName, exerciseEmoji, points, durationMinutes, wasCompleted, type || "alarm"]
+      [req.userId, exerciseId, exerciseName.slice(0, 100), safeEmoji, safePoints, safeDuration, wasCompleted, safeType]
     );
 
     // Get current progress

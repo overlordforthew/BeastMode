@@ -77,8 +77,8 @@ router.put("/settings", async (req, res) => {
 router.put("/language", async (req, res) => {
   try {
     const { language } = req.body;
-    if (!language) {
-      return res.status(400).json({ error: "Language is required" });
+    if (!language || !/^[a-z]{2}(-[A-Z]{2})?$/.test(language)) {
+      return res.status(400).json({ error: "Valid language code required (e.g. en, pt-BR)" });
     }
 
     await pool.query("UPDATE users SET language = $1, updated_at = NOW() WHERE id = $2", [language, req.userId]);

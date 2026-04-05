@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const webpush = require("web-push");
+const rateLimit = require("express-rate-limit");
 const { initDb } = require("./db");
 
 const authRoutes = require("./routes/auth");
@@ -41,8 +42,9 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   console.log("Web Push configured");
 }
 
-// API Routes
-app.use("/api/auth", authRoutes);
+// Rate limit auth endpoints
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true, legacyHeaders: false, message: { error: "Too many requests, try again later" } });
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/workout", workoutRoutes);
 app.use("/api/stats", statsRoutes);
