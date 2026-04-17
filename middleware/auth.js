@@ -12,6 +12,9 @@ function authMiddleware(req, res, next) {
   try {
     const token = header.slice(7);
     const payload = jwt.verify(token, JWT_SECRET);
+    if (!payload.userId) {
+      return res.status(401).json({ error: "Invalid token payload" });
+    }
     req.userId = payload.userId;
     next();
   } catch (err) {

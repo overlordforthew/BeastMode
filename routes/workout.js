@@ -20,7 +20,7 @@ router.post("/log", async (req, res) => {
     }
     const safePoints = Math.max(0, Math.min(Number(points) || 0, 1000));
     const safeDuration = Math.max(0, Math.min(Number(durationMinutes) || 0, 120));
-    const safeType = ["alarm", "extra"].includes(type) ? type : "alarm";
+    const safeType = ["alarm", "extra", "meditation"].includes(type) ? type : "alarm";
     const safeEmoji = (exerciseEmoji || "").slice(0, 10);
 
     const today = new Date().toISOString().split("T")[0];
@@ -36,50 +36,71 @@ router.post("/log", async (req, res) => {
     const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
     const progress = progR.rows[0];
     const streakMult = Math.pow(1.1, progress.streak - 1);
-    const finalPts = Math.round(points * streakMult * 10) / 10;
-    const newSessionsFinished = wasCompleted ? progress.sessions_finished + 1 : progress.sessions_finished;
+    const finalPts = Math.round(safePoints * streakMult * 10) / 10;
+    const countsAsWorkout = wasCompleted && safeType !== "meditation";
+    const countsAsMeditation = wasCompleted && safeType === "meditation";
+    const newSessionsFinished = countsAsWorkout ? progress.sessions_finished + 1 : progress.sessions_finished;
+    const newMeditationsFinished = countsAsMeditation ? (progress.meditations_finished || 0) + 1 : (progress.meditations_finished || 0);
 
     // Update progress
     await pool.query(`
       UPDATE user_progress SET
         total_points = total_points + $1, today_points = today_points + $1,
-        sessions_completed = sessions_completed + 1,
+        sessions_completed = sessions_completed + $5,
         sessions_finished = $2,
-        last_active_date = $3, updated_at = NOW()
-      WHERE user_id = $4
-    `, [finalPts, newSessionsFinished, today, req.userId]);
+        meditations_finished = $3,
+        last_active_date = $4, updated_at = NOW()
+      WHERE user_id = $6
+    `, [finalPts, newSessionsFinished, newMeditationsFinished, today, wasCompleted ? 1 : 0, req.userId]);
 
     // Update stats if completed
     if (wasCompleted) {
       const statsR = await pool.query("SELECT unique_exercises FROM user_stats WHERE user_id = $1", [req.userId]);
       const uniqueEx = new Set(statsR.rows[0].unique_exercises || []);
-      uniqueEx.add(exerciseId);
+      if (safeType !== "meditation") {
+        uniqueEx.add(exerciseId);
+      }
 
       await pool.query(`
         UPDATE user_stats SET
           total_sessions = total_sessions + 1,
           extra_sessions = extra_sessions + $1,
           unique_exercises = $2,
-          max_duration_completed = GREATEST(max_duration_completed, $3),
+          max_duration_completed = GREATEST(max_duration_completed, $3::real),
           max_daily_sessions = GREATEST(max_daily_sessions, $4),
           updated_at = NOW()
         WHERE user_id = $5
-      `, [type === "extra" ? 1 : 0, JSON.stringify([...uniqueEx]), durationMinutes || 0, newSessionsFinished, req.userId]);
+      `, [
+        safeType === "extra" ? 1 : 0,
+        JSON.stringify([...uniqueEx]),
+        safeType === "meditation" ? 0 : safeDuration,
+        safeType === "meditation" ? progress.sessions_finished : newSessionsFinished,
+        req.userId,
+      ]);
     }
 
     // Upsert daily log
     await pool.query(`
-      INSERT INTO daily_log (user_id, log_date, points, sessions_finished, qualified)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO daily_log (user_id, log_date, points, sessions_finished, meditations_finished, qualified)
+      VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (user_id, log_date) DO UPDATE SET
         points = daily_log.points + $3,
         sessions_finished = daily_log.sessions_finished + $4,
-        qualified = (daily_log.sessions_finished + $4) >= $6
-    `, [req.userId, today, finalPts, wasCompleted ? 1 : 0, (wasCompleted ? 1 : 0) >= MIN_DAILY_SESSIONS, MIN_DAILY_SESSIONS]);
+        meditations_finished = daily_log.meditations_finished + $5,
+        qualified = (daily_log.sessions_finished + $4) >= $7 OR (daily_log.meditations_finished + $5) >= 1
+    `, [
+      req.userId,
+      today,
+      finalPts,
+      countsAsWorkout ? 1 : 0,
+      countsAsMeditation ? 1 : 0,
+      countsAsWorkout ? 1 >= MIN_DAILY_SESSIONS : countsAsMeditation,
+      MIN_DAILY_SESSIONS,
+    ]);
 
     const newAwards = await checkAndUnlockAwards(req.userId);
 
-    const updated = await pool.query("SELECT total_points, today_points, sessions_finished FROM user_progress WHERE user_id = $1", [req.userId]);
+    const updated = await pool.query("SELECT total_points, today_points, sessions_finished, meditations_finished FROM user_progress WHERE user_id = $1", [req.userId]);
     const u = updated.rows[0];
 
     res.json({
@@ -87,6 +108,7 @@ router.post("/log", async (req, res) => {
       totalPoints: u.total_points,
       todayPoints: u.today_points,
       sessionsFinished: u.sessions_finished,
+      meditationsFinished: u.meditations_finished,
       newAwards,
     });
   } catch (err) {
@@ -100,7 +122,7 @@ router.post("/end-day", async (req, res) => {
   try {
     const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
     const progress = progR.rows[0];
-    const qualified = progress.sessions_finished >= MIN_DAILY_SESSIONS;
+    const qualified = progress.sessions_finished >= MIN_DAILY_SESSIONS || (progress.meditations_finished || 0) >= 1;
 
     let newStreak = progress.streak;
     let newFreezes = progress.streak_freezes;
@@ -123,7 +145,7 @@ router.post("/end-day", async (req, res) => {
     await pool.query(`
       UPDATE user_progress SET
         streak = $1, max_streak = $2, streak_freezes = $3,
-        today_points = 0, sessions_completed = 0, sessions_finished = 0, sessions_skipped = 0,
+        today_points = 0, sessions_completed = 0, sessions_finished = 0, meditations_finished = 0, sessions_skipped = 0,
         day_counter = $4, updated_at = NOW()
       WHERE user_id = $5
     `, [newStreak, newMaxStreak, newFreezes, newDayCounter, req.userId]);
@@ -159,7 +181,7 @@ router.post("/missed-day", async (req, res) => {
     await pool.query(`
       UPDATE user_progress SET
         streak = $1, streak_freezes = $2, today_points = 0,
-        sessions_completed = 0, sessions_finished = 0, sessions_skipped = 0,
+        sessions_completed = 0, sessions_finished = 0, meditations_finished = 0, sessions_skipped = 0,
         day_counter = $3, updated_at = NOW()
       WHERE user_id = $4
     `, [newStreak, newFreezes, newDayCounter, req.userId]);
@@ -209,13 +231,16 @@ router.get("/weekly", async (req, res) => {
 
 async function getWeeklySummary(userId) {
   const daysR = await pool.query(`
-    SELECT log_date, points, sessions_finished, qualified
+    SELECT log_date, points, sessions_finished, meditations_finished, qualified
     FROM daily_log WHERE user_id = $1 ORDER BY log_date DESC LIMIT 7
   `, [userId]);
 
   const labels = ["M", "T", "W", "T", "F", "S", "S"];
   const dayData = daysR.rows.reverse().map((d, i) => ({
-    label: labels[i % 7], points: d.points, sessions: d.sessions_finished, active: d.sessions_finished > 0,
+    label: labels[i % 7],
+    points: d.points,
+    sessions: d.sessions_finished + (d.meditations_finished || 0),
+    active: d.sessions_finished > 0 || (d.meditations_finished || 0) > 0,
   }));
   while (dayData.length < 7) dayData.unshift({ label: labels[(7 - dayData.length) % 7], points: 0, sessions: 0, active: false });
 
@@ -263,24 +288,57 @@ const AWARD_CHECKS = [
   { id: "extra_1", check: (s) => s.extraSessions >= 1 },
   { id: "extra_10", check: (s) => s.extraSessions >= 10 },
   { id: "perfect_day", check: (s) => s.maxDailySessions >= 5 },
+  { id: "first_meditation", check: (s) => s.totalMeditations >= 1 },
+  { id: "med_sessions_10", check: (s) => s.totalMeditations >= 10 },
+  { id: "med_sessions_50", check: (s) => s.totalMeditations >= 50 },
+  { id: "med_60", check: (s) => s.maxMeditationDuration >= 60 },
+  { id: "med_3_in_day", check: (s) => s.maxMeditationsInDay >= 3 },
+  { id: "try_all_med", check: (s) => s.uniqueMeditationTypes >= 6 },
 ];
 
 async function checkAndUnlockAwards(userId) {
-  const [existingR, progressR, statsR] = await Promise.all([
+  const [existingR, progressR, statsR, meditationTotalsR, maxMeditationsDayR] = await Promise.all([
     pool.query("SELECT award_id FROM user_awards WHERE user_id = $1", [userId]),
     pool.query("SELECT * FROM user_progress WHERE user_id = $1", [userId]),
     pool.query("SELECT * FROM user_stats WHERE user_id = $1", [userId]),
+    pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE type = 'meditation' AND was_completed = TRUE) AS total_meditations,
+        COALESCE(MAX(CASE WHEN type = 'meditation' AND was_completed = TRUE THEN duration_minutes END), 0) AS max_meditation_duration,
+        COUNT(DISTINCT CASE WHEN type = 'meditation' AND was_completed = TRUE THEN exercise_id END) AS unique_meditation_types
+      FROM workout_history
+      WHERE user_id = $1
+    `, [userId]),
+    pool.query(`
+      SELECT COALESCE(MAX(day_count), 0) AS max_meditations_in_day
+      FROM (
+        SELECT COUNT(*) AS day_count
+        FROM workout_history
+        WHERE user_id = $1 AND type = 'meditation' AND was_completed = TRUE
+        GROUP BY created_at::date
+      ) meditation_days
+    `, [userId]),
   ]);
 
   const existing = new Set(existingR.rows.map((r) => r.award_id));
   const progress = progressR.rows[0];
   const stats = statsR.rows[0];
+  const meditationTotals = meditationTotalsR.rows[0];
+  const maxMeditationsDay = maxMeditationsDayR.rows[0];
 
   const snapshot = {
-    totalSessions: stats.total_sessions, extraSessions: stats.extra_sessions,
-    maxStreak: progress.max_streak, uniqueExercises: (stats.unique_exercises || []).length,
-    maxDurationCompleted: stats.max_duration_completed, totalFreezesEarned: stats.total_freezes_earned,
-    maxDailySessions: stats.max_daily_sessions, totalPoints: progress.total_points,
+    totalSessions: stats.total_sessions,
+    extraSessions: stats.extra_sessions,
+    maxStreak: progress.max_streak,
+    uniqueExercises: (stats.unique_exercises || []).length,
+    maxDurationCompleted: stats.max_duration_completed,
+    totalFreezesEarned: stats.total_freezes_earned,
+    maxDailySessions: stats.max_daily_sessions,
+    totalPoints: progress.total_points,
+    totalMeditations: Number(meditationTotals.total_meditations || 0),
+    maxMeditationDuration: Number(meditationTotals.max_meditation_duration || 0),
+    uniqueMeditationTypes: Number(meditationTotals.unique_meditation_types || 0),
+    maxMeditationsInDay: Number(maxMeditationsDay.max_meditations_in_day || 0),
   };
 
   const newlyUnlocked = [];

@@ -15,6 +15,9 @@ const statsRoutes = require("./routes/stats");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust reverse proxy (Traefik) for correct client IP in rate limiting
+app.set("trust proxy", 1);
+
 // Middleware
 app.use(cors({ origin: process.env.CORS_ORIGIN || "https://beastmode.namibarden.com", credentials: true }));
 app.use(express.json());
@@ -53,15 +56,21 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-// SPA fallback
-app.get("*", (req, res) => {
-  if (!req.path.startsWith("/api")) {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
-  }
+// Unknown API routes — return 404 instead of hanging
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: "Not found" });
 });
 
-// Error handler
+// SPA fallback
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// JSON parse error handler
 app.use((err, req, res, next) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Invalid JSON" });
+  }
   console.error("Server error:", err);
   res.status(500).json({ error: "Internal server error" });
 });
@@ -74,4 +83,7 @@ async function start() {
     console.log(`API: http://localhost:${PORT}/api/health`);
   });
 }
-start().catch(console.error);
+start().catch((err) => {
+  console.error("Fatal startup error:", err);
+  process.exit(1);
+});

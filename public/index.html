@@ -1011,8 +1011,9 @@ function AuthScreen({ onAuth, lang, setLang }) {
     if (!email.trim()) return;
     setLoading(true); setError(""); setMessage("");
     try {
-      await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
-      setMessage(t("codeSent"));
+      const data = await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
+      setMessage(data.message || t("codeSent"));
+      if (data.devCode) setResetCode(data.devCode);
       setMode("reset");
     } catch(e) {
       setError(e.message);
@@ -1171,7 +1172,7 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
   const [exerciseMode, setExerciseMode] = useState("all");
   const [selectedExercises, setSelectedExercises] = useState(settings?.selectedExercises || EXERCISES.map(e => e.id));
   const [activeDays, setActiveDays] = useState(settings?.activeDays || ALL_DAYS);
-  const [alarmMessage, setAlarmMessage] = useState("Let's Be Our Best!");
+  const [alarmMessage, setAlarmMessage] = useState(settings?.alarmMessage || "Let's Be Our Best!");
   const [startHour, setStartHour] = useState(settings?.startHour || 8);
   const [endHour, setEndHour] = useState(settings?.endHour || 17);
 
@@ -2016,26 +2017,29 @@ function BeastModeApp() {
     workoutActiveRef.current = showTimer || showExtraCredit || showAlarm || showMedTimer || !!evoPopup || !!awardPopup || showWeeklySummary;
   }, [showTimer, showExtraCredit, showAlarm, showMedTimer, evoPopup, awardPopup, showWeeklySummary]);
 
+  const loadSession = useCallback(async () => {
+    const data = await api("/api/user/profile");
+    setUser(data.user);
+    setLang(data.user?.language || "en");
+    setSettings(data.settings);
+    setProgress(data.progress);
+    setUnlockedAwards(new Set(data.awards || []));
+    setTodayMedSessions(data.progress?.meditationsFinished || 0);
+    const recentHistory = await api("/api/workout/history?limit=20").catch(() => []);
+    setHistory(recentHistory);
+    if (!data.settings?.selectedExercises?.length) { setScreen("setup"); }
+    else { setScreen("dashboard"); }
+  }, []);
+
   //     INIT: Check token and load profile      
   useEffect(() => {
     const token = localStorage.getItem("bm_token");
     if (!token) { setScreen("auth"); return; }
-    api("/api/user/profile").then(data => {
-      setUser(data.user);
-      setLang(data.user.language || "en");
-      setSettings(data.settings);
-      setProgress(data.progress);
-      setUnlockedAwards(new Set(data.awards));
-      // Load history
-      api("/api/workout/history?limit=20").then(h => setHistory(h)).catch(() => {});
-      // Determine initial screen
-      if (!data.settings?.selectedExercises?.length) { setScreen("setup"); }
-      else { setScreen("dashboard"); }
-    }).catch(() => {
+    loadSession().catch(() => {
       localStorage.removeItem("bm_token");
       setScreen("auth");
     });
-  }, []);
+  }, [loadSession]);
 
   //     ALARM SCHEDULING                           
   const getRandomExercise = useCallback(() => {
@@ -2247,7 +2251,7 @@ function BeastModeApp() {
           points: pts, durationMinutes: currentMedDur, wasCompleted, type: "meditation",
         }),
       });
-      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: wasCompleted ? result.sessionsFinished : prev?.sessionsFinished }));
+      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: wasCompleted ? result.sessionsFinished : prev?.sessionsFinished, meditationsFinished: result.meditationsFinished ?? (prev?.meditationsFinished || 0) }));
       const oldTier = getEvolution(oldTotal);
       const newTier = getEvolution(result.totalPoints);
       if (newTier.name !== oldTier.name) setTimeout(() => setEvoPopup({ oldTier, newTier }), 600);
@@ -2260,7 +2264,7 @@ function BeastModeApp() {
     } catch(e) {
       console.error("Failed to log meditation:", e);
       const finalPts = pts;
-      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0 }));
+      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, meditationsFinished: wasCompleted ? (prev?.meditationsFinished || 0) + 1 : prev?.meditationsFinished || 0 }));
       setHistory(prev => [{ exercise: currentMedType, points: finalPts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
   };
@@ -2277,7 +2281,8 @@ function BeastModeApp() {
   const handleEndDay = async () => {
     try {
       const result = await api("/api/workout/end-day", { method: "POST" });
-      setProgress(prev => ({ ...prev, streak: result.streak, maxStreak: result.maxStreak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      setProgress(prev => ({ ...prev, streak: result.streak, maxStreak: result.maxStreak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, meditationsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      setTodayMedSessions(0);
       if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
     } catch(e) { console.error("End day error:", e); }
   };
@@ -2285,20 +2290,21 @@ function BeastModeApp() {
   const handleMissedDay = async () => {
     try {
       const result = await api("/api/workout/missed-day", { method: "POST" });
-      setProgress(prev => ({ ...prev, streak: result.streak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      setProgress(prev => ({ ...prev, streak: result.streak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, meditationsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      setTodayMedSessions(0);
       if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
     } catch(e) { console.error("Missed day error:", e); }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("bm_token");
-    setUser(null); setSettings(null); setProgress(null);
+    setUser(null); setSettings(null); setProgress(null); setHistory([]); setUnlockedAwards(new Set()); setTodayMedSessions(0);
     setScreen("auth");
   };
 
   //     SCREENS                                    
   if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>{"\uD83D\uDD25"}</div></div>;
-  if (screen === "auth") return <AuthScreen onAuth={(data) => { setUser(data.user); setScreen("setup"); }} lang={lang} setLang={setLang} />;
+  if (screen === "auth") return <AuthScreen onAuth={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} lang={lang} setLang={setLang} />;
   if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); }} settings={settings} lang={lang} setLang={setLang} />;
   if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} lang={lang} />;
