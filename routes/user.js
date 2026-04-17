@@ -40,6 +40,24 @@ function sanitizeActiveDays(value) {
   return cleaned.length > 0 ? [...new Set(cleaned)] : [];
 }
 
+function sanitizeUsernameReference(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim().toLowerCase();
+  if (!cleaned) return null;
+  return cleaned.slice(0, 40);
+}
+
+function sanitizeTeamName(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, 40);
+}
+
 // GET /api/user/profile
 router.get("/profile", async (req, res) => {
   try {
@@ -73,6 +91,8 @@ router.get("/profile", async (req, res) => {
         startHour: settings.start_hour,
         endHour: settings.end_hour,
         alarmMessage: settings.alarm_message,
+        buddyUsername: settings.buddy_username,
+        teamName: settings.team_name,
       },
       progress: {
         totalPoints: progress.total_points,
@@ -106,6 +126,8 @@ router.put("/settings", async (req, res) => {
       startHour,
       endHour,
       alarmMessage,
+      buddyUsername,
+      teamName,
     } = req.body;
 
     const safeDuration = duration === undefined ? null : String(duration === "random" ? "random" : normalizeDuration(duration));
@@ -119,6 +141,8 @@ router.put("/settings", async (req, res) => {
       : alarmMessage === ""
         ? ""
         : null;
+    const safeBuddyUsername = sanitizeUsernameReference(buddyUsername);
+    const safeTeamName = sanitizeTeamName(teamName);
 
     if (safeInterval !== null && (!Number.isInteger(safeInterval) || safeInterval <= 0 || safeInterval > 720)) {
       return res.status(400).json({ error: "Interval must be a whole number between 1 and 720 minutes" });
@@ -133,8 +157,10 @@ router.put("/settings", async (req, res) => {
         start_hour = COALESCE($5, start_hour),
         end_hour = COALESCE($6, end_hour),
         alarm_message = COALESCE($7, alarm_message),
+        buddy_username = $8,
+        team_name = $9,
         updated_at = NOW()
-      WHERE user_id = $8
+      WHERE user_id = $10
     `, [
       safeDuration,
       safeInterval,
@@ -143,6 +169,8 @@ router.put("/settings", async (req, res) => {
       safeStartHour,
       safeEndHour,
       safeAlarmMessage,
+      safeBuddyUsername ?? null,
+      safeTeamName ?? null,
       req.userId,
     ]);
 

@@ -19,15 +19,28 @@ const DEFAULT_ALLOWED_ORIGINS = [
   "https://beastmode.namibarden.com",
   "capacitor://localhost",
   "http://localhost",
+  "http://127.0.0.1",
   "http://localhost:3000",
+  "http://127.0.0.1:3000",
   "http://localhost:5173",
+  "http://127.0.0.1:5173",
   "http://localhost:8100",
+  "http://127.0.0.1:8100",
 ];
 const configuredOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const allowedOrigins = new Set(configuredOrigins.length > 0 ? configuredOrigins : DEFAULT_ALLOWED_ORIGINS);
+
+function isLoopbackOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    return ["localhost", "127.0.0.1"].includes(url.hostname) && ["http:", "https:"].includes(url.protocol);
+  } catch (error) {
+    return false;
+  }
+}
 
 // Trust reverse proxy (Traefik) for correct client IP in rate limiting
 app.set("trust proxy", 1);
@@ -36,7 +49,7 @@ app.disable("x-powered-by");
 // Middleware
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) {
+    if (!origin || allowedOrigins.has(origin) || isLoopbackOrigin(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`Origin ${origin} not allowed by CORS`));

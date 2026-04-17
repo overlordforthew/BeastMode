@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
   start_hour INTEGER DEFAULT 8,
   end_hour INTEGER DEFAULT 17,
   alarm_message TEXT DEFAULT 'Let''s Be Our Best!',
+  buddy_username TEXT,
+  team_name TEXT,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -91,6 +93,16 @@ CREATE TABLE IF NOT EXISTS password_reset_codes (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS daily_mission_claims (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  claim_date TEXT NOT NULL,
+  mission_id TEXT NOT NULL,
+  bonus_points REAL NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, claim_date)
+);
+
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
@@ -101,3 +113,4 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE INDEX IF NOT EXISTS idx_workout_user ON workout_history(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_daily_user ON daily_log(user_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_awards_user ON user_awards(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_settings_team_name_lower ON user_settings (LOWER(team_name)) WHERE team_name IS NOT NULL;

@@ -159,6 +159,15 @@ const TRANSLATIONS = {
     endSession: "\u23f9 END SESSION", medToday: "Today", medCompleted: "completed",
     workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f MEDITATION", workoutsOrMed: "workouts or 1 meditation",
     ambientSound: "Ambient Sound", useHeadphones: "\uD83C\uDFA7 Use headphones for binaural beats",
+    dailyMission: "DAILY MISSION", missionReady: "Mission complete. Claim your bonus.",
+    missionClaimed: "Reward claimed", claimReward: "CLAIM REWARD", bonusPointsLabel: "bonus pts",
+    quickReset: "QUICK RESET", quickResetHint: "One tap. No setup spiral.",
+    startReset: "START 2-MIN RESET", quickRandom: "Random", quickFocus: "Focus", quickEnergy: "Energy", quickMobility: "Mobility", quickCalm: "Calm",
+    socialPressure: "PRESSURE", rivalTarget: "Closest rival", buddyLane: "Buddy check", teamLane: "Team pulse",
+    buddyUsername: "ACCOUNTABILITY BUDDY", buddyUsernameHint: "Optional: a username to chase or stay ahead of.",
+    teamName: "TEAM / CREW", teamNameHint: "Optional: a shared squad name for lightweight team pressure.",
+    noPressureYet: "Add a buddy or team in settings to turn up the accountability.",
+    keepRolling: "Keep rolling", lockedInToday: "Locked in today",
   },
   es: {
     welcomeTitle: "BEAST MODE", welcomeSub: "Evoluciona de ameba a depredador supremo con micro-ejercicios",
@@ -1466,17 +1475,207 @@ function EvolutionBar({ points }) {
   );
 }
 
+function MissionCard({ mission, onClaim, loading, lang }) {
+  const t = useT(lang || "en");
+  if (!mission) return null;
+
+  const accents = {
+    fire: { border: "1px solid rgba(255,106,0,0.28)", glow: "rgba(255,106,0,0.18)", button: "linear-gradient(135deg, #FF4D00, #FFB347)" },
+    zen: { border: "1px solid rgba(138,92,246,0.28)", glow: "rgba(138,92,246,0.18)", button: "linear-gradient(135deg, #7C3AED, #A78BFA)" },
+    gold: { border: "1px solid rgba(255,215,0,0.28)", glow: "rgba(255,215,0,0.16)", button: "linear-gradient(135deg, #FFB800, #FFD700)" },
+    ember: { border: "1px solid rgba(255,115,0,0.28)", glow: "rgba(255,115,0,0.18)", button: "linear-gradient(135deg, #F97316, #FDBA74)" },
+    boost: { border: "1px solid rgba(0,230,118,0.24)", glow: "rgba(0,230,118,0.18)", button: "linear-gradient(135deg, #00C853, #69F0AE)" },
+  };
+  const accent = accents[mission.accent] || accents.fire;
+
+  return (
+    <div style={{ position: "relative", overflow: "hidden", padding: "18px 18px 16px", borderRadius: 20, marginBottom: 16, background: "linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))", border: accent.border, boxShadow: `0 20px 40px ${accent.glow}` }}>
+      <div style={{ position: "absolute", top: -24, right: -12, width: 110, height: 110, borderRadius: "50%", background: `radial-gradient(circle, ${accent.glow}, transparent 70%)` }} />
+      <div style={{ position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: 1.8, color: "#8F8F97", marginBottom: 6 }}>{t("dailyMission")}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 28 }}>{mission.emoji}</span>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{mission.title}</div>
+                <div style={{ fontSize: 13, color: "#C8C8CF", lineHeight: 1.4 }}>{mission.description}</div>
+              </div>
+            </div>
+          </div>
+          <div style={{ padding: "8px 10px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", textAlign: "center", minWidth: 74 }}>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#FFD700" }}>+{mission.bonusPoints}</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.2, color: "#8F8F97" }}>{t("bonusPointsLabel")}</div>
+          </div>
+        </div>
+        <div style={{ width: "100%", height: 8, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.08)", marginBottom: 10 }}>
+          <div style={{ width: `${mission.progressRatio * 100}%`, height: "100%", borderRadius: 999, background: accent.button, transition: "width 0.4s ease" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: mission.complete ? "#FDE68A" : "#F4F4F5" }}>{mission.progressText}</div>
+            <div style={{ fontSize: 11, color: mission.claimed ? "#69F0AE" : mission.complete ? "#FFD7A3" : "#8F8F97", marginTop: 4 }}>
+              {mission.claimed ? t("missionClaimed") : mission.complete ? t("missionReady") : t("keepRolling")}
+            </div>
+          </div>
+          {mission.complete && !mission.claimed ? (
+            <button onClick={onClaim} disabled={loading} style={{ padding: "12px 16px", background: accent.button, color: mission.accent === "gold" ? "#000" : "#fff", border: "none", borderRadius: 14, fontSize: 12, fontWeight: 900, letterSpacing: 1.2, minWidth: 132, boxShadow: "0 12px 28px rgba(0,0,0,0.18)" }}>
+              {loading ? "..." : `${t("claimReward")} +${mission.bonusPoints}`}
+            </button>
+          ) : (
+            <div style={{ padding: "10px 12px", borderRadius: 14, background: mission.claimed ? "rgba(0,230,118,0.12)" : "rgba(255,255,255,0.05)", border: mission.claimed ? "1px solid rgba(0,230,118,0.22)" : "1px solid rgba(255,255,255,0.08)", color: mission.claimed ? "#69F0AE" : "#C8C8CF", fontSize: 12, fontWeight: 800 }}>
+              {mission.claimed ? t("lockedInToday") : `${mission.progressCurrent}/${mission.progressTarget}`}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickStartCard({ onStartQuick, lang }) {
+  const t = useT(lang || "en");
+  const quickOptions = [
+    { id: "random", label: t("quickRandom"), emoji: "🎲" },
+    { id: "focus", label: t("quickFocus"), emoji: "🧱" },
+    { id: "energy", label: t("quickEnergy"), emoji: "⚡" },
+    { id: "mobility", label: t("quickMobility"), emoji: "🦵" },
+    { id: "calm", label: t("quickCalm"), emoji: "🫁" },
+  ];
+
+  return (
+    <div style={{ padding: "18px", borderRadius: 20, marginBottom: 16, background: "linear-gradient(135deg, rgba(255,77,0,0.12), rgba(255,179,71,0.08))", border: "1px solid rgba(255,140,0,0.22)", boxShadow: "0 20px 44px rgba(255,106,0,0.12)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: 1.8, color: "#8F8F97", marginBottom: 6 }}>{t("quickReset")}</div>
+          <div style={{ fontSize: 14, color: "#F4E2CF" }}>{t("quickResetHint")}</div>
+        </div>
+        <div style={{ fontSize: 28 }}>⚔️</div>
+      </div>
+      <button onClick={() => onStartQuick("random")} style={{ width: "100%", padding: "16px 18px", background: "linear-gradient(135deg, #FF4D00, #FFB347)", color: "#fff", border: "none", borderRadius: 16, fontSize: 16, fontWeight: 900, letterSpacing: 1.4, marginBottom: 12, boxShadow: "0 16px 32px rgba(255,77,0,0.22)" }}>
+        {t("startReset")}
+      </button>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 8 }}>
+        {quickOptions.map((option) => (
+          <button key={option.id} onClick={() => onStartQuick(option.id)} style={{ padding: "10px 6px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, color: "#F7F7F8", fontSize: 12, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 20 }}>{option.emoji}</span>
+            <span>{option.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PressureCard({ pressure, onOpenLeaderboard, lang }) {
+  const t = useT(lang || "en");
+  if (!pressure) return null;
+
+  return (
+    <div style={{ padding: "18px", borderRadius: 20, marginBottom: 16, background: "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: 1.8, color: "#8F8F97", marginBottom: 6 }}>{t("socialPressure")}</div>
+          <div style={{ fontSize: 15, color: "#F3F4F6" }}>
+            {pressure.rivalAbove ? `${pressure.rivalAbove.gap} pts to pass ${pressure.rivalAbove.username}` : "You're setting the pace today."}
+          </div>
+        </div>
+        <button onClick={onOpenLeaderboard} style={{ padding: "10px 12px", background: "rgba(255,77,0,0.12)", border: "1px solid rgba(255,77,0,0.2)", borderRadius: 12, color: "#FFB347", fontSize: 12, fontWeight: 800 }}>
+          #{pressure.userRank || "?"}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {pressure.rivalAbove && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 14, background: "rgba(255,140,0,0.08)", border: "1px solid rgba(255,140,0,0.14)" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "#8F8F97", marginBottom: 3 }}>{t("rivalTarget")}</div>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>{pressure.rivalAbove.username}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: "#FFD700" }}>+{pressure.rivalAbove.gap}</div>
+              <div style={{ fontSize: 11, color: "#8F8F97" }}>pts to catch</div>
+            </div>
+          </div>
+        )}
+
+        {pressure.buddy && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "#8F8F97", marginBottom: 3 }}>{t("buddyLane")}</div>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>{pressure.buddy.username}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: pressure.buddy.ahead ? "#FFB347" : "#69F0AE" }}>
+                {pressure.buddy.ahead ? `${pressure.buddy.gap} behind` : `${pressure.buddy.gap} ahead`}
+              </div>
+              <div style={{ fontSize: 11, color: "#8F8F97" }}>{pressure.buddy.todayPoints} pts today</div>
+            </div>
+          </div>
+        )}
+
+        {pressure.team ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 14, background: "rgba(0,230,118,0.08)", border: "1px solid rgba(0,230,118,0.14)" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "#8F8F97", marginBottom: 3 }}>{t("teamLane")}</div>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>{pressure.team.teamName}</div>
+              <div style={{ fontSize: 11, color: "#8F8F97", marginTop: 3 }}>
+                {pressure.team.securedToday}/{pressure.team.memberCount} streaks secured today
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#69F0AE" }}>{Math.round(pressure.team.todayPoints)} pts</div>
+              <div style={{ fontSize: 11, color: "#8F8F97" }}>
+                {pressure.team.leader ? `${pressure.team.leader.username} leads` : `${pressure.team.memberCount} members`}
+              </div>
+            </div>
+          </div>
+        ) : !pressure.buddy && !pressure.rivalAbove ? (
+          <div style={{ padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "#A1A1AA", fontSize: 13 }}>
+            {t("noPressureYet")}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MissionPopup({ mission, bonusPoints, onClose }) {
+  if (!mission) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 380, borderRadius: 24, padding: "30px 24px", background: "linear-gradient(145deg, #1a1104, #2d1400)", border: "1px solid rgba(255,179,71,0.28)", textAlign: "center", boxShadow: "0 28px 80px rgba(0,0,0,0.42)" }}>
+        <div style={{ fontSize: 56, marginBottom: 12 }}>{mission.emoji}</div>
+        <div style={{ fontSize: 13, letterSpacing: 2, color: "#FFB347", marginBottom: 8 }}>DAILY MISSION CLEARED</div>
+        <div style={{ fontSize: 26, fontWeight: 900, color: "#FFD700", marginBottom: 10 }}>{mission.title}</div>
+        <div style={{ fontSize: 14, color: "#F2E4D3", lineHeight: 1.5, marginBottom: 16 }}>{mission.description}</div>
+        <div style={{ display: "inline-block", padding: "12px 28px", borderRadius: 999, background: "linear-gradient(135deg, #FF4D00, #FFD700)", color: "#000", fontSize: 26, fontWeight: 900, marginBottom: 18 }}>
+          +{bonusPoints}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, color: "#fff", fontSize: 14, fontWeight: 800, letterSpacing: 1.4 }}>
+          CONTINUE
+        </button>
+      </div>
+    </div>
+  );
+}
+
 //     SETUP SCREEN                                 
 function DailySetupScreen({ onComplete, settings, lang, setLang }) {
   const t = useT(lang);
   const [interval, setInterval_] = useState(settings?.intervalMinutes || 60);
   const [duration, setDuration] = useState(settings?.duration || 2);
-  const [exerciseMode, setExerciseMode] = useState("all");
+  const [exerciseMode, setExerciseMode] = useState(
+    settings?.selectedExercises?.length && settings.selectedExercises.length < EXERCISES.length ? "custom" : "all"
+  );
   const [selectedExercises, setSelectedExercises] = useState(settings?.selectedExercises || EXERCISES.map(e => e.id));
   const [activeDays, setActiveDays] = useState(settings?.activeDays || ALL_DAYS);
   const [alarmMessage, setAlarmMessage] = useState(settings?.alarmMessage || "Let's Be Our Best!");
   const [startHour, setStartHour] = useState(settings?.startHour || 8);
   const [endHour, setEndHour] = useState(settings?.endHour || 17);
+  const [buddyUsername, setBuddyUsername] = useState(settings?.buddyUsername || "");
+  const [teamName, setTeamName] = useState(settings?.teamName || "");
 
   const toggleDay = (key) => {
     setActiveDays(prev => prev.includes(key) ? prev.filter(d => d !== key) : [...prev, key]);
@@ -1486,7 +1685,17 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
   };
 
   const handleActivate = async () => {
-    const s = { duration, intervalMinutes: interval, selectedExercises: exerciseMode === "all" ? EXERCISES.map(e => e.id) : selectedExercises, activeDays, alarmMessage, startHour, endHour };
+    const s = {
+      duration,
+      intervalMinutes: interval,
+      selectedExercises: exerciseMode === "all" ? EXERCISES.map(e => e.id) : selectedExercises,
+      activeDays,
+      alarmMessage,
+      startHour,
+      endHour,
+      buddyUsername,
+      teamName,
+    };
     try { await api("/api/user/settings", { method: "PUT", body: JSON.stringify(s) }); } catch(e) { console.error("Failed to save settings:", e); }
     onComplete(s);
   };
@@ -1575,6 +1784,22 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
       <div style={sectionStyle}>
         <div style={labelStyle}>{t("alarmMessage")}</div>
         <input value={alarmMessage} onChange={e => setAlarmMessage(e.target.value)}
+          style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 14 }} />
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("buddyUsername")}</div>
+        <div style={hintStyle}>{t("buddyUsernameHint")}</div>
+        <input value={buddyUsername} onChange={e => setBuddyUsername(e.target.value)}
+          placeholder="teammate123"
+          style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 14 }} />
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("teamName")}</div>
+        <div style={hintStyle}>{t("teamNameHint")}</div>
+        <input value={teamName} onChange={e => setTeamName(e.target.value)}
+          placeholder="Desk Ninjas"
           style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 14 }} />
       </div>
 
@@ -2287,6 +2512,10 @@ function BeastModeApp() {
   const [progress, setProgress] = useState(null);
   const [unlockedAwards, setUnlockedAwards] = useState(new Set());
   const [history, setHistory] = useState([]);
+  const [mission, setMission] = useState(null);
+  const [pressure, setPressure] = useState(null);
+  const [missionClaiming, setMissionClaiming] = useState(false);
+  const [missionPopup, setMissionPopup] = useState(null);
 
   // Alarm state
   const [showAlarm, setShowAlarm] = useState(false);
@@ -2319,16 +2548,31 @@ function BeastModeApp() {
     workoutActiveRef.current = showTimer || showExtraCredit || showAlarm || showMedTimer || !!evoPopup || !!awardPopup || showWeeklySummary;
   }, [showTimer, showExtraCredit, showAlarm, showMedTimer, evoPopup, awardPopup, showWeeklySummary]);
 
+  const refreshDashboardSignals = useCallback(async () => {
+    const [missionData, pressureData] = await Promise.all([
+      api("/api/stats/daily-mission").catch(() => null),
+      api("/api/stats/pressure").catch(() => null),
+    ]);
+    if (missionData?.mission) setMission(missionData.mission);
+    if (pressureData) setPressure(pressureData);
+  }, []);
+
   const loadSession = useCallback(async () => {
-    const data = await api("/api/user/profile");
+    const [data, recentHistory, missionData, pressureData] = await Promise.all([
+      api("/api/user/profile"),
+      api("/api/workout/history?limit=20").catch(() => []),
+      api("/api/stats/daily-mission").catch(() => null),
+      api("/api/stats/pressure").catch(() => null),
+    ]);
     setUser(data.user);
     setLang(data.user?.language || "en");
     setSettings(data.settings);
     setProgress(data.progress);
     setUnlockedAwards(new Set(data.awards || []));
     setTodayMedSessions(data.progress?.meditationsFinished || 0);
-    const recentHistory = await api("/api/workout/history?limit=20").catch(() => []);
     setHistory(recentHistory);
+    setMission(missionData?.mission || null);
+    setPressure(pressureData || null);
     if (!data.settings?.selectedExercises?.length) { setScreen("setup"); }
     else { setScreen("dashboard"); }
   }, []);
@@ -2537,6 +2781,7 @@ function BeastModeApp() {
       setHistory(prev => [{ exercise, points: finalPts, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
 
+    await refreshDashboardSignals();
     scheduleNextAlarm();
   };
 
@@ -2569,6 +2814,8 @@ function BeastModeApp() {
       setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, meditationsFinished: wasCompleted ? (prev?.meditationsFinished || 0) + 1 : prev?.meditationsFinished || 0 }));
       setHistory(prev => [{ exercise: currentMedType, points: finalPts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
+
+    await refreshDashboardSignals();
   };
 
   const startMeditation = (medType, dur, sessionNum) => {
@@ -2576,6 +2823,58 @@ function BeastModeApp() {
     setCurrentMedDur(dur);
     setCurrentMedSession(sessionNum);
     setShowMedTimer(true);
+  };
+
+  const startQuickReset = useCallback((kind) => {
+    const selectedIds = settings?.selectedExercises?.length ? settings.selectedExercises : EXERCISES.map((exercise) => exercise.id);
+    const selectedPool = EXERCISES.filter((exercise) => selectedIds.includes(exercise.id));
+    const pickFrom = (ids) => {
+      const pool = selectedPool.filter((exercise) => ids.includes(exercise.id));
+      const fallbackPool = pool.length > 0 ? pool : selectedPool;
+      return fallbackPool[Math.floor(Math.random() * fallbackPool.length)] || EXERCISES[0];
+    };
+
+    if (kind === "calm") {
+      const breath = MEDITATION_TYPES.find((medType) => medType.id === "breath") || MEDITATION_TYPES[0];
+      setShowAlarm(false);
+      setShowExtraCredit(false);
+      setShowTimer(false);
+      setCurrentMedType(breath);
+      setCurrentMedDur(3);
+      setCurrentMedSession((todayMedSessions || 0) + 1);
+      setShowMedTimer(true);
+      return;
+    }
+
+    const exercise = {
+      random: pickFrom(selectedIds),
+      focus: pickFrom(["plank", "chair_pose", "situps"]),
+      energy: pickFrom(["jumping_jacks", "high_knees", "burpees"]),
+      mobility: pickFrom(["squats", "lunges", "mountain_climbers"]),
+    }[kind] || pickFrom(selectedIds);
+
+    setShowAlarm(false);
+    setShowExtraCredit(false);
+    setShowMedTimer(false);
+    setCurrentExercise(exercise);
+    setResolvedDuration(2);
+    setShowTimer(true);
+  }, [settings, todayMedSessions]);
+
+  const handleClaimMission = async () => {
+    if (!mission || mission.claimed || !mission.complete || missionClaiming) return;
+    setMissionClaiming(true);
+    try {
+      const result = await api("/api/stats/daily-mission/claim", { method: "POST" });
+      setMission(result.mission);
+      setProgress((prev) => prev ? { ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints } : prev);
+      setMissionPopup({ mission: result.mission, bonusPoints: result.bonusAwarded });
+      await refreshDashboardSignals();
+    } catch (e) {
+      console.error("Mission claim failed:", e);
+    } finally {
+      setMissionClaiming(false);
+    }
   };
 
 
@@ -2586,6 +2885,7 @@ function BeastModeApp() {
       setProgress(prev => ({ ...prev, streak: result.streak, maxStreak: result.maxStreak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, meditationsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
       setTodayMedSessions(0);
       if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
+      await refreshDashboardSignals();
     } catch(e) { console.error("End day error:", e); }
   };
 
@@ -2595,19 +2895,20 @@ function BeastModeApp() {
       setProgress(prev => ({ ...prev, streak: result.streak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, meditationsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
       setTodayMedSessions(0);
       if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
+      await refreshDashboardSignals();
     } catch(e) { console.error("Missed day error:", e); }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("bm_token");
-    setUser(null); setSettings(null); setProgress(null); setHistory([]); setUnlockedAwards(new Set()); setTodayMedSessions(0);
+    setUser(null); setSettings(null); setProgress(null); setHistory([]); setUnlockedAwards(new Set()); setTodayMedSessions(0); setMission(null); setPressure(null); setMissionPopup(null);
     setScreen("auth");
   };
 
   //     SCREENS                                    
   if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>{"\uD83D\uDD25"}</div></div>;
   if (screen === "auth") return <AuthScreen onAuth={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} lang={lang} setLang={setLang} />;
-  if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); }} settings={settings} lang={lang} setLang={setLang} />;
+  if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); refreshDashboardSignals(); }} settings={settings} lang={lang} setLang={setLang} />;
   if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "evolution") return <EvolutionScreen points={progress?.totalPoints || 0} onBack={() => setScreen("dashboard")} />;
@@ -2679,6 +2980,10 @@ function BeastModeApp() {
             </span>
           </div>
         </div>
+
+        <MissionCard mission={mission} onClaim={handleClaimMission} loading={missionClaiming} lang={lang} />
+        <QuickStartCard onStartQuick={startQuickReset} lang={lang} />
+        <PressureCard pressure={pressure} onOpenLeaderboard={() => setScreen("leaderboard")} lang={lang} />
 
         {mode === "workout" && (<>
         {/* Next Alarm / Rest Day */}
@@ -2777,6 +3082,7 @@ function BeastModeApp() {
       {showMedTimer && currentMedType && <MeditationTimer medType={currentMedType} durationMinutes={currentMedDur} sessionNumber={currentMedSession} lang={lang} onComplete={handleMeditationComplete} />}
       {evoPopup && <EvolutionPopup oldTier={evoPopup.oldTier} newTier={evoPopup.newTier} onClose={() => setEvoPopup(null)} />}
       {awardPopup && <AwardPopup award={awardPopup} lang={lang} onClose={() => setAwardPopup(null)} />}
+      {missionPopup && <MissionPopup mission={missionPopup.mission} bonusPoints={missionPopup.bonusPoints} onClose={() => setMissionPopup(null)} />}
       {showWeeklySummary && <WeeklySummary weekData={weekData} streak={streak} totalPoints={totalPoints} lang={lang} onClose={() => setShowWeeklySummary(false)} />}
     </div>
   );
