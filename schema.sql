@@ -113,4 +113,3 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE INDEX IF NOT EXISTS idx_workout_user ON workout_history(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_daily_user ON daily_log(user_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_awards_user ON user_awards(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_settings_team_name_lower ON user_settings (LOWER(team_name)) WHERE team_name IS NOT NULL;
