@@ -10,6 +10,14 @@ const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env
 const RESET_CODE_TTL = 15 * 60 * 1000;
 const MAX_RESET_ATTEMPTS = 5;
 
+function isProductionLike() {
+  return process.env.NODE_ENV === "production" || Boolean(process.env.COOLIFY_RESOURCE_UUID);
+}
+
+function allowDevResetCodes() {
+  return process.env.ALLOW_DEV_RESET_CODES === "true";
+}
+
 function buildAuthResponse(user, token) {
   return {
     token,
@@ -165,7 +173,8 @@ router.post("/forgot-password", async (req, res) => {
 
     const emailKey = normalizeEmail(email);
     const emailEnabled = isEmailConfigured();
-    if (!emailEnabled && process.env.NODE_ENV === "production") {
+    const productionLike = isProductionLike();
+    if (!emailEnabled && productionLike && !allowDevResetCodes()) {
       return res.status(503).json({ error: "Password reset email is not configured" });
     }
 
@@ -189,6 +198,10 @@ router.post("/forgot-password", async (req, res) => {
     if (emailEnabled) {
       await sendPasswordResetCode(emailKey, code);
       return res.json({ message: "If an account with that email exists, a reset code has been sent." });
+    }
+
+    if (!allowDevResetCodes()) {
+      return res.status(503).json({ error: "Password reset email is not configured" });
     }
 
     console.log(`[PASSWORD RESET] Code for ${emailKey}: ${code}`);

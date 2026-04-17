@@ -17,6 +17,7 @@ const PORT = process.env.PORT || 3000;
 
 // Trust reverse proxy (Traefik) for correct client IP in rate limiting
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
 
 // Middleware
 app.use(cors({ origin: process.env.CORS_ORIGIN || "https://beastmode.namibarden.com", credentials: true }));
