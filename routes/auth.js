@@ -39,9 +39,15 @@ function normalizeUsername(username) {
   return typeof username === "string" ? username.trim() : "";
 }
 
+function normalizeUsernameKey(username) {
+  return normalizeUsername(username).toLowerCase();
+}
+
 function buildUsernameCandidate(rawValue, fallback = "beastmode") {
   const cleaned = String(rawValue || "")
-    .replace(/[^a-zA-Z0-9_]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "")
     .slice(0, 20);
   return cleaned || fallback;
 }
@@ -68,6 +74,7 @@ router.post("/register", async (req, res) => {
   try {
     const { username, password, email } = req.body;
     const normalizedUsername = normalizeUsername(username);
+    const usernameKey = normalizeUsernameKey(normalizedUsername);
     if (!normalizedUsername || !password) {
       return res.status(400).json({ error: "Username and password are required" });
     }
@@ -75,8 +82,21 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
 
-    const hash = await bcrypt.hash(password, 10);
     const normalizedEmail = email ? normalizeEmail(email) : null;
+    const [existingUsername, existingEmail] = await Promise.all([
+      pool.query("SELECT id FROM users WHERE LOWER(username) = $1 LIMIT 1", [usernameKey]),
+      normalizedEmail
+        ? pool.query("SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1", [normalizedEmail])
+        : Promise.resolve({ rows: [] }),
+    ]);
+    if (existingUsername.rows.length > 0) {
+      return res.status(409).json({ error: "Username already taken" });
+    }
+    if (existingEmail.rows.length > 0) {
+      return res.status(409).json({ error: "Email already in use" });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
       "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, language",
       [normalizedUsername, hash, normalizedEmail]
@@ -104,6 +124,7 @@ router.post("/login", async (req, res) => {
   try {
     const { username, identifier, password } = req.body;
     const loginIdentifier = normalizeUsername(identifier || username);
+    const loginKey = normalizeUsernameKey(identifier || username);
     if (!loginIdentifier || !password) {
       return res.status(400).json({ error: "Username or email and password are required" });
     }
@@ -111,9 +132,9 @@ router.post("/login", async (req, res) => {
     const result = await pool.query(
       `SELECT id, username, language, password_hash
        FROM users
-       WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
+       WHERE LOWER(username) = $1 OR LOWER(email) = $1
        LIMIT 1`,
-      [loginIdentifier]
+      [loginKey]
     );
     if (result.rows.length === 0) {
       return res.status(401).json({ error: "Invalid credentials" });

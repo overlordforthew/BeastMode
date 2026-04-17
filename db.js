@@ -56,6 +56,41 @@ async function initDb() {
   await pool.query(`UPDATE user_progress SET meditations_finished = COALESCE(meditations_finished, 0)`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`UPDATE daily_log SET meditations_finished = COALESCE(meditations_finished, 0)`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`DELETE FROM password_reset_codes WHERE expires_at < NOW()`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`UPDATE users SET username = BTRIM(username) WHERE username <> BTRIM(username)`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`UPDATE users SET email = LOWER(BTRIM(email)) WHERE email IS NOT NULL AND email <> LOWER(BTRIM(email))`).catch(e => console.warn("Migration:", e.message));
+
+  const duplicateUsernameResult = await pool.query(`
+    SELECT LOWER(username) AS username_key, COUNT(*)::int AS matches
+    FROM users
+    GROUP BY LOWER(username)
+    HAVING COUNT(*) > 1
+    LIMIT 10
+  `).catch(e => {
+    console.warn("Migration:", e.message);
+    return { rows: [] };
+  });
+  if (duplicateUsernameResult.rows.length > 0) {
+    console.warn("Migration: duplicate usernames prevent case-insensitive unique index", duplicateUsernameResult.rows);
+  } else {
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower_unique ON users (LOWER(username))`).catch(e => console.warn("Migration:", e.message));
+  }
+
+  const duplicateEmailResult = await pool.query(`
+    SELECT LOWER(email) AS email_key, COUNT(*)::int AS matches
+    FROM users
+    WHERE email IS NOT NULL
+    GROUP BY LOWER(email)
+    HAVING COUNT(*) > 1
+    LIMIT 10
+  `).catch(e => {
+    console.warn("Migration:", e.message);
+    return { rows: [] };
+  });
+  if (duplicateEmailResult.rows.length > 0) {
+    console.warn("Migration: duplicate emails prevent case-insensitive unique index", duplicateEmailResult.rows);
+  } else {
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique ON users (LOWER(email)) WHERE email IS NOT NULL`).catch(e => console.warn("Migration:", e.message));
+  }
   console.log("Database schema initialized");
 }
 
