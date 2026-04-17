@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0a0f">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
@@ -38,7 +39,10 @@ const { useState, useEffect, useRef, useCallback, createContext, useContext } = 
 const DEMO_MODE = new URLSearchParams(window.location.search).has('demo');
 
 //     API LAYER                                   
-const API_BASE = '';  // same origin
+const DEFAULT_REMOTE_API_BASE = "https://beastmode.namibarden.com";
+const IS_NATIVE_SHELL = Boolean(window.Capacitor) || window.location.protocol === "capacitor:" || window.location.protocol === "ionic:";
+const API_BASE = IS_NATIVE_SHELL ? DEFAULT_REMOTE_API_BASE : "";
+let googleScriptPromise = null;
 
 async function api(path, opts = {}) {
   const token = localStorage.getItem('bm_token');
@@ -47,6 +51,39 @@ async function api(path, opts = {}) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'API error');
   return data;
+}
+
+async function fetchPublicConfig() {
+  const res = await fetch(`${API_BASE}/api/config`, { cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to load app config");
+  return data;
+}
+
+function loadGoogleIdentityScript() {
+  if (window.google?.accounts?.id) {
+    return Promise.resolve(window.google);
+  }
+  if (!googleScriptPromise) {
+    googleScriptPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-google-identity="true"]');
+      if (existing) {
+        existing.addEventListener("load", () => resolve(window.google), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Failed to load Google sign-in")), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.dataset.googleIdentity = "true";
+      script.onload = () => resolve(window.google);
+      script.onerror = () => reject(new Error("Failed to load Google sign-in"));
+      document.head.appendChild(script);
+    });
+  }
+  return googleScriptPromise;
 }
 
 //     TRANSLATIONS                                
@@ -84,11 +121,21 @@ const TRANSLATIONS = {
     demoNote: "\u26a1 Demo: Alarms trigger every ~20s (ignores interval & rest days)",
     endDay: "End Day", missedDay: "\u274c Missed Day", exerciseCount: "exercises",
     everyDay: "Every day", weekdays: "Weekdays", daysPerWk: "days/wk",
-    login: "LOG IN", register: "REGISTER", password: "Password", username: "Username",
+    login: "LOG IN", register: "REGISTER", password: "Password", username: "Username", identifier: "Username or email",
     email: "Email (optional)", emailRequired: "Email", forgotPassword: "Forgot password?",
     sendCode: "SEND RESET CODE", resetPassword: "RESET PASSWORD", newPassword: "New Password",
     enterCode: "Enter 6-digit code", codeSent: "Check your email for the reset code.",
     backToLogin: "Back to login", googleComingSoon: "Google Sign-In (Coming Soon)",
+    authTagline: "Micro-workouts, real streaks, zero fluff.",
+    authSupport: "Your next rep is one tap away.",
+    authChipWorkouts: "Micro-workouts", authChipMeditation: "Meditation mode", authChipRecovery: "Email recovery",
+    emailOptionalHelp: "Add your email so password recovery and Google linking work later.",
+    passwordHint: "Use at least 8 characters.",
+    continueWithGoogle: "Continue with Google",
+    googleLoading: "Loading Google sign-in...",
+    googleConfigNeeded: "Google sign-in will appear here once the client ID is configured.",
+    orContinueWithEmail: "OR CONTINUE WITH EMAIL",
+    resetSuccess: "Password reset! You can now log in.",
     noAccount: "Don't have an account?", hasAccount: "Already have an account?",
     logout: "Logout", pickExAndDur: "Pick an exercise and duration",
     awards: "Awards", awardsTitle: "\ud83c\udfc5 AWARDS", awardUnlocked: "\ud83c\udfc5 AWARD UNLOCKED", nice: "NICE!",
@@ -137,11 +184,21 @@ const TRANSLATIONS = {
     leaderboardTitle: "\ud83c\udfc6 CLASIFICACI\u00d3N", levelUp: "\u00a1SUBISTE DE NIVEL!", ptsTo: "pts para", continueBtn: "CONTINUAR",
     demoNote: "\u26a1 Demo: Alarmas cada ~20s", endDay: "Terminar D\u00eda", missedDay: "\u274c D\u00eda Perdido",
     exerciseCount: "ejercicios", everyDay: "Todos los d\u00edas", weekdays: "Entre semana", daysPerWk: "d\u00edas/sem",
-    login: "INICIAR SESI\u00d3N", register: "REGISTRAR", password: "Contrase\u00f1a", username: "Usuario",
+    login: "INICIAR SESI\u00d3N", register: "REGISTRAR", password: "Contrase\u00f1a", username: "Usuario", identifier: "Usuario o email",
     email: "Email (opcional)", emailRequired: "Email", forgotPassword: "\u00bfOlvidaste tu contrase\u00f1a?",
     sendCode: "ENVIAR C\u00d3DIGO", resetPassword: "RESTABLECER CONTRASE\u00d1A", newPassword: "Nueva contrase\u00f1a",
     enterCode: "Ingresa c\u00f3digo de 6 d\u00edgitos", codeSent: "Revisa tu email para el c\u00f3digo.",
     backToLogin: "Volver al inicio", googleComingSoon: "Google Sign-In (Pr\u00f3ximamente)",
+    authTagline: "Micro-entrenos, rachas reales, sin relleno.",
+    authSupport: "Tu pr\u00f3xima repetici\u00f3n est\u00e1 a un toque.",
+    authChipWorkouts: "Micro-entrenos", authChipMeditation: "Modo meditaci\u00f3n", authChipRecovery: "Recuperaci\u00f3n por email",
+    emailOptionalHelp: "Agrega tu email para recuperar tu cuenta y vincular Google despu\u00e9s.",
+    passwordHint: "Usa al menos 8 caracteres.",
+    continueWithGoogle: "Continuar con Google",
+    googleLoading: "Cargando acceso con Google...",
+    googleConfigNeeded: "Google Sign-In aparecer\u00e1 aqu\u00ed cuando el client ID est\u00e9 configurado.",
+    orContinueWithEmail: "O CONTIN\u00daA CON EMAIL",
+    resetSuccess: "\u00a1Contrase\u00f1a restablecida! Ya puedes iniciar sesi\u00f3n.",
     noAccount: "\u00bfNo tienes cuenta?", hasAccount: "\u00bfYa tienes cuenta?", logout: "Cerrar sesi\u00f3n",
     pickExAndDur: "Elige un ejercicio y duraci\u00f3n",
     awards: "Premios", awardsTitle: "\ud83c\udfc5 PREMIOS", awardUnlocked: "\ud83c\udfc5 PREMIO DESBLOQUEADO", nice: "\u00a1GENIAL!",
@@ -190,11 +247,21 @@ const TRANSLATIONS = {
     leaderboardTitle: "\ud83c\udfc6 \u30e9\u30f3\u30ad\u30f3\u30b0", levelUp: "\u30ec\u30d9\u30eb\u30a2\u30c3\u30d7\uff01", ptsTo: "pts \u6b21\u307e\u3067", continueBtn: "\u7d9a\u3051\u308b",
     demoNote: "\u26a1 \u30c7\u30e2: 20\u79d2\u3054\u3068\u306b\u30a2\u30e9\u30fc\u30e0", endDay: "\u4e00\u65e5\u7d42\u4e86", missedDay: "\u274c \u6b20\u5e2d\u65e5",
     exerciseCount: "\u00e7\u00a8\u00ae\u00e7\u203a\u00ae", everyDay: "\u00e6\u00af\u017d\u00e6\u2014\u00a5", weekdays: "\u00e5\u00b9\u00b3\u00e6\u2014\u00a5", daysPerWk: "\u00e6\u2014\u00a5/\u00e9\u20ac\u00b1",
-    login: "\u30ed\u30b0\u30a4\u30f3", register: "\u767b\u9332", password: "\u30d1\u30b9\u30ef\u30fc\u30c9", username: "\u30e6\u30fc\u30b6\u30fc\u540d",
+    login: "\u30ed\u30b0\u30a4\u30f3", register: "\u767b\u9332", password: "\u30d1\u30b9\u30ef\u30fc\u30c9", username: "\u30e6\u30fc\u30b6\u30fc\u540d", identifier: "\u30e6\u30fc\u30b6\u30fc\u540d\u307e\u305f\u306f\u30e1\u30fc\u30eb",
     email: "\u30e1\u30fc\u30eb\uff08\u4efb\u610f\uff09", emailRequired: "\u30e1\u30fc\u30eb", forgotPassword: "\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u304a\u5fd8\u308c\uff1f",
     sendCode: "\u30b3\u30fc\u30c9\u9001\u4fe1", resetPassword: "\u30d1\u30b9\u30ef\u30fc\u30c9\u30ea\u30bb\u30c3\u30c8", newPassword: "\u65b0\u3057\u3044\u30d1\u30b9\u30ef\u30fc\u30c9",
     enterCode: "6\u6841\u306e\u30b3\u30fc\u30c9\u3092\u5165\u529b", codeSent: "\u30e1\u30fc\u30eb\u3067\u30b3\u30fc\u30c9\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
     backToLogin: "\u30ed\u30b0\u30a4\u30f3\u306b\u623b\u308b", googleComingSoon: "Google\u30b5\u30a4\u30f3\u30a4\u30f3\uff08\u8fd1\u65e5\u516c\u958b\uff09",
+    authTagline: "\u77ed\u3044\u30ef\u30fc\u30af\u30a2\u30a6\u30c8\u3001\u672c\u7269\u306e\u7d99\u7d9a\u3001\u7121\u99c4\u306a\u3057\u3002",
+    authSupport: "\u6b21\u306e1\u30ec\u30c3\u30d7\u306f\u30bf\u30c3\u30d7\u4e00\u3064\u3002",
+    authChipWorkouts: "\u30de\u30a4\u30af\u30ed\u30ef\u30fc\u30af\u30a2\u30a6\u30c8", authChipMeditation: "\u745e\u60f3\u30e2\u30fc\u30c9", authChipRecovery: "\u30e1\u30fc\u30eb\u5fa9\u65e7",
+    emailOptionalHelp: "\u5f8c\u3067Google\u9023\u643a\u3084\u5fa9\u65e7\u304c\u3067\u304d\u308b\u3088\u3046\u306b\u3001\u30e1\u30fc\u30eb\u3092\u8ffd\u52a0\u3057\u307e\u3057\u3087\u3046\u3002",
+    passwordHint: "8\u6587\u5b57\u4ee5\u4e0a\u3067\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+    continueWithGoogle: "Google\u3067\u7d9a\u3051\u308b",
+    googleLoading: "Google\u30b5\u30a4\u30f3\u30a4\u30f3\u3092\u8aad\u307f\u8fbc\u307f\u4e2d...",
+    googleConfigNeeded: "Client ID \u304c\u8a2d\u5b9a\u3055\u308c\u308b\u3068\u3053\u3053\u306bGoogle\u30b5\u30a4\u30f3\u30a4\u30f3\u304c\u8868\u793a\u3055\u308c\u307e\u3059\u3002",
+    orContinueWithEmail: "\u307e\u305f\u306f\u30e1\u30fc\u30eb\u3067\u7d9a\u3051\u308b",
+    resetSuccess: "\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u30ea\u30bb\u30c3\u30c8\u3057\u307e\u3057\u305f\u3002\u30ed\u30b0\u30a4\u30f3\u3067\u304d\u307e\u3059\u3002",
     noAccount: "\u30a2\u30ab\u30a6\u30f3\u30c8\u304c\u306a\u3044\uff1f", hasAccount: "\u30a2\u30ab\u30a6\u30f3\u30c8\u3092\u304a\u6301\u3061\uff1f", logout: "\u30ed\u30b0\u30a2\u30a6\u30c8",
     pickExAndDur: "\u30a8\u30af\u30b5\u30b5\u30a4\u30ba\u3068\u6642\u9593\u3092\u9078\u629e",
     awards: "\u30a2\u30ef\u30fc\u30c9", awardsTitle: "\ud83c\udfc5 \u30a2\u30ef\u30fc\u30c9", awardUnlocked: "\ud83c\udfc5 \u30a2\u30ef\u30fc\u30c9\u89e3\u9664", nice: "\u30ca\u30a4\u30b9\uff01",
@@ -982,8 +1049,10 @@ class AmbientAudio {
 //     AUTH SCREEN
 function AuthScreen({ onAuth, lang, setLang }) {
   const t = useT(lang);
+  const onAuthRef = useRef(onAuth);
+  const googleButtonRef = useRef(null);
   const [mode, setMode] = useState("login"); // "login" | "register" | "forgot" | "reset"
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
@@ -991,130 +1060,354 @@ function AuthScreen({ onAuth, lang, setLang }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const inputStyle = { width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 16, marginBottom: 12 };
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [appConfig, setAppConfig] = useState({ googleSignInEnabled: false, googleClientId: null, passwordResetEnabled: true });
+  const [googleState, setGoogleState] = useState("idle");
+  const [googleError, setGoogleError] = useState("");
+
+  const trimmedIdentifier = identifier.trim();
+  const trimmedEmail = email.trim();
+  const trimmedResetCode = resetCode.trim();
+  const canSubmit = mode === "register"
+    ? Boolean(trimmedIdentifier && password.length >= 8)
+    : Boolean(trimmedIdentifier && password);
+  const canForgotSubmit = Boolean(trimmedEmail);
+  const canResetSubmit = Boolean(trimmedEmail && trimmedResetCode.length === 6 && newPassword.length >= 8);
+  const showGoogleSection = (mode === "login" || mode === "register") && appConfig.googleSignInEnabled;
+  const passwordResetEnabled = appConfig.passwordResetEnabled !== false;
+
+  useEffect(() => {
+    onAuthRef.current = onAuth;
+  }, [onAuth]);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchPublicConfig()
+      .then((config) => {
+        if (!active) return;
+        setAppConfig(config);
+        setGoogleState(config.googleSignInEnabled ? "idle" : "unavailable");
+      })
+      .catch((err) => {
+        if (!active) return;
+        setGoogleState("error");
+        console.warn("Failed to load app config:", err.message || err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showGoogleSection || !appConfig.googleClientId || !googleButtonRef.current) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    setGoogleState("loading");
+    setGoogleError("");
+
+    loadGoogleIdentityScript()
+      .then((google) => {
+        if (cancelled || !googleButtonRef.current) return;
+
+        google.accounts.id.initialize({
+          client_id: appConfig.googleClientId,
+          ux_mode: "popup",
+          context: mode === "register" ? "signup" : "signin",
+          callback: async (response) => {
+            if (!response?.credential) {
+              setGoogleState("error");
+              setGoogleError("Google sign-in did not return a credential.");
+              return;
+            }
+
+            setLoading(true);
+            setError("");
+            setMessage("");
+            try {
+              const data = await api("/api/auth/google", {
+                method: "POST",
+                body: JSON.stringify({ credential: response.credential }),
+              });
+              localStorage.setItem("bm_token", data.token);
+              onAuthRef.current(data);
+            } catch (e) {
+              setError(e.message);
+              setGoogleError(e.message);
+            } finally {
+              setLoading(false);
+            }
+          },
+        });
+
+        googleButtonRef.current.innerHTML = "";
+        google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "filled_black",
+          shape: "pill",
+          size: "large",
+          text: mode === "register" ? "signup_with" : "continue_with",
+          width: 320,
+          logo_alignment: "left",
+        });
+        setGoogleState("ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setGoogleState("error");
+        setGoogleError(err.message || "Failed to load Google sign-in.");
+      });
+
+    return () => {
+      cancelled = true;
+      if (googleButtonRef.current) {
+        googleButtonRef.current.innerHTML = "";
+      }
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.cancel();
+      }
+    };
+  }, [appConfig.googleClientId, mode, showGoogleSection]);
+
+  const inputStyle = {
+    width: "100%",
+    padding: "15px 16px",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 14,
+    color: "#fff",
+    fontSize: 15,
+  };
+  const labelStyle = { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: "#8E8E98", marginBottom: 8 };
+  const helperStyle = { fontSize: 12, color: "#7B7B86", marginTop: 8, lineHeight: 1.45 };
+  const chipStyle = {
+    padding: "7px 12px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    color: "#E8E8ED",
+    fontSize: 11,
+    letterSpacing: 0.4,
+  };
+  const sectionButtonStyle = (active) => ({
+    flex: 1,
+    padding: "11px 14px",
+    background: active ? "linear-gradient(135deg, rgba(255,77,0,0.22), rgba(255,179,71,0.14))" : "transparent",
+    border: active ? "1px solid rgba(255,140,0,0.38)" : "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    color: active ? "#FFB347" : "#8A8A95",
+    fontWeight: 800,
+    fontSize: 13,
+    letterSpacing: 1,
+    transition: "all 0.25s ease",
+  });
+  const statusStyle = error
+    ? { background: "rgba(255,107,107,0.12)", border: "1px solid rgba(255,107,107,0.24)", color: "#FFB3B3" }
+    : { background: "rgba(0,230,118,0.1)", border: "1px solid rgba(0,230,118,0.18)", color: "#8EF5B4" };
 
   const handleSubmit = async () => {
-    if (!username.trim() || !password) return;
-    setLoading(true); setError("");
+    if (!canSubmit) return;
+    setLoading(true);
+    setError("");
+    setMessage("");
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
-      const body = mode === "register" ? { username: username.trim(), password, email: email.trim() || undefined } : { username: username.trim(), password };
+      const body = mode === "register"
+        ? { username: trimmedIdentifier, password, email: trimmedEmail || undefined }
+        : { identifier: trimmedIdentifier, password };
       const data = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       localStorage.setItem("bm_token", data.token);
-      onAuth(data);
-    } catch(e) {
+      onAuthRef.current(data);
+    } catch (e) {
       setError(e.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotSubmit = async () => {
-    if (!email.trim()) return;
-    setLoading(true); setError(""); setMessage("");
+    if (!canForgotSubmit) return;
+    setLoading(true);
+    setError("");
+    setMessage("");
     try {
-      const data = await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
+      const data = await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: trimmedEmail }) });
       setMessage(data.message || t("codeSent"));
       if (data.devCode) setResetCode(data.devCode);
       setMode("reset");
-    } catch(e) {
+    } catch (e) {
       setError(e.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetSubmit = async () => {
-    if (!email.trim() || !resetCode.trim() || !newPassword) return;
-    setLoading(true); setError(""); setMessage("");
+    if (!canResetSubmit) return;
+    setLoading(true);
+    setError("");
+    setMessage("");
     try {
-      await api("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ email: email.trim(), code: resetCode.trim(), newPassword }) });
-      setMessage("Password reset! You can now log in.");
-      setMode("login"); setResetCode(""); setNewPassword("");
-    } catch(e) {
+      await api("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ email: trimmedEmail, code: trimmedResetCode, newPassword }) });
+      setMessage(t("resetSuccess"));
+      setMode("login");
+      setResetCode("");
+      setNewPassword("");
+      setPassword("");
+    } catch (e) {
       setError(e.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const switchMode = (m) => { setMode(m); setError(""); setMessage(""); };
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setError("");
+    setMessage("");
+    setGoogleError("");
+  };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "linear-gradient(180deg, #0a0a0f 0%, #1a0a00 100%)" }}>
-      <div style={{ maxWidth: 380, width: "100%", animation: "fadeIn 0.6s ease" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontSize: 60, marginBottom: 12 }}>{"\uD83D\uDD25"}</div>
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, background: "linear-gradient(135deg, #FF4D00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 8 }}>BEAST MODE</h1>
-          <p style={{ color: "#666", fontSize: 14 }}>{t("welcomeSub")}</p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 18px", background: "radial-gradient(circle at top, rgba(255,140,0,0.18), transparent 34%), radial-gradient(circle at bottom right, rgba(255,77,0,0.14), transparent 28%), linear-gradient(180deg, #07080d 0%, #0d1018 48%, #1c0e05 100%)" }}>
+      <div style={{ width: "100%", maxWidth: 420, animation: "fadeIn 0.6s ease" }}>
+        <div style={{ position: "relative", overflow: "hidden", marginBottom: 18, padding: "28px 24px 22px", borderRadius: 28, background: "linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 80px rgba(0,0,0,0.32)" }}>
+          <div style={{ position: "absolute", top: -40, right: -18, width: 128, height: 128, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,179,71,0.25), transparent 70%)" }} />
+          <div style={{ position: "absolute", bottom: -54, left: -16, width: 140, height: 140, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,77,0,0.2), transparent 70%)" }} />
+          <div style={{ position: "relative" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", marginBottom: 16 }}>
+              <span style={{ fontSize: 22 }}>{"\uD83D\uDD25"}</span>
+              <span style={{ fontSize: 11, letterSpacing: 1.6, color: "#FFD9A0", fontWeight: 800 }}>BUILD THE STREAK</span>
+            </div>
+            <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: 5, background: "linear-gradient(135deg, #FF6A00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 10 }}>BEAST MODE</h1>
+            <p style={{ color: "#F5E8D4", fontSize: 15, lineHeight: 1.5, marginBottom: 8 }}>{t("authTagline")}</p>
+            <p style={{ color: "#9A9AA4", fontSize: 13 }}>{t("authSupport")}</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
+              <span style={chipStyle}>{t("authChipWorkouts")}</span>
+              <span style={chipStyle}>{t("authChipMeditation")}</span>
+              <span style={chipStyle}>{t("authChipRecovery")}</span>
+            </div>
+          </div>
         </div>
 
-        <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 20, padding: 28, border: "1px solid rgba(255,255,255,0.08)" }}>
+        <div style={{ background: "rgba(9,10,16,0.86)", backdropFilter: "blur(18px)", borderRadius: 28, padding: 24, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 70px rgba(0,0,0,0.28)" }}>
 
-          {(mode === "login" || mode === "register") && (<>
-            <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-              <button onClick={() => switchMode("login")} style={{ flex: 1, padding: "10px", background: mode === "login" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "login" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "login" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("login")}</button>
-              <button onClick={() => switchMode("register")} style={{ flex: 1, padding: "10px", background: mode === "register" ? "rgba(255,77,0,0.15)" : "transparent", border: mode === "register" ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: mode === "register" ? "#FF8C00" : "#666", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{t("register")}</button>
-            </div>
-
-            <input value={username} onChange={e => setUsername(e.target.value)} placeholder={t("username")}
-              style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-            {mode === "register" && (
-              <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t("email")} type="email"
-                style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-            )}
-            <input value={password} onChange={e => setPassword(e.target.value)} placeholder={t("password")} type="password"
-              style={{ ...inputStyle, marginBottom: mode === "login" ? 8 : 16 }} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-
-            {mode === "login" && (
-              <div style={{ textAlign: "right", marginBottom: 16 }}>
-                <button onClick={() => switchMode("forgot")} style={{ background: "none", border: "none", color: "#FF8C00", fontSize: 12, padding: 0, textDecoration: "underline", opacity: 0.8 }}>{t("forgotPassword")}</button>
+          {(mode === "login" || mode === "register") && (<form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+            {showGoogleSection && (
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ ...labelStyle, marginBottom: 10 }}>{t("continueWithGoogle")}</div>
+                <div style={{ padding: 8, borderRadius: 18, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", minHeight: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div ref={googleButtonRef} />
+                  {googleState === "loading" && <span style={{ color: "#9A9AA4", fontSize: 13 }}>{t("googleLoading")}</span>}
+                </div>
               </div>
             )}
 
-            {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
-            {message && <div style={{ color: "#4CAF50", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{message}</div>}
+            {showGoogleSection && (
+              <div style={{ position: "relative", textAlign: "center", margin: "18px 0 18px" }}>
+                <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.08)" }} />
+                <span style={{ position: "relative", background: "#090a10", padding: "0 12px", fontSize: 11, color: "#6F6F78", letterSpacing: 1.2 }}>{t("orContinueWithEmail")}</span>
+              </div>
+            )}
 
-            <button onClick={handleSubmit} disabled={loading}
-              style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+              <button type="button" onClick={() => switchMode("login")} style={sectionButtonStyle(mode === "login")}>{t("login")}</button>
+              <button type="button" onClick={() => switchMode("register")} style={sectionButtonStyle(mode === "register")}>{t("register")}</button>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={labelStyle}>{mode === "login" ? t("identifier") : t("username")}</div>
+              <input value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder={mode === "login" ? t("identifier") : t("username")}
+                autoComplete="username" style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+            </div>
+
+            {mode === "register" && (
+              <div style={{ marginBottom: 14 }}>
+              <div style={labelStyle}>{t("email")}</div>
+              <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t("email")} type="email"
+                  autoComplete="email" style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+                <div style={helperStyle}>{t("emailOptionalHelp")}</div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: mode === "login" ? 8 : 14 }}>
+              <div style={labelStyle}>{t("password")}</div>
+              <div style={{ position: "relative" }}>
+                <input value={password} onChange={e => setPassword(e.target.value)} placeholder={t("password")} type={showPassword ? "text" : "password"}
+                  autoComplete={mode === "login" ? "current-password" : "new-password"} style={{ ...inputStyle, paddingRight: 72 }} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+                <button onClick={() => setShowPassword(prev => !prev)} type="button" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#FFB347", fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>
+                  {showPassword ? "HIDE" : "SHOW"}
+                </button>
+              </div>
+              {mode === "register" && <div style={helperStyle}>{t("passwordHint")}</div>}
+            </div>
+
+            {mode === "login" && passwordResetEnabled && (
+              <div style={{ textAlign: "right", marginBottom: 16 }}>
+                <button type="button" onClick={() => switchMode("forgot")} style={{ background: "none", border: "none", color: "#FFB347", fontSize: 12, padding: 0, textDecoration: "underline", opacity: 0.9 }}>{t("forgotPassword")}</button>
+              </div>
+            )}
+
+            {error && <div style={{ ...statusStyle, padding: "12px 14px", borderRadius: 14, fontSize: 13, marginBottom: 12, lineHeight: 1.45 }}>{error}</div>}
+            {!error && message && <div style={{ ...statusStyle, padding: "12px 14px", borderRadius: 14, fontSize: 13, marginBottom: 12, lineHeight: 1.45 }}>{message}</div>}
+            {!error && googleError && <div style={{ background: "rgba(255,179,71,0.1)", border: "1px solid rgba(255,179,71,0.24)", color: "#FFD7A3", padding: "12px 14px", borderRadius: 14, fontSize: 13, marginBottom: 12, lineHeight: 1.45 }}>{googleError}</div>}
+
+            <button type="submit" disabled={loading || !canSubmit}
+              style={{ width: "100%", padding: "16px", background: loading || !canSubmit ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg, #FF4D00, #FFB347)", color: loading || !canSubmit ? "#7B7B86" : "#fff", border: "none", borderRadius: 16, fontSize: 15, fontWeight: 900, letterSpacing: 1.6, boxShadow: loading || !canSubmit ? "none" : "0 16px 36px rgba(255,106,0,0.28)" }}>
               {loading ? "..." : mode === "login" ? t("login") : t("register")}
             </button>
+          </form>)}
 
-            <div style={{ position: "relative", textAlign: "center", margin: "20px 0 16px" }}>
-              <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.08)" }} />
-              <span style={{ position: "relative", background: "rgba(26,26,30,0.9)", padding: "0 12px", fontSize: 11, color: "#555" }}>OR</span>
-            </div>
-
-            <button disabled style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, color: "#555", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: 0.6 }}>
-              <span style={{ fontSize: 18 }}>G</span> {t("googleComingSoon")}
-            </button>
-          </>)}
-
-          {mode === "forgot" && (<>
+          {mode === "forgot" && (<form onSubmit={(e) => { e.preventDefault(); handleForgotSubmit(); }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#FF8C00", letterSpacing: 1 }}>{t("forgotPassword")}</div>
-              <p style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{t("codeSent")}</p>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#FFB347", letterSpacing: 1 }}>{t("forgotPassword")}</div>
+              <p style={{ fontSize: 13, color: "#7B7B86", marginTop: 8, lineHeight: 1.45 }}>{t("codeSent")}</p>
             </div>
-            <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t("emailRequired")} type="email"
-              style={inputStyle} onKeyDown={e => e.key === "Enter" && handleForgotSubmit()} />
-            {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
-            <button onClick={handleForgotSubmit} disabled={loading}
-              style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2, marginBottom: 12 }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={labelStyle}>{t("emailRequired")}</div>
+              <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t("emailRequired")} type="email"
+                autoComplete="email" style={inputStyle} onKeyDown={e => e.key === "Enter" && handleForgotSubmit()} />
+            </div>
+            {error && <div style={{ ...statusStyle, padding: "12px 14px", borderRadius: 14, fontSize: 13, marginBottom: 12, lineHeight: 1.45 }}>{error}</div>}
+            {!error && message && <div style={{ ...statusStyle, padding: "12px 14px", borderRadius: 14, fontSize: 13, marginBottom: 12, lineHeight: 1.45 }}>{message}</div>}
+            <button type="submit" disabled={loading || !canForgotSubmit}
+              style={{ width: "100%", padding: "16px", background: loading || !canForgotSubmit ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg, #FF4D00, #FFB347)", color: loading || !canForgotSubmit ? "#7B7B86" : "#fff", border: "none", borderRadius: 16, fontSize: 15, fontWeight: 900, letterSpacing: 1.6, marginBottom: 12 }}>
               {loading ? "..." : t("sendCode")}
             </button>
-            <button onClick={() => switchMode("login")} style={{ width: "100%", background: "none", border: "none", color: "#FF8C00", fontSize: 13, padding: 8 }}>{t("backToLogin")}</button>
-          </>)}
+            <button type="button" onClick={() => switchMode("login")} style={{ width: "100%", background: "none", border: "none", color: "#FFB347", fontSize: 13, padding: 8 }}>{t("backToLogin")}</button>
+          </form>)}
 
-          {mode === "reset" && (<>
+          {mode === "reset" && (<form onSubmit={(e) => { e.preventDefault(); handleResetSubmit(); }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#FF8C00", letterSpacing: 1 }}>{t("resetPassword")}</div>
-              {message && <p style={{ fontSize: 12, color: "#4CAF50", marginTop: 6 }}>{message}</p>}
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#FFB347", letterSpacing: 1 }}>{t("resetPassword")}</div>
+              {!error && message && <p style={{ fontSize: 13, color: "#8EF5B4", marginTop: 8, lineHeight: 1.45 }}>{message}</p>}
             </div>
-            <input value={resetCode} onChange={e => setResetCode(e.target.value)} placeholder={t("enterCode")}
-              style={inputStyle} maxLength={6} onKeyDown={e => e.key === "Enter" && handleResetSubmit()} />
-            <input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={t("newPassword")} type="password"
-              style={inputStyle} onKeyDown={e => e.key === "Enter" && handleResetSubmit()} />
-            {error && <div style={{ color: "#FF6B6B", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{error}</div>}
-            <button onClick={handleResetSubmit} disabled={loading}
-              style={{ width: "100%", padding: "16px", background: loading ? "#333" : "linear-gradient(135deg, #FF4D00, #FF8C00)", color: loading ? "#888" : "#fff", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 800, letterSpacing: 2, marginBottom: 12 }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={labelStyle}>{t("enterCode")}</div>
+              <input value={resetCode} onChange={e => setResetCode(e.target.value)} placeholder={t("enterCode")}
+                autoComplete="one-time-code" style={inputStyle} maxLength={6} onKeyDown={e => e.key === "Enter" && handleResetSubmit()} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={labelStyle}>{t("newPassword")}</div>
+              <div style={{ position: "relative" }}>
+                <input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={t("newPassword")} type={showNewPassword ? "text" : "password"}
+                  autoComplete="new-password" style={{ ...inputStyle, paddingRight: 72 }} onKeyDown={e => e.key === "Enter" && handleResetSubmit()} />
+                <button onClick={() => setShowNewPassword(prev => !prev)} type="button" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#FFB347", fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>
+                  {showNewPassword ? "HIDE" : "SHOW"}
+                </button>
+              </div>
+              <div style={helperStyle}>{t("passwordHint")}</div>
+            </div>
+            {error && <div style={{ ...statusStyle, padding: "12px 14px", borderRadius: 14, fontSize: 13, marginBottom: 12, lineHeight: 1.45 }}>{error}</div>}
+            <button type="submit" disabled={loading || !canResetSubmit}
+              style={{ width: "100%", padding: "16px", background: loading || !canResetSubmit ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg, #FF4D00, #FFB347)", color: loading || !canResetSubmit ? "#7B7B86" : "#fff", border: "none", borderRadius: 16, fontSize: 15, fontWeight: 900, letterSpacing: 1.6, marginBottom: 12 }}>
               {loading ? "..." : t("resetPassword")}
             </button>
-            <button onClick={() => switchMode("login")} style={{ width: "100%", background: "none", border: "none", color: "#FF8C00", fontSize: 13, padding: 8 }}>{t("backToLogin")}</button>
-          </>)}
+            <button type="button" onClick={() => switchMode("login")} style={{ width: "100%", background: "none", border: "none", color: "#FFB347", fontSize: 13, padding: 8 }}>{t("backToLogin")}</button>
+          </form>)}
 
         </div>
 

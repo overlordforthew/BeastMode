@@ -35,11 +35,40 @@ function normalizeEmail(email) {
   return typeof email === "string" ? email.trim().toLowerCase() : "";
 }
 
+function normalizeUsername(username) {
+  return typeof username === "string" ? username.trim() : "";
+}
+
+function buildUsernameCandidate(rawValue, fallback = "beastmode") {
+  const cleaned = String(rawValue || "")
+    .replace(/[^a-zA-Z0-9_]/g, "")
+    .slice(0, 20);
+  return cleaned || fallback;
+}
+
+async function createUniqueUsername(baseCandidate) {
+  const base = buildUsernameCandidate(baseCandidate);
+  let candidate = base;
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const existing = await pool.query("SELECT id FROM users WHERE LOWER(username) = LOWER($1)", [candidate]);
+    if (existing.rows.length === 0) {
+      return candidate;
+    }
+
+    const suffix = String(Math.floor(Math.random() * 9000 + 1000));
+    candidate = buildUsernameCandidate(base.slice(0, Math.max(6, 20 - suffix.length)), "beast") + suffix;
+  }
+
+  return `${base.slice(0, 12)}${Date.now().toString().slice(-6)}`;
+}
+
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
     const { username, password, email } = req.body;
-    if (!username || !password) {
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername || !password) {
       return res.status(400).json({ error: "Username and password are required" });
     }
     if (password.length < 8) {
@@ -50,7 +79,7 @@ router.post("/register", async (req, res) => {
     const normalizedEmail = email ? normalizeEmail(email) : null;
     const result = await pool.query(
       "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, language",
-      [username, hash, normalizedEmail]
+      [normalizedUsername, hash, normalizedEmail]
     );
     const user = result.rows[0];
     const userId = user.id;
@@ -73,12 +102,19 @@ router.post("/register", async (req, res) => {
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: "Username and password are required" });
+    const { username, identifier, password } = req.body;
+    const loginIdentifier = normalizeUsername(identifier || username);
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({ error: "Username or email and password are required" });
     }
 
-    const result = await pool.query("SELECT id, username, language, password_hash FROM users WHERE username = $1", [username]);
+    const result = await pool.query(
+      `SELECT id, username, language, password_hash
+       FROM users
+       WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
+       LIMIT 1`,
+      [loginIdentifier]
+    );
     if (result.rows.length === 0) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
@@ -116,8 +152,15 @@ router.post("/google", async (req, res) => {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
+    if (!payload?.sub) {
+      return res.status(400).json({ error: "Invalid Google account" });
+    }
+
     const googleId = payload.sub;
-    const email = payload.email || null;
+    const email = payload.email ? normalizeEmail(payload.email) : null;
+    if (email && payload.email_verified === false) {
+      return res.status(400).json({ error: "Google account email must be verified" });
+    }
     const name = payload.name || (email ? email.split("@")[0] : `user${googleId.slice(-6)}`);
 
     // Check if user exists by google_id
@@ -130,7 +173,7 @@ router.post("/google", async (req, res) => {
 
     // Check if user exists by email — link Google account
     if (email) {
-      result = await pool.query("SELECT id, username, language FROM users WHERE email = $1", [email]);
+      result = await pool.query("SELECT id, username, language FROM users WHERE LOWER(email) = $1", [email]);
       if (result.rows.length > 0) {
         const user = result.rows[0];
         await pool.query("UPDATE users SET google_id = $1 WHERE id = $2", [googleId, user.id]);
@@ -140,12 +183,7 @@ router.post("/google", async (req, res) => {
     }
 
     // New user — create account
-    let username = name.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "user";
-    // Ensure unique username
-    const existingUser = await pool.query("SELECT id FROM users WHERE username = $1", [username]);
-    if (existingUser.rows.length > 0) {
-      username = username + Math.floor(Math.random() * 9000 + 1000);
-    }
+    const username = await createUniqueUsername(name || `beast${googleId.slice(-6)}`);
 
     result = await pool.query(
       "INSERT INTO users (username, google_id, email) VALUES ($1, $2, $3) RETURNING id, username, language",

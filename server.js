@@ -6,6 +6,7 @@ const path = require("path");
 const webpush = require("web-push");
 const rateLimit = require("express-rate-limit");
 const { initDb } = require("./db");
+const { isEmailConfigured } = require("./mailer");
 
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/user");
@@ -14,14 +15,44 @@ const statsRoutes = require("./routes/stats");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://beastmode.namibarden.com",
+  "capacitor://localhost",
+  "http://localhost",
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8100",
+];
+const configuredOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = new Set(configuredOrigins.length > 0 ? configuredOrigins : DEFAULT_ALLOWED_ORIGINS);
 
 // Trust reverse proxy (Traefik) for correct client IP in rate limiting
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 // Middleware
-app.use(cors({ origin: process.env.CORS_ORIGIN || "https://beastmode.namibarden.com", credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true,
+}));
 app.use(express.json());
+
+app.get("/api/config", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    googleSignInEnabled: Boolean(process.env.GOOGLE_CLIENT_ID),
+    passwordResetEnabled: isEmailConfigured() || process.env.ALLOW_DEV_RESET_CODES === "true",
+  });
+});
 
 // Service Worker — must be served from root with correct headers
 app.get("/sw.js", (req, res) => {
