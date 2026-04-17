@@ -69,7 +69,11 @@ function loadGoogleIdentityScript() {
       const existing = document.querySelector('script[data-google-identity="true"]');
       if (existing) {
         existing.addEventListener("load", () => resolve(window.google), { once: true });
-        existing.addEventListener("error", () => reject(new Error("Failed to load Google sign-in")), { once: true });
+        existing.addEventListener("error", () => {
+          googleScriptPromise = null;
+          existing.remove();
+          reject(new Error("Failed to load Google sign-in"));
+        }, { once: true });
         return;
       }
 
@@ -79,7 +83,11 @@ function loadGoogleIdentityScript() {
       script.defer = true;
       script.dataset.googleIdentity = "true";
       script.onload = () => resolve(window.google);
-      script.onerror = () => reject(new Error("Failed to load Google sign-in"));
+      script.onerror = () => {
+        googleScriptPromise = null;
+        script.remove();
+        reject(new Error("Failed to load Google sign-in"));
+      };
       document.head.appendChild(script);
     });
   }
@@ -1074,7 +1082,8 @@ function AuthScreen({ onAuth, lang, setLang }) {
     : Boolean(trimmedIdentifier && password);
   const canForgotSubmit = Boolean(trimmedEmail);
   const canResetSubmit = Boolean(trimmedEmail && trimmedResetCode.length === 6 && newPassword.length >= 8);
-  const showGoogleSection = (mode === "login" || mode === "register") && appConfig.googleSignInEnabled;
+  const googleEnabledForThisDevice = appConfig.googleSignInEnabled && !IS_NATIVE_SHELL;
+  const showGoogleSection = (mode === "login" || mode === "register") && googleEnabledForThisDevice;
   const passwordResetEnabled = appConfig.passwordResetEnabled !== false;
 
   useEffect(() => {
@@ -1088,7 +1097,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
       .then((config) => {
         if (!active) return;
         setAppConfig(config);
-        setGoogleState(config.googleSignInEnabled ? "idle" : "unavailable");
+        setGoogleState(config.googleSignInEnabled && !IS_NATIVE_SHELL ? "idle" : "unavailable");
       })
       .catch((err) => {
         if (!active) return;
