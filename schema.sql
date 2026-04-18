@@ -119,6 +119,21 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS admin_action_log (
+  id SERIAL PRIMARY KEY,
+  actor_user_id INTEGER REFERENCES users(id),
+  actor_username TEXT,
+  actor_email TEXT,
+  actor_access TEXT NOT NULL DEFAULT 'user',
+  action_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'success',
+  target_user_id INTEGER REFERENCES users(id),
+  target_username TEXT,
+  target_email TEXT,
+  details JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_workout_user ON workout_history(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_daily_user ON daily_log(user_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_awards_user ON user_awards(user_id);
@@ -126,3 +141,5 @@ CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_user_progress_last_active_date ON user_progress(last_active_date);
 CREATE INDEX IF NOT EXISTS idx_user_settings_team_name_lower ON user_settings(LOWER(team_name)) WHERE team_name IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscription_endpoint ON push_subscriptions(endpoint) WHERE endpoint IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_admin_action_created_at ON admin_action_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_action_target_user_created_at ON admin_action_log(target_user_id, created_at DESC);

@@ -417,6 +417,7 @@ async function main() {
   assert.strictEqual(adminDetail.user.username, alpha.username, "admin detail should load the requested user");
   assert(adminDetail.dailyLog.length >= 1, "admin detail should include daily logs");
   assert(adminDetail.supportSnapshot.includes(`username: ${alpha.username}`), "admin detail should include a support snapshot");
+  assert(Array.isArray(adminDetail.recentAdminActions), "admin detail should include recent admin actions");
 
   const adminCsvRes = await fetch(`${baseUrl}/api/admin/users-export.csv?sort=recent_activity`, {
     headers: { Authorization: `Bearer ${alpha.token}` },
@@ -433,6 +434,13 @@ async function main() {
   });
   assert.strictEqual(adminReset.delivery, "dev", "admin reset should fall back to dev delivery in smoke mode");
   assert(/^\d{6}$/.test(adminReset.devCode), "admin reset should return a six-digit development code");
+
+  const snapshotAudit = await api(`/api/admin/users/${alpha.userId}/support-snapshot-copied`, {
+    method: "POST",
+    token: alpha.token,
+    body: {},
+  });
+  assert.strictEqual(snapshotAudit.success, true, "support snapshot copy should be audit-loggable");
 
   const deniedAdmin = await apiExpectFailure("/api/admin/me", { token: bravo.token }, 403);
   assert(deniedAdmin.error, "non-admin users should be blocked from admin routes");
@@ -523,6 +531,15 @@ async function main() {
   } finally {
     webpush.sendNotification = originalSendNotification;
   }
+
+  const adminActivity = await api("/api/admin/activity?limit=10", { token: alpha.token });
+  assert(adminActivity.actions.some((action) => action.actionType === "users_export"), "admin activity should include CSV exports");
+  assert(adminActivity.actions.some((action) => action.actionType === "password_reset"), "admin activity should include password resets");
+  assert(adminActivity.actions.some((action) => action.actionType === "support_snapshot_copy"), "admin activity should include snapshot copies");
+  assert(adminActivity.actions.some((action) => action.actionType === "push_test"), "admin activity should include push tests");
+
+  const alphaAdminActivity = await api(`/api/admin/activity?targetUserId=${alpha.userId}&limit=10`, { token: alpha.token });
+  assert(alphaAdminActivity.actions.every((action) => action.targetUserId === alpha.userId), "targeted admin activity should be scoped to the requested user");
 
   const pushStatusAfterSend = await getPushStatus(alpha.userId, pool);
   assert(pushStatusAfterSend.lastPushSentAt, "sending a push should update the last sent timestamp");

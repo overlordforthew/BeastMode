@@ -173,6 +173,12 @@
       border-color: rgba(255, 140, 66, 0.56);
     }
 
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+      transform: none;
+    }
+
     button.secondary {
       background: rgba(255, 255, 255, 0.04);
       border-color: var(--border);
@@ -341,6 +347,24 @@
       font-size: 13px;
     }
 
+    .notice-line.success { color: var(--ok); }
+    .notice-line.error { color: var(--bad); }
+    .notice-line.warn { color: var(--warn); }
+
+    .activity-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .activity-item {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
     .empty {
       padding: 18px;
       border: 1px dashed rgba(255, 255, 255, 0.14);
@@ -427,6 +451,16 @@
 
     <section id="triage" class="triage-grid"></section>
 
+    <section class="panel" style="padding: 18px; margin-bottom: 20px;">
+      <div class="title-row" style="margin-bottom: 12px;">
+        <div>
+          <div class="section-title">Recent Admin Activity</div>
+          <div class="section-copy">This is the operator trail: exports, reset emails, push checks, and support snapshot copies.</div>
+        </div>
+      </div>
+      <div id="activityWrap" class="empty">Loading admin activity…</div>
+    </section>
+
     <section class="controls">
       <div class="field">
         <label for="searchInput">Search</label>
@@ -510,15 +544,18 @@
       token: "",
       me: null,
       overview: null,
+      activity: [],
       users: [],
       pagination: { total: 0, limit: 50, offset: 0, hasMore: false },
       filters: { q: "", status: "", push: "", sort: "recent_activity" },
       selectedUserId: null,
       selectedUserDetail: null,
+      busy: { export: false, reset: false, push: false, copy: false, refreshDetail: false },
     };
 
     const metricsEl = document.getElementById("metrics");
     const triageEl = document.getElementById("triage");
+    const activityWrapEl = document.getElementById("activityWrap");
     const usersWrapEl = document.getElementById("usersWrap");
     const detailWrapEl = document.getElementById("detailWrap");
     const authChipEl = document.getElementById("authChip");
@@ -646,6 +683,28 @@
       return `${user.daysSinceActive} days ago`;
     }
 
+    function formatActionStatus(action) {
+      if (action.status === "email" || action.status === "sent" || action.status === "success") return badge(action.status, "ok");
+      if (action.status === "failed") return badge(action.status, "bad");
+      if (action.status === "preview" || action.status === "dev") return badge(action.status, "warn");
+      return badge(action.status || "unknown");
+    }
+
+    function renderActionItem(action) {
+      const actor = action.actorUsername || action.actorAccess || "admin";
+      const target = action.targetUsername || action.targetEmail || "system";
+      return `
+        <div class="activity-item">
+          <div class="user-line">
+            <div class="user-name">${escapeHtml(action.summary || action.actionType)}</div>
+            ${formatActionStatus(action)}
+          </div>
+          <div class="user-subtle">${escapeHtml(actor)} → ${escapeHtml(target)}</div>
+          <div class="muted">${formatDate(action.createdAt)}</div>
+        </div>
+      `;
+    }
+
     function renderMetrics() {
       const metrics = state.overview?.metrics || {};
       const cards = [
@@ -707,6 +766,18 @@
           </div>
         </div>
       `).join("");
+    }
+
+    function renderActivity() {
+      const actions = state.activity || [];
+      if (actions.length === 0) {
+        activityWrapEl.className = "empty";
+        activityWrapEl.innerHTML = "No admin actions logged yet.";
+        return;
+      }
+
+      activityWrapEl.className = "activity-list";
+      activityWrapEl.innerHTML = actions.map(renderActionItem).join("");
     }
 
     function renderUsers() {
@@ -868,6 +939,15 @@
             </div>
           </div>
         </div>
+
+        <div class="detail-section">
+          <div class="section-title">Admin Action History</div>
+          ${detail.recentAdminActions && detail.recentAdminActions.length > 0 ? `
+            <div class="activity-list">
+              ${detail.recentAdminActions.map((action) => renderActionItem(action)).join("")}
+            </div>
+          ` : '<div class="empty">No support actions have been recorded for this user yet.</div>'}
+        </div>
       `;
     }
 
@@ -883,6 +963,12 @@
       state.overview = await api("/api/admin/overview");
       renderMetrics();
       renderTriage();
+    }
+
+    async function loadActivity() {
+      const data = await api("/api/admin/activity?limit=12");
+      state.activity = data.actions || [];
+      renderActivity();
     }
 
     function buildUserQueryString() {
@@ -921,52 +1007,88 @@
       detailActionStatusEl.className = `notice-line ${tone}`;
     }
 
+    function setBusyState(key, value) {
+      state.busy[key] = value;
+      if (key === "export") document.getElementById("exportCsvBtn").disabled = value;
+      if (key === "copy") copySnapshotBtn.disabled = value;
+      if (key === "reset") sendResetBtn.disabled = value;
+      if (key === "push") sendPushBtn.disabled = value;
+      if (key === "refreshDetail") refreshDetailBtn.disabled = value;
+    }
+
     async function copySupportSnapshot() {
       if (!state.selectedUserDetail?.supportSnapshot) return;
-      await navigator.clipboard.writeText(state.selectedUserDetail.supportSnapshot);
-      showDetailActionStatus("Support snapshot copied to clipboard.");
+      setBusyState("copy", true);
+      try {
+        await navigator.clipboard.writeText(state.selectedUserDetail.supportSnapshot);
+        await api(`/api/admin/users/${state.selectedUserId}/support-snapshot-copied`, {
+          method: "POST",
+          body: {},
+        });
+        await Promise.all([loadActivity(), loadUserDetail(state.selectedUserId)]);
+        showDetailActionStatus("Support snapshot copied to clipboard.");
+      } finally {
+        setBusyState("copy", false);
+      }
     }
 
     async function sendPasswordResetEmail() {
       if (!state.selectedUserId) return;
-      showDetailActionStatus("Sending password reset email…");
-      const result = await api(`/api/admin/users/${state.selectedUserId}/password-reset`, {
-        method: "POST",
-        body: {},
-      });
-      if (result.delivery === "email") {
-        showDetailActionStatus(`Password reset email sent to ${result.email}.`);
-        return;
+      setBusyState("reset", true);
+      try {
+        showDetailActionStatus("Sending password reset email…");
+        const result = await api(`/api/admin/users/${state.selectedUserId}/password-reset`, {
+          method: "POST",
+          body: {},
+        });
+        await Promise.all([loadActivity(), loadUserDetail(state.selectedUserId)]);
+        if (result.delivery === "email") {
+          showDetailActionStatus(`Password reset email sent to ${result.email}.`);
+          return;
+        }
+        if (result.delivery === "dev") {
+          showDetailActionStatus(`Development reset code created for ${result.email}: ${result.devCode}`);
+          return;
+        }
+        showDetailActionStatus("Password reset issued.");
+      } finally {
+        setBusyState("reset", false);
       }
-      if (result.delivery === "dev") {
-        showDetailActionStatus(`Development reset code created for ${result.email}: ${result.devCode}`);
-        return;
-      }
-      showDetailActionStatus("Password reset issued.");
     }
 
     async function sendAdminPushTest() {
       if (!state.selectedUserId) return;
-      showDetailActionStatus("Sending test nudge…");
-      const result = await api(`/api/admin/users/${state.selectedUserId}/push-test`, {
-        method: "POST",
-        body: {},
-      });
-      showDetailActionStatus(`Test nudge sent to ${result.sent} linked device${result.sent === 1 ? "" : "s"}.`);
-      await loadUserDetail(state.selectedUserId);
+      setBusyState("push", true);
+      try {
+        showDetailActionStatus("Sending test nudge…");
+        const result = await api(`/api/admin/users/${state.selectedUserId}/push-test`, {
+          method: "POST",
+          body: {},
+        });
+        await Promise.all([loadActivity(), loadUserDetail(state.selectedUserId)]);
+        showDetailActionStatus(`Test nudge sent to ${result.sent} linked device${result.sent === 1 ? "" : "s"}.`);
+      } finally {
+        setBusyState("push", false);
+      }
     }
 
     async function exportUsersCsv() {
-      const query = buildUserQueryString();
-      const blob = await api(`/api/admin/users-export.csv?${query}`, { responseType: "blob" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `beastmode-users-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      setBusyState("export", true);
+      try {
+        const query = buildUserQueryString();
+        const blob = await api(`/api/admin/users-export.csv?${query}`, { responseType: "blob" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `beastmode-users-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        await loadActivity();
+      } finally {
+        setBusyState("export", false);
+      }
     }
 
     function applyFilters(resetOffset = true) {
@@ -987,6 +1109,7 @@
         authPanelEl.classList.add("visible");
         renderMetrics();
         renderTriage();
+        renderActivity();
         renderUsers();
         renderDetail();
         return;
@@ -994,7 +1117,7 @@
 
       try {
         await loadMe();
-        await Promise.all([loadOverview(), loadUsers()]);
+        await Promise.all([loadOverview(), loadUsers(), loadActivity()]);
         if (state.selectedUserId) {
           await loadUserDetail(state.selectedUserId);
         }
@@ -1055,9 +1178,12 @@
 
     refreshDetailBtn.addEventListener("click", () => {
       if (!state.selectedUserId) return;
+      setBusyState("refreshDetail", true);
       loadUserDetail(state.selectedUserId).catch((error) => {
         console.error(error);
         detailMetaEl.textContent = error.message;
+      }).finally(() => {
+        setBusyState("refreshDetail", false);
       });
     });
 

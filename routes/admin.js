@@ -1,5 +1,6 @@
 const express = require("express");
 const { pool } = require("../db");
+const { logAdminAction, mapAdminActionRow } = require("../lib/admin-audit");
 const { storePasswordResetCode } = require("../lib/password-reset");
 const { syncUserProgressDay } = require("../lib/progress");
 const { getPushStatus, sendPushPayloadToUser } = require("../lib/push");
@@ -231,6 +232,24 @@ function buildSupportSnapshot(detail) {
   ].join("\n");
 }
 
+function summarizeActionDetails(action) {
+  const details = action.details || {};
+  if (action.actionType === "password_reset") {
+    const delivery = details.delivery || action.status;
+    return `Password reset via ${delivery}`;
+  }
+  if (action.actionType === "push_test") {
+    return details.previewOnly ? `Push preview on ${details.subscriptionCount || 0} device(s)` : `Push test sent to ${details.sent || 0} device(s)`;
+  }
+  if (action.actionType === "users_export") {
+    return `Exported ${details.exportedUsers || 0} user rows`;
+  }
+  if (action.actionType === "support_snapshot_copy") {
+    return "Support snapshot copied";
+  }
+  return action.actionType.replace(/_/g, " ");
+}
+
 function buildUserWhereClause(filters, values) {
   const conditions = [];
   const todayKey = getTodayDateKey();
@@ -349,6 +368,63 @@ router.get("/me", async (req, res) => {
       apiKey: Boolean(process.env.ADMIN_API_KEY),
     },
   });
+});
+
+router.get("/activity", async (req, res) => {
+  try {
+    const limit = clampInteger(req.query.limit, 20, 1, 100);
+    const targetUserId = req.query.targetUserId === undefined
+      ? null
+      : clampInteger(req.query.targetUserId, NaN, 1, Number.MAX_SAFE_INTEGER);
+
+    if (req.query.targetUserId !== undefined && !Number.isFinite(targetUserId)) {
+      return res.status(400).json({ error: "Invalid target user id" });
+    }
+
+    const values = [];
+    let whereClause = "";
+    if (Number.isFinite(targetUserId)) {
+      values.push(targetUserId);
+      whereClause = `WHERE target_user_id = $1`;
+    }
+    values.push(limit);
+
+    const result = await pool.query(`
+      SELECT
+        id,
+        actor_user_id,
+        actor_username,
+        actor_email,
+        actor_access,
+        action_type,
+        status,
+        target_user_id,
+        target_username,
+        target_email,
+        details,
+        created_at
+      FROM admin_action_log
+      ${whereClause}
+      ORDER BY created_at DESC, id DESC
+      LIMIT $${values.length}
+    `, values);
+
+    const actions = result.rows.map((row) => {
+      const action = mapAdminActionRow(row);
+      return { ...action, summary: summarizeActionDetails(action) };
+    });
+
+    res.json({
+      actions,
+      filters: {
+        targetUserId: Number.isFinite(targetUserId) ? targetUserId : null,
+        limit,
+      },
+    });
+  } catch (error) {
+    console.error("Admin activity error:", error);
+    res.status(500).json({ error: "Failed to load admin activity" });
+  }
 });
 
 router.get("/overview", async (req, res) => {
@@ -482,7 +558,7 @@ router.get("/users/:userId", async (req, res) => {
 
     await syncUserProgressDay(userId, pool);
 
-    const [summaryR, recentWorkoutsR, dailyLogR, awardsR, missionClaimsR] = await Promise.all([
+    const [summaryR, recentWorkoutsR, dailyLogR, awardsR, missionClaimsR, recentAdminActionsR] = await Promise.all([
       pool.query(
         `${USER_BASE_CTE}
          SELECT base.*
@@ -533,6 +609,25 @@ router.get("/users/:userId", async (req, res) => {
         ORDER BY claim_date DESC
         LIMIT 10
       `, [userId]),
+      pool.query(`
+        SELECT
+          id,
+          actor_user_id,
+          actor_username,
+          actor_email,
+          actor_access,
+          action_type,
+          status,
+          target_user_id,
+          target_username,
+          target_email,
+          details,
+          created_at
+        FROM admin_action_log
+        WHERE target_user_id = $1
+        ORDER BY created_at DESC, id DESC
+        LIMIT 15
+      `, [userId]),
     ]);
 
     if (summaryR.rows.length === 0) {
@@ -571,6 +666,10 @@ router.get("/users/:userId", async (req, res) => {
         bonusPoints: Number(row.bonus_points || 0),
         createdAt: row.created_at,
       })),
+      recentAdminActions: recentAdminActionsR.rows.map((row) => {
+        const action = mapAdminActionRow(row);
+        return { ...action, summary: summarizeActionDetails(action) };
+      }),
       supportSnapshot: buildSupportSnapshot({
         user: summary,
         recentWorkouts: recentWorkoutsR.rows.map((row) => ({
@@ -612,11 +711,25 @@ router.post("/users/:userId/password-reset", async (req, res) => {
       [userId]
     );
     if (userR.rows.length === 0) {
+      await logAdminAction({
+        actor: req.admin,
+        actionType: "password_reset",
+        status: "failed",
+        targetUser: { id: userId },
+        details: { reason: "user_not_found" },
+      }).catch((error) => console.warn("Admin audit error:", error.message));
       return res.status(404).json({ error: "User not found" });
     }
 
     const user = userR.rows[0];
     if (!user.email) {
+      await logAdminAction({
+        actor: req.admin,
+        actionType: "password_reset",
+        status: "failed",
+        targetUser: user,
+        details: { reason: "missing_email" },
+      }).catch((error) => console.warn("Admin audit error:", error.message));
       return res.status(409).json({ error: "This user does not have an email address on file" });
     }
 
@@ -625,6 +738,13 @@ router.post("/users/:userId/password-reset", async (req, res) => {
 
     if (emailEnabled) {
       await sendPasswordResetCode(emailKey, code);
+      await logAdminAction({
+        actor: req.admin,
+        actionType: "password_reset",
+        status: "email",
+        targetUser: user,
+        details: { delivery: "email", expiresAt },
+      }).catch((error) => console.warn("Admin audit error:", error.message));
       return res.json({
         success: true,
         delivery: "email",
@@ -634,9 +754,23 @@ router.post("/users/:userId/password-reset", async (req, res) => {
     }
 
     if (!allowDevResetCodes() || isProductionLike()) {
+      await logAdminAction({
+        actor: req.admin,
+        actionType: "password_reset",
+        status: "failed",
+        targetUser: user,
+        details: { reason: "email_not_configured" },
+      }).catch((error) => console.warn("Admin audit error:", error.message));
       return res.status(503).json({ error: "Password reset email is not configured" });
     }
 
+    await logAdminAction({
+      actor: req.admin,
+      actionType: "password_reset",
+      status: "dev",
+      targetUser: user,
+      details: { delivery: "dev", expiresAt },
+    }).catch((error) => console.warn("Admin audit error:", error.message));
     return res.json({
       success: true,
       delivery: "dev",
@@ -658,10 +792,17 @@ router.post("/users/:userId/push-test", async (req, res) => {
     }
 
     const userR = await pool.query(
-      "SELECT id, username FROM users WHERE id = $1 LIMIT 1",
+      "SELECT id, username, email FROM users WHERE id = $1 LIMIT 1",
       [userId]
     );
     if (userR.rows.length === 0) {
+      await logAdminAction({
+        actor: req.admin,
+        actionType: "push_test",
+        status: "failed",
+        targetUser: { id: userId },
+        details: { reason: "user_not_found" },
+      }).catch((error) => console.warn("Admin audit error:", error.message));
       return res.status(404).json({ error: "User not found" });
     }
 
@@ -669,10 +810,24 @@ router.post("/users/:userId/push-test", async (req, res) => {
     const previewOnly = req.body?.previewOnly === true;
     const status = await getPushStatus(userId, pool);
     if ((status.subscriptionCount || 0) === 0) {
+      await logAdminAction({
+        actor: req.admin,
+        actionType: "push_test",
+        status: "failed",
+        targetUser: user,
+        details: { reason: "no_subscription" },
+      }).catch((error) => console.warn("Admin audit error:", error.message));
       return res.status(409).json({ error: "No active push subscription found for this user" });
     }
 
     if (previewOnly) {
+      await logAdminAction({
+        actor: req.admin,
+        actionType: "push_test",
+        status: "preview",
+        targetUser: user,
+        details: { previewOnly: true, subscriptionCount: status.subscriptionCount },
+      }).catch((error) => console.warn("Admin audit error:", error.message));
       return res.json({
         success: true,
         previewOnly: true,
@@ -688,6 +843,13 @@ router.post("/users/:userId/push-test", async (req, res) => {
       url: "https://beastmode.namibarden.com/",
     }, pool);
     const refreshedStatus = await getPushStatus(userId, pool);
+    await logAdminAction({
+      actor: req.admin,
+      actionType: "push_test",
+      status: "sent",
+      targetUser: user,
+      details: { previewOnly: false, sent: result.sent, subscriptionCount: refreshedStatus.subscriptionCount },
+    }).catch((error) => console.warn("Admin audit error:", error.message));
     res.json({
       success: true,
       sent: result.sent,
@@ -696,6 +858,36 @@ router.post("/users/:userId/push-test", async (req, res) => {
   } catch (error) {
     console.error("Admin push test error:", error);
     res.status(500).json({ error: "Failed to send admin push test" });
+  }
+});
+
+router.post("/users/:userId/support-snapshot-copied", async (req, res) => {
+  try {
+    const userId = clampInteger(req.params.userId, NaN, 1, Number.MAX_SAFE_INTEGER);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
+
+    const userR = await pool.query(
+      "SELECT id, username, email FROM users WHERE id = $1 LIMIT 1",
+      [userId]
+    );
+    if (userR.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await logAdminAction({
+      actor: req.admin,
+      actionType: "support_snapshot_copy",
+      status: "success",
+      targetUser: userR.rows[0],
+      details: { source: "admin_ui" },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Admin snapshot audit error:", error);
+    res.status(500).json({ error: "Failed to record support snapshot copy" });
   }
 });
 
@@ -732,6 +924,15 @@ router.get("/users-export.csv", async (req, res) => {
     );
 
     const users = usersR.rows.map(summarizeUserRow);
+    await logAdminAction({
+      actor: req.admin,
+      actionType: "users_export",
+      status: "success",
+      details: {
+        exportedUsers: users.length,
+        filters: { q, status, push, sort },
+      },
+    }).catch((error) => console.warn("Admin audit error:", error.message));
     const rows = [
       [
         "id",
