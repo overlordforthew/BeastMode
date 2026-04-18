@@ -1,8 +1,10 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const { z } = require("zod");
 const { pool } = require("../db");
 const { validateBody } = require("../lib/validation");
 const { authMiddleware } = require("../middleware/auth");
+const { invalidateLeaderboardCache } = require("./stats");
 const {
   MIN_DAILY_SESSIONS,
   MIN_DAILY_SESSION_CREDITS,
@@ -27,6 +29,17 @@ const {
 
 const router = express.Router();
 router.use(authMiddleware);
+
+const WORKOUT_RATE_LIMIT_PER_MINUTE = Math.max(1, Number(process.env.WORKOUT_RATE_LIMIT_PER_MINUTE || 100));
+const workoutLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: WORKOUT_RATE_LIMIT_PER_MINUTE,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.userId),
+  message: { error: "Too many workout requests, slow down for a minute" },
+});
+router.use(workoutLimiter);
 
 async function syncProgressIfNeeded(req, res, next) {
   try {
@@ -203,6 +216,7 @@ router.post("/log", validateBody(workoutLogSchema), syncProgressIfNeeded, async 
 
     const updated = await client.query("SELECT total_points, today_points, sessions_finished, session_credits, meditations_finished, qualifying_meditations FROM user_progress WHERE user_id = $1", [req.userId]);
     await client.query("COMMIT");
+    invalidateLeaderboardCache("workout_logged");
 
     let newAwards = [];
     try {

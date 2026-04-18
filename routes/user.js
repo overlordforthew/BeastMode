@@ -11,6 +11,7 @@ const {
   savePushSubscription,
   sendPushPayloadToUser,
 } = require("../lib/push");
+const { invalidateLeaderboardCache } = require("./stats");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -377,6 +378,7 @@ router.delete("/account", validateBody(deleteAccountSchema), async (req, res) =>
     await client.query("DELETE FROM users WHERE id = $1", [req.userId]);
 
     await client.query("COMMIT");
+    invalidateLeaderboardCache("account_deleted");
     res.json({ success: true });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

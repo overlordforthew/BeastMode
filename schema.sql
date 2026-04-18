@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS user_settings (
-  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   duration TEXT DEFAULT '2',
   interval_minutes INTEGER DEFAULT 45,
   selected_exercises JSONB DEFAULT '["plank","pushups","situps","squats","lunges","burpees","chair_pose","jumping_jacks","high_knees","mountain_climbers"]',
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
 );
 
 CREATE TABLE IF NOT EXISTS user_progress (
-  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   total_points REAL DEFAULT 0,
   today_points REAL DEFAULT 0,
   streak INTEGER DEFAULT 1,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
 );
 
 CREATE TABLE IF NOT EXISTS user_stats (
-  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   total_sessions INTEGER DEFAULT 0,
   extra_sessions INTEGER DEFAULT 0,
   unique_exercises JSONB DEFAULT '[]',
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS user_stats (
 
 CREATE TABLE IF NOT EXISTS user_awards (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   award_id TEXT NOT NULL,
   unlocked_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, award_id)
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS user_awards (
 
 CREATE TABLE IF NOT EXISTS workout_history (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   exercise_id TEXT NOT NULL,
   exercise_name TEXT NOT NULL,
   exercise_emoji TEXT NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS workout_history (
 
 CREATE TABLE IF NOT EXISTS daily_log (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   log_date TEXT NOT NULL,
   points REAL DEFAULT 0,
   sessions_finished INTEGER DEFAULT 0,
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS password_reset_codes (
 
 CREATE TABLE IF NOT EXISTS daily_mission_claims (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   claim_date TEXT NOT NULL,
   mission_id TEXT NOT NULL,
   bonus_points REAL NOT NULL,
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS daily_mission_claims (
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   endpoint TEXT,
   subscription TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -121,13 +121,13 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 CREATE TABLE IF NOT EXISTS admin_action_log (
   id SERIAL PRIMARY KEY,
-  actor_user_id INTEGER REFERENCES users(id),
+  actor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   actor_username TEXT,
   actor_email TEXT,
   actor_access TEXT NOT NULL DEFAULT 'user',
   action_type TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'success',
-  target_user_id INTEGER REFERENCES users(id),
+  target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   target_username TEXT,
   target_email TEXT,
   details JSONB DEFAULT '{}'::jsonb,

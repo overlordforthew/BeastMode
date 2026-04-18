@@ -141,6 +141,8 @@ export default function AuthScreen({ onAuth, lang, setLang }) {
   const labelStyle = { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: "#8E8E98", marginBottom: 8 };
   const helperStyle = { fontSize: 12, color: "#7B7B86", marginTop: 8, lineHeight: 1.45 };
   const chipStyle = {
+    flex: "0 1 auto",
+    minWidth: 0,
     padding: "7px 12px",
     borderRadius: 999,
     background: "rgba(255,255,255,0.06)",
@@ -151,6 +153,7 @@ export default function AuthScreen({ onAuth, lang, setLang }) {
   };
   const sectionButtonStyle = (active) => ({
     flex: 1,
+    minWidth: 0,
     padding: "11px 14px",
     background: active ? "linear-gradient(135deg, rgba(255,77,0,0.22), rgba(255,179,71,0.14))" : "transparent",
     border: active ? "1px solid rgba(255,140,0,0.38)" : "1px solid rgba(255,255,255,0.08)",
@@ -236,9 +239,9 @@ export default function AuthScreen({ onAuth, lang, setLang }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 18px", background: "radial-gradient(circle at top, rgba(255,140,0,0.18), transparent 34%), radial-gradient(circle at bottom right, rgba(255,77,0,0.14), transparent 28%), linear-gradient(180deg, #07080d 0%, #0d1018 48%, #1c0e05 100%)" }}>
-      <div style={{ width: "100%", maxWidth: 420, animation: "fadeIn 0.6s ease" }}>
-        <div style={{ position: "relative", overflow: "hidden", marginBottom: 18, padding: "28px 24px 22px", borderRadius: 28, background: "linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 80px rgba(0,0,0,0.32)" }}>
+    <div style={{ width: "100%", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 18px", overflowX: "hidden", background: "radial-gradient(circle at top, rgba(255,140,0,0.18), transparent 34%), radial-gradient(circle at bottom right, rgba(255,77,0,0.14), transparent 28%), linear-gradient(180deg, #07080d 0%, #0d1018 48%, #1c0e05 100%)" }}>
+      <div style={{ width: "100%", maxWidth: 420, minWidth: 0, animation: "fadeIn 0.6s ease forwards" }}>
+        <div style={{ position: "relative", overflow: "hidden", marginBottom: 18, padding: "28px clamp(16px, 5vw, 24px) 22px", borderRadius: 28, background: "linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 80px rgba(0,0,0,0.32)" }}>
           <div style={{ position: "absolute", top: -40, right: -18, width: 128, height: 128, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,179,71,0.25), transparent 70%)" }} />
           <div style={{ position: "absolute", bottom: -54, left: -16, width: 140, height: 140, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,77,0,0.2), transparent 70%)" }} />
           <div style={{ position: "relative" }}>
@@ -246,10 +249,10 @@ export default function AuthScreen({ onAuth, lang, setLang }) {
               <span style={{ fontSize: 22 }}>{"🔥"}</span>
               <span style={{ fontSize: 11, letterSpacing: 1.6, color: "#FFD9A0", fontWeight: 800 }}>BUILD THE STREAK</span>
             </div>
-            <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: 5, background: "linear-gradient(135deg, #FF6A00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 10 }}>BEAST MODE</h1>
+            <h1 style={{ fontSize: "clamp(30px, 9vw, 36px)", fontWeight: 900, letterSpacing: "clamp(2px, 1.2vw, 5px)", background: "linear-gradient(135deg, #FF6A00, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 10, whiteSpace: "nowrap" }}>BEAST MODE</h1>
             <p style={{ color: "#F5E8D4", fontSize: 15, lineHeight: 1.5, marginBottom: 8 }}>{t("authTagline")}</p>
             <p style={{ color: "#9A9AA4", fontSize: 13 }}>{t("authSupport")}</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18, maxWidth: "100%", overflow: "hidden" }}>
               <span style={chipStyle}>{t("authChipWorkouts")}</span>
               <span style={chipStyle}>{t("authChipMeditation")}</span>
               <span style={chipStyle}>{t("authChipRecovery")}</span>
@@ -257,7 +260,7 @@ export default function AuthScreen({ onAuth, lang, setLang }) {
           </div>
         </div>
 
-        <div style={{ background: "rgba(9,10,16,0.86)", backdropFilter: "blur(18px)", borderRadius: 28, padding: 24, border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 70px rgba(0,0,0,0.28)" }}>
+        <div style={{ background: "rgba(9,10,16,0.86)", backdropFilter: "blur(18px)", borderRadius: 28, padding: "24px clamp(16px, 5vw, 24px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 24px 70px rgba(0,0,0,0.28)" }}>
           {(mode === "login" || mode === "register") && (
             <form onSubmit={(event) => { event.preventDefault(); handleSubmit(); }}>
               {showGoogleSection && (
@@ -277,7 +280,7 @@ export default function AuthScreen({ onAuth, lang, setLang }) {
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 22, minWidth: 0 }}>
                 <button type="button" onClick={() => switchMode("login")} style={sectionButtonStyle(mode === "login")}>{t("login")}</button>
                 <button type="button" onClick={() => switchMode("register")} style={sectionButtonStyle(mode === "register")}>{t("register")}</button>
               </div>

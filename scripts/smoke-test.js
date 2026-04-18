@@ -142,6 +142,10 @@ async function main() {
   const versionedHealth = await api("/api/v1/health");
   assert.strictEqual(versionedHealth.status, "ok", "versioned health endpoint should report ok");
 
+  // The admin username is fixed by ADMIN_USERNAMES, so make the smoke test repeatable
+  // against a reused disposable database.
+  await pool.query("DELETE FROM users WHERE lower(username) = lower($1)", ["adminalpha"]);
+
   const alpha = await registerUser("alpha", { username: "adminalpha", email: "adminalpha@example.com" });
   const bravo = await registerUser("bravo");
   const charlie = await registerUser("charlie");
@@ -420,6 +424,16 @@ async function main() {
   assert(Number(adminOverview.metrics.total_users) >= 4, "admin overview should report user counts");
   assert(Array.isArray(adminOverview.cohorts.newestUsers), "admin overview should include cohort lists");
 
+  const adminCache = await api("/api/admin/cache", { token: alpha.token });
+  assert(adminCache.leaderboard, "admin cache status should expose leaderboard cache state");
+  const cacheFlush = await api("/api/admin/cache-flush", {
+    method: "POST",
+    token: alpha.token,
+    body: {},
+  });
+  assert.strictEqual(cacheFlush.success, true, "admin cache flush should succeed");
+  assert(cacheFlush.flushed.leaderboard.flushedAt, "cache flush should report when leaderboard cache was flushed");
+
   const adminUsers = await api(`/api/admin/users?q=${encodeURIComponent(bravo.username)}`, { token: alpha.token });
   assert(adminUsers.users.some((user) => user.username === bravo.username), "admin user search should find matching usernames");
 
@@ -547,6 +561,7 @@ async function main() {
   assert(adminActivity.actions.some((action) => action.actionType === "password_reset"), "admin activity should include password resets");
   assert(adminActivity.actions.some((action) => action.actionType === "support_snapshot_copy"), "admin activity should include snapshot copies");
   assert(adminActivity.actions.some((action) => action.actionType === "push_test"), "admin activity should include push tests");
+  assert(adminActivity.actions.some((action) => action.actionType === "cache_flush"), "admin activity should include cache flushes");
 
   const alphaAdminActivity = await api(`/api/admin/activity?targetUserId=${alpha.userId}&limit=10`, { token: alpha.token });
   assert(alphaAdminActivity.actions.every((action) => action.targetUserId === alpha.userId), "targeted admin activity should be scoped to the requested user");
@@ -564,6 +579,40 @@ async function main() {
 
   const finalPushStatus = await removePushSubscription(alpha.userId, null, pool);
   assert.strictEqual(finalPushStatus.subscriptionCount, 0, "cleanup should leave no push subscriptions behind");
+
+  // Direct SQL user deletion should cascade through owned user data for support escalations.
+  const cascade = await registerUser("cascade");
+  await api("/api/workout/log", {
+    method: "POST",
+    token: cascade.token,
+    body: {
+      exerciseId: "squats",
+      durationMinutes: 2,
+      wasCompleted: true,
+      type: "alarm",
+    },
+  });
+  await api("/api/user/push-subscription", {
+    method: "POST",
+    token: cascade.token,
+    body: { subscription: { ...fakeSubscription, endpoint: `https://push.example.test/sub/${uniqueSuffix()}` } },
+  });
+  await pool.query("INSERT INTO user_awards (user_id, award_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [cascade.userId, "cascade_test"]);
+  await pool.query("DELETE FROM users WHERE id = $1", [cascade.userId]);
+
+  const cascadeTables = [
+    "user_settings",
+    "user_progress",
+    "user_stats",
+    "user_awards",
+    "workout_history",
+    "daily_log",
+    "push_subscriptions",
+  ];
+  for (const table of cascadeTables) {
+    const result = await pool.query(`SELECT COUNT(*)::int AS count FROM ${table} WHERE user_id = $1`, [cascade.userId]);
+    assert.strictEqual(Number(result.rows[0].count), 0, `direct user deletion should cascade ${table}`);
+  }
 
   // Account deletion should remove the user and related data.
   await api("/api/workout/log", {

@@ -1,12 +1,43 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
 const { MIN_DAILY_SESSIONS, isQualifiedDay, ensureUserProgressDaySynced } = require("../lib/progress");
 
 const router = express.Router();
 router.use(authMiddleware);
+const STATS_RATE_LIMIT_PER_MINUTE = Math.max(1, Number(process.env.STATS_RATE_LIMIT_PER_MINUTE || 180));
+const statsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: STATS_RATE_LIMIT_PER_MINUTE,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.userId),
+  message: { error: "Too many stats requests, slow down for a minute" },
+});
+router.use(statsLimiter);
+
 const LEADERBOARD_CACHE_TTL_MS = Number(process.env.LEADERBOARD_CACHE_TTL_MS || 60 * 1000);
 let leaderboardCache = { expiresAt: 0, rows: [] };
+
+function invalidateLeaderboardCache(reason = "manual") {
+  const previousSize = leaderboardCache.rows.length;
+  leaderboardCache = { expiresAt: 0, rows: [] };
+  return {
+    flushedAt: new Date().toISOString(),
+    reason,
+    previousSize,
+  };
+}
+
+function getLeaderboardCacheStatus() {
+  return {
+    ttlMs: LEADERBOARD_CACHE_TTL_MS,
+    cachedRows: leaderboardCache.rows.length,
+    expiresAt: leaderboardCache.expiresAt ? new Date(leaderboardCache.expiresAt).toISOString() : null,
+    fresh: leaderboardCache.expiresAt > Date.now(),
+  };
+}
 
 router.use(async (req, res, next) => {
   try {
@@ -447,6 +478,7 @@ router.post("/daily-mission/claim", async (req, res) => {
     `, [req.userId]);
 
     await client.query("COMMIT");
+    invalidateLeaderboardCache("daily_mission_claimed");
 
     res.json({
       mission: { ...mission, claimed: true, claimedAt: new Date().toISOString() },
@@ -501,3 +533,5 @@ router.get("/leaderboard", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.invalidateLeaderboardCache = invalidateLeaderboardCache;
+module.exports.getLeaderboardCacheStatus = getLeaderboardCacheStatus;

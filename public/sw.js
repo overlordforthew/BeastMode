@@ -1,6 +1,6 @@
 // Beast Mode Service Worker
-// Cache version — bump this to force a cache refresh on deploy
-const CACHE_VERSION = 'beastmode-v7';
+// Cache version is build-managed from the app bundle hash.
+const CACHE_VERSION = 'beastmode-ce6c446dd7c2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 

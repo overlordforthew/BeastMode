@@ -427,6 +427,7 @@
           <div class="pill-row">
             <a class="tag" href="/">Open App</a>
             <a class="tag" href="/beastmode.apk">Download APK</a>
+            <button id="flushCacheBtn" class="secondary" type="button">Flush Cache</button>
             <button id="exportCsvBtn" class="secondary" type="button">Export CSV</button>
             <button id="refreshAllBtn" class="secondary" type="button">Refresh</button>
           </div>
@@ -551,7 +552,7 @@
       filters: { q: "", status: "", push: "", sort: "recent_activity" },
       selectedUserId: null,
       selectedUserDetail: null,
-      busy: { export: false, reset: false, push: false, copy: false, refreshDetail: false },
+      busy: { export: false, reset: false, push: false, copy: false, refreshDetail: false, cache: false },
     };
 
     const metricsEl = document.getElementById("metrics");
@@ -567,6 +568,7 @@
     const userTableMetaEl = document.getElementById("userTableMeta");
     const copySnapshotBtn = document.getElementById("copySnapshotBtn");
     const refreshDetailBtn = document.getElementById("refreshDetailBtn");
+    const flushCacheBtn = document.getElementById("flushCacheBtn");
     const sendResetBtn = document.getElementById("sendResetBtn");
     const sendPushBtn = document.getElementById("sendPushBtn");
 
@@ -1015,6 +1017,7 @@
       if (key === "reset") sendResetBtn.disabled = value;
       if (key === "push") sendPushBtn.disabled = value;
       if (key === "refreshDetail") refreshDetailBtn.disabled = value;
+      if (key === "cache") flushCacheBtn.disabled = value;
     }
 
     async function copySupportSnapshot() {
@@ -1092,6 +1095,21 @@
       }
     }
 
+    async function flushRuntimeCaches() {
+      setBusyState("cache", true);
+      try {
+        const result = await api("/api/admin/cache-flush", {
+          method: "POST",
+          body: {},
+        });
+        const flushedAt = result.flushed?.leaderboard?.flushedAt || new Date().toISOString();
+        userTableMetaEl.textContent = `Runtime caches flushed at ${new Date(flushedAt).toLocaleTimeString()}.`;
+        await loadActivity();
+      } finally {
+        setBusyState("cache", false);
+      }
+    }
+
     function applyFilters(resetOffset = true) {
       state.filters.q = searchInput.value.trim();
       state.filters.status = statusSelect.value;
@@ -1155,6 +1173,13 @@
 
     document.getElementById("exportCsvBtn").addEventListener("click", () => {
       exportUsersCsv().catch((error) => {
+        console.error(error);
+        userTableMetaEl.textContent = error.message;
+      });
+    });
+
+    flushCacheBtn.addEventListener("click", () => {
+      flushRuntimeCaches().catch((error) => {
         console.error(error);
         userTableMetaEl.textContent = error.message;
       });

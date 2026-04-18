@@ -6,6 +6,7 @@ const { ensureUserProgressDaySynced } = require("../lib/progress");
 const { getPushStatus, sendPushPayloadToUser } = require("../lib/push");
 const { isEmailConfigured, sendPasswordResetCode } = require("../mailer");
 const { adminMiddleware } = require("../middleware/admin");
+const { getLeaderboardCacheStatus, invalidateLeaderboardCache } = require("./stats");
 
 const router = express.Router();
 
@@ -247,6 +248,9 @@ function summarizeActionDetails(action) {
   if (action.actionType === "support_snapshot_copy") {
     return "Support snapshot copied";
   }
+  if (action.actionType === "cache_flush") {
+    return `Flushed ${(details.caches || []).join(", ") || "runtime"} cache`;
+  }
   return action.actionType.replace(/_/g, " ");
 }
 
@@ -368,6 +372,33 @@ router.get("/me", async (req, res) => {
       apiKey: Boolean(process.env.ADMIN_API_KEY),
     },
   });
+});
+
+router.get("/cache", async (req, res) => {
+  res.json({
+    generatedAt: new Date().toISOString(),
+    leaderboard: getLeaderboardCacheStatus(),
+  });
+});
+
+router.post("/cache-flush", async (req, res) => {
+  try {
+    const leaderboard = invalidateLeaderboardCache("admin_cache_flush");
+    await logAdminAction({
+      actor: req.admin,
+      actionType: "cache_flush",
+      status: "success",
+      details: { caches: ["leaderboard"], leaderboard },
+    }).catch((error) => console.warn("Admin audit error:", error.message));
+
+    res.json({
+      success: true,
+      flushed: { leaderboard },
+    });
+  } catch (error) {
+    console.error("Admin cache flush error:", error);
+    res.status(500).json({ error: "Failed to flush caches" });
+  }
 });
 
 router.get("/activity", async (req, res) => {

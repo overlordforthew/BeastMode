@@ -12,6 +12,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache postgresql-client
 RUN addgroup -S app && adduser -S app -G app
 
 COPY --from=builder /app ./

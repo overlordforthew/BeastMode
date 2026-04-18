@@ -116,6 +116,77 @@ async function initDb() {
           created_at TIMESTAMPTZ DEFAULT NOW()
         )
       `],
+      ["user-owned foreign key delete policies", `
+        DELETE FROM user_settings WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = user_settings.user_id);
+        DELETE FROM user_progress WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = user_progress.user_id);
+        DELETE FROM user_stats WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = user_stats.user_id);
+        DELETE FROM user_awards WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = user_awards.user_id);
+        DELETE FROM workout_history WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = workout_history.user_id);
+        DELETE FROM daily_log WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = daily_log.user_id);
+        DELETE FROM daily_mission_claims WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = daily_mission_claims.user_id);
+        DELETE FROM push_subscriptions WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = push_subscriptions.user_id);
+
+        ALTER TABLE user_settings DROP CONSTRAINT IF EXISTS user_settings_user_id_fkey;
+        ALTER TABLE user_settings
+          ADD CONSTRAINT user_settings_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+        ALTER TABLE user_progress DROP CONSTRAINT IF EXISTS user_progress_user_id_fkey;
+        ALTER TABLE user_progress
+          ADD CONSTRAINT user_progress_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+        ALTER TABLE user_stats DROP CONSTRAINT IF EXISTS user_stats_user_id_fkey;
+        ALTER TABLE user_stats
+          ADD CONSTRAINT user_stats_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+        ALTER TABLE user_awards DROP CONSTRAINT IF EXISTS user_awards_user_id_fkey;
+        ALTER TABLE user_awards
+          ADD CONSTRAINT user_awards_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+        ALTER TABLE workout_history DROP CONSTRAINT IF EXISTS workout_history_user_id_fkey;
+        ALTER TABLE workout_history
+          ADD CONSTRAINT workout_history_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+        ALTER TABLE daily_log DROP CONSTRAINT IF EXISTS daily_log_user_id_fkey;
+        ALTER TABLE daily_log
+          ADD CONSTRAINT daily_log_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+        ALTER TABLE daily_mission_claims DROP CONSTRAINT IF EXISTS daily_mission_claims_user_id_fkey;
+        ALTER TABLE daily_mission_claims
+          ADD CONSTRAINT daily_mission_claims_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+        ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_user_id_fkey;
+        ALTER TABLE push_subscriptions
+          ADD CONSTRAINT push_subscriptions_user_id_fkey
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      `],
+      ["admin audit foreign key delete policies", `
+        UPDATE admin_action_log
+        SET actor_user_id = NULL
+        WHERE actor_user_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM users WHERE users.id = admin_action_log.actor_user_id);
+
+        UPDATE admin_action_log
+        SET target_user_id = NULL
+        WHERE target_user_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM users WHERE users.id = admin_action_log.target_user_id);
+
+        ALTER TABLE admin_action_log DROP CONSTRAINT IF EXISTS admin_action_log_actor_user_id_fkey;
+        ALTER TABLE admin_action_log
+          ADD CONSTRAINT admin_action_log_actor_user_id_fkey
+          FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL;
+
+        ALTER TABLE admin_action_log DROP CONSTRAINT IF EXISTS admin_action_log_target_user_id_fkey;
+        ALTER TABLE admin_action_log
+          ADD CONSTRAINT admin_action_log_target_user_id_fkey
+          FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL;
+      `],
       ["normalize user_settings defaults", `
         UPDATE user_settings
         SET

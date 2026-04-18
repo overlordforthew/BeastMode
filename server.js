@@ -9,7 +9,7 @@ const rateLimit = require("express-rate-limit");
 const { initDb, pool } = require("./db");
 const { httpLogger, logger } = require("./logger");
 const { isEmailConfigured } = require("./mailer");
-const { isWebPushConfigured, startPushScheduler } = require("./lib/push");
+const { isWebPushConfigured, startPushScheduler, stopPushScheduler } = require("./lib/push");
 
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
@@ -19,6 +19,8 @@ const statsRoutes = require("./routes/stats");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+let server = null;
+let shuttingDown = false;
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://beastmode.namibarden.com",
   "capacitor://localhost",
@@ -176,10 +178,47 @@ app.use((err, req, res, next) => {
 async function start() {
   await initDb();
   startPushScheduler(pool);
-  app.listen(PORT, "0.0.0.0", () => {
+  server = app.listen(PORT, "0.0.0.0", () => {
     logger.info({ port: PORT }, "Beast Mode server running");
   });
 }
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "Graceful shutdown started");
+  stopPushScheduler();
+
+  const forceExitTimer = setTimeout(() => {
+    logger.error({ signal }, "Graceful shutdown timed out");
+    process.exit(1);
+  }, Number(process.env.SHUTDOWN_TIMEOUT_MS || 10000));
+  forceExitTimer.unref();
+
+  try {
+    if (server) {
+      await new Promise((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+    await pool.end();
+    clearTimeout(forceExitTimer);
+    logger.info({ signal }, "Graceful shutdown complete");
+    process.exit(0);
+  } catch (error) {
+    logger.error({ err: error, signal }, "Graceful shutdown failed");
+    process.exit(1);
+  }
+}
+
+process.on("SIGTERM", () => {
+  shutdown("SIGTERM");
+});
+
+process.on("SIGINT", () => {
+  shutdown("SIGINT");
+});
+
 start().catch((err) => {
   logger.error({ err }, "Fatal startup error");
   process.exit(1);
