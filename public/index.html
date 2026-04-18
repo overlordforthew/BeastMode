@@ -1830,6 +1830,55 @@ function ActivationCard({
   const lastNudgeText = lastPushSentAt
     ? new Date(lastPushSentAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     : null;
+  const statusBadges = [];
+
+  if (webPushEnabled && notificationsSupported) {
+    if (pushReady) {
+      statusBadges.push({
+        id: "push-ready",
+        label: t("nudgesReady"),
+        background: "rgba(0,230,118,0.12)",
+        border: "1px solid rgba(0,230,118,0.22)",
+        color: "#8EF5B4",
+      });
+    } else if (pushSubscribed) {
+      statusBadges.push({
+        id: "push-linked",
+        label: t("nudgesLinked"),
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        color: "#C8C8CF",
+      });
+    } else if (notificationsBlocked) {
+      statusBadges.push({
+        id: "push-blocked",
+        label: t("notificationBlocked"),
+        background: "rgba(255,107,107,0.12)",
+        border: "1px solid rgba(255,107,107,0.22)",
+        color: "#FFB3B3",
+      });
+    }
+  }
+
+  if (installReady) {
+    statusBadges.push({
+      id: "install-ready",
+      label: t("installReady"),
+      background: "rgba(0,230,118,0.12)",
+      border: "1px solid rgba(0,230,118,0.22)",
+      color: "#8EF5B4",
+    });
+  }
+
+  if (lastNudgeText) {
+    statusBadges.push({
+      id: "last-nudge",
+      label: `${t("lastNudge")}: ${lastNudgeText}`,
+      background: "rgba(255,255,255,0.05)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      color: "#C8C8CF",
+    });
+  }
 
   if ((!notificationsSupported || !webPushEnabled || pushReady) && (installReady || !canInstall)) {
     return null;
@@ -1844,23 +1893,15 @@ function ActivationCard({
         </div>
         <div style={{ fontSize: 28 }}>📲</div>
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        {webPushEnabled && notificationsSupported ? (
-          <span style={{ padding: "7px 12px", borderRadius: 999, background: pushReady ? "rgba(0,230,118,0.12)" : "rgba(255,255,255,0.05)", border: pushReady ? "1px solid rgba(0,230,118,0.22)" : "1px solid rgba(255,255,255,0.08)", color: pushReady ? "#8EF5B4" : "#C8C8CF", fontSize: 11, fontWeight: 800, letterSpacing: 0.6 }}>
-            {pushReady ? t("nudgesReady") : notificationsReady ? t("nudgesLinked") : t("enableNudges")}
-          </span>
-        ) : null}
-        {(canInstall || installReady) ? (
-          <span style={{ padding: "7px 12px", borderRadius: 999, background: installReady ? "rgba(0,230,118,0.12)" : "rgba(255,255,255,0.05)", border: installReady ? "1px solid rgba(0,230,118,0.22)" : "1px solid rgba(255,255,255,0.08)", color: installReady ? "#8EF5B4" : "#C8C8CF", fontSize: 11, fontWeight: 800, letterSpacing: 0.6 }}>
-            {installReady ? t("installReady") : t("installApp")}
-          </span>
-        ) : null}
-        {lastNudgeText ? (
-          <span style={{ padding: "7px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#C8C8CF", fontSize: 11, fontWeight: 800, letterSpacing: 0.6 }}>
-            {t("lastNudge")}: {lastNudgeText}
-          </span>
-        ) : null}
-      </div>
+      {statusBadges.length > 0 ? (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          {statusBadges.map((badge) => (
+            <span key={badge.id} style={{ padding: "7px 12px", borderRadius: 999, background: badge.background, border: badge.border, color: badge.color, fontSize: 11, fontWeight: 800, letterSpacing: 0.6 }}>
+              {badge.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         {webPushEnabled && notificationsSupported ? (
           <button
