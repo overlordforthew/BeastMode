@@ -94,6 +94,39 @@ function loadGoogleIdentityScript() {
   return googleScriptPromise;
 }
 
+function supportsNotifications() {
+  return typeof window !== "undefined" && "Notification" in window;
+}
+
+function isStandaloneApp() {
+  return IS_NATIVE_SHELL
+    || window.matchMedia?.("(display-mode: standalone)")?.matches
+    || window.navigator.standalone === true;
+}
+
+async function showSystemNotification({ title, body, tag = "beastmode-alarm" }) {
+  if (!supportsNotifications() || Notification.permission !== "granted") return;
+
+  const options = {
+    body,
+    tag,
+    renotify: true,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url: `${window.location.origin}/` },
+  };
+
+  try {
+    const registration = await navigator.serviceWorker?.ready;
+    if (registration?.showNotification) {
+      await registration.showNotification(title, options);
+      return;
+    }
+  } catch {}
+
+  new Notification(title, options);
+}
+
 //     TRANSLATIONS                                
 const TRANSLATIONS = {
   en: {
@@ -180,6 +213,13 @@ const TRANSLATIONS = {
     extendsLead: "This extends your lead on",
     teamBanked: "Team points banked",
     missionReadyNow: "Daily mission ready to claim.",
+    activationTitle: "MAKE IT STICK",
+    activationHint: "Install BeastMode and allow nudges so it can actually pull you back in.",
+    enableNudges: "TURN ON NUDGES",
+    nudgesReady: "Nudges ready",
+    notificationBlocked: "Notifications are blocked in this browser.",
+    installApp: "INSTALL APP",
+    installReady: "App installed",
   },
   es: {
     welcomeTitle: "BEAST MODE", welcomeSub: "Evoluciona de ameba a depredador supremo con micro-ejercicios",
@@ -243,6 +283,13 @@ const TRANSLATIONS = {
     endSession: "\u23f9 TERMINAR SESI\u00d3N", medToday: "Hoy", medCompleted: "completado",
     workoutMode: "\ud83d\udcaa EJERCICIO", meditationMode: "\u262e\ufe0f MEDITACI\u00d3N", workoutsOrMed: "ejercicios o 1 meditaci\u00f3n",
     ambientSound: "Sonido ambiental", useHeadphones: "\uD83C\uDFA7 Usa auriculares para beats binaurales",
+    activationTitle: "HAZ QUE PEGUE",
+    activationHint: "Instala BeastMode y activa recordatorios para que realmente te haga volver.",
+    enableNudges: "ACTIVAR AVISOS",
+    nudgesReady: "Avisos listos",
+    notificationBlocked: "Las notificaciones est\u00e1n bloqueadas en este navegador.",
+    installApp: "INSTALAR APP",
+    installReady: "App instalada",
   },
   ja: {
     welcomeTitle: "\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9", welcomeSub: "\u30de\u30a4\u30af\u30ed\u30ef\u30fc\u30af\u30a2\u30a6\u30c8\u3067\u30a2\u30e1\u30fc\u30d0\u304b\u3089\u9802\u70b9\u6355\u98df\u8005\u3078\u9032\u5316\u305b\u3088",
@@ -306,6 +353,13 @@ const TRANSLATIONS = {
     endSession: "\u23f9 \u7d42\u4e86", medToday: "\u4eca\u65e5", medCompleted: "\u5b8c\u4e86",
     workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f \u745e\u60f3", workoutsOrMed: "\u307e\u305f\u306f1\u56de\u745e\u60f3",
     ambientSound: "\u74b0\u5883\u97f3", useHeadphones: "\uD83C\uDFA7 \u30d0\u30a4\u30ce\u30fc\u30e9\u30eb\u30d3\u30fc\u30c8\u306b\u306f\u30d8\u30c3\u30c9\u30d5\u30a9\u30f3\u3092\u4f7f\u7528",
+    activationTitle: "\u5b9a\u7740\u3055\u305b\u308b",
+    activationHint: "BeastMode \u3092\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3057\u3001\u901a\u77e5\u3092\u8a31\u53ef\u3057\u3066\u623b\u3063\u3066\u3053\u3089\u308c\u308b\u3088\u3046\u306b\u3059\u308b\u3002",
+    enableNudges: "\u901a\u77e5\u3092ON",
+    nudgesReady: "\u901a\u77e5\u6e96\u5099OK",
+    notificationBlocked: "\u3053\u306e\u30d6\u30e9\u30a6\u30b6\u3067\u901a\u77e5\u304c\u30d6\u30ed\u30c3\u30af\u3055\u308c\u3066\u3044\u307e\u3059\u3002",
+    installApp: "\u30a2\u30d7\u30ea\u3092\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb",
+    installReady: "\u30a2\u30d7\u30ea\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u6e08\u307f",
   },
 };
 
@@ -1710,6 +1764,79 @@ function QuickStartCard({ onStartQuick, lang }) {
   );
 }
 
+function ActivationCard({ canInstall, installReady, notificationPermission, onInstall, onEnableNudges, lang }) {
+  const t = useT(lang || "en");
+  const notificationsReady = notificationPermission === "granted";
+  const notificationsBlocked = notificationPermission === "denied";
+  const notificationsSupported = supportsNotifications();
+
+  if ((!notificationsSupported || notificationsReady) && (installReady || !canInstall)) {
+    return null;
+  }
+
+  return (
+    <div style={{ padding: "18px", borderRadius: 20, marginBottom: 16, background: "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: 1.8, color: "#8F8F97", marginBottom: 6 }}>{t("activationTitle")}</div>
+          <div style={{ fontSize: 14, color: "#F3F4F6", lineHeight: 1.45 }}>{t("activationHint")}</div>
+        </div>
+        <div style={{ fontSize: 28 }}>📲</div>
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {notificationsSupported ? (
+          <button
+            onClick={onEnableNudges}
+            disabled={notificationsReady || notificationsBlocked}
+            style={{
+              flex: 1,
+              minWidth: 160,
+              padding: "14px 16px",
+              background: notificationsReady
+                ? "rgba(0,230,118,0.12)"
+                : notificationsBlocked
+                  ? "rgba(255,107,107,0.12)"
+                  : "linear-gradient(135deg, rgba(255,77,0,0.18), rgba(255,179,71,0.14))",
+              border: notificationsReady
+                ? "1px solid rgba(0,230,118,0.22)"
+                : notificationsBlocked
+                  ? "1px solid rgba(255,107,107,0.22)"
+                  : "1px solid rgba(255,140,0,0.22)",
+              borderRadius: 14,
+              color: notificationsReady ? "#8EF5B4" : notificationsBlocked ? "#FFB3B3" : "#FFB347",
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: 1,
+            }}
+          >
+            {notificationsReady ? t("nudgesReady") : notificationsBlocked ? t("notificationBlocked") : t("enableNudges")}
+          </button>
+        ) : null}
+        {(canInstall || installReady) ? (
+          <button
+            onClick={onInstall}
+            disabled={!canInstall || installReady}
+            style={{
+              flex: 1,
+              minWidth: 140,
+              padding: "14px 16px",
+              background: installReady ? "rgba(0,230,118,0.12)" : "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))",
+              border: installReady ? "1px solid rgba(0,230,118,0.22)" : "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 14,
+              color: installReady ? "#8EF5B4" : "#F4F4F5",
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: 1,
+            }}
+          >
+            {installReady ? t("installReady") : t("installApp")}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function PressureCard({ pressure, onOpenLeaderboard, lang }) {
   const t = useT(lang || "en");
   if (!pressure) return null;
@@ -2712,6 +2839,9 @@ function BeastModeApp() {
   const [pressure, setPressure] = useState(null);
   const [missionClaiming, setMissionClaiming] = useState(false);
   const [missionPopup, setMissionPopup] = useState(null);
+  const [notificationPermission, setNotificationPermission] = useState(() => supportsNotifications() ? Notification.permission : "unsupported");
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [installReady, setInstallReady] = useState(() => isStandaloneApp());
 
   // Alarm state
   const [showAlarm, setShowAlarm] = useState(false);
@@ -2783,6 +2913,52 @@ function BeastModeApp() {
     });
   }, [loadSession]);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event);
+    };
+    const handleInstalled = () => {
+      setInstallReady(true);
+      setInstallPromptEvent(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  const handleEnableNudges = useCallback(async () => {
+    if (!supportsNotifications()) return;
+    if (Notification.permission === "granted") {
+      setNotificationPermission("granted");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === "granted") {
+      await showSystemNotification({
+        title: "BeastMode nudges are on",
+        body: "Your next reset can now reach you outside the tab.",
+        tag: "beastmode-nudges-ready",
+      });
+    }
+  }, []);
+
+  const handleInstallApp = useCallback(async () => {
+    if (!installPromptEvent) return;
+    await installPromptEvent.prompt();
+    const outcome = await installPromptEvent.userChoice.catch(() => null);
+    if (outcome?.outcome === "accepted") {
+      setInstallReady(true);
+    }
+    setInstallPromptEvent(null);
+  }, [installPromptEvent]);
+
   //     ALARM SCHEDULING                           
   const getRandomExercise = useCallback(() => {
     if (!settings?.selectedExercises) return EXERCISES[0];
@@ -2801,11 +2977,12 @@ function BeastModeApp() {
     const eh = settings?.endHour != null ? settings.endHour : 23;
     if (sh !== eh && (now.getHours() < sh || now.getHours() >= eh)) return;
     const dur = resolveDuration(settings?.duration || 2);
+    const chosenExercise = getRandomExercise();
     if (workoutActiveRef.current) {
       retryRef.current = setInterval(() => {
         if (!workoutActiveRef.current) {
           clearInterval(retryRef.current); retryRef.current = null;
-          setCurrentExercise(getRandomExercise());
+          setCurrentExercise(chosenExercise);
           setResolvedDuration(dur);
           setShowAlarm(true);
           playSound("alarm");
@@ -2813,11 +2990,18 @@ function BeastModeApp() {
       }, 3000);
       return;
     }
-    setCurrentExercise(getRandomExercise());
+    setCurrentExercise(chosenExercise);
     setResolvedDuration(dur);
     setShowAlarm(true);
     playSound("alarm");
-  }, [getRandomExercise, settings]);
+    if (document.visibilityState !== "visible") {
+      const prompt = buildAlarmPrompt({ mission, pressure, settings, exercise: chosenExercise, duration: dur, streak: progress?.streak || 1 });
+      showSystemNotification({
+        title: prompt?.title || "BeastMode reset ready",
+        body: prompt?.subtitle || `${dur}-minute ${chosenExercise.name} reset waiting.`,
+      }).catch(() => {});
+    }
+  }, [getRandomExercise, mission, pressure, progress?.streak, settings]);
 
   const scheduleNextAlarm = useCallback(() => {
     if (!settings) return;
@@ -3195,6 +3379,14 @@ function BeastModeApp() {
         </div>
 
         <MissionCard mission={mission} onClaim={handleClaimMission} loading={missionClaiming} lang={lang} />
+        <ActivationCard
+          canInstall={Boolean(installPromptEvent)}
+          installReady={installReady}
+          notificationPermission={notificationPermission}
+          onInstall={handleInstallApp}
+          onEnableNudges={handleEnableNudges}
+          lang={lang}
+        />
         <QuickStartCard onStartQuick={startQuickReset} lang={lang} />
         <PressureCard pressure={pressure} onOpenLeaderboard={() => setScreen("leaderboard")} lang={lang} />
 

@@ -1,11 +1,20 @@
 const express = require("express");
 const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
+const { MIN_DAILY_SESSIONS, syncUserProgressDay } = require("../lib/progress");
 
 const router = express.Router();
 router.use(authMiddleware);
 
-const MIN_DAILY_SESSIONS = 3;
+router.use(async (req, res, next) => {
+  try {
+    await syncUserProgressDay(req.userId, pool);
+    next();
+  } catch (err) {
+    console.error("Progress sync error:", err);
+    res.status(500).json({ error: "Failed to sync progress" });
+  }
+});
 
 const DAILY_MISSION_LIBRARY = [
   {
@@ -88,12 +97,13 @@ function selectDailyMissionTemplate(userId, dateKey) {
 }
 
 async function getDailyMissionMetrics(userId, dateKey, db = pool) {
-  const [progressR, activityR, claimR] = await Promise.all([
+  const [dailyLogR, activityR, claimR] = await Promise.all([
     db.query(`
-      SELECT today_points, sessions_finished, meditations_finished
-      FROM user_progress
-      WHERE user_id = $1
-    `, [userId]),
+      SELECT points, sessions_finished, meditations_finished
+      FROM daily_log
+      WHERE user_id = $1 AND log_date = $2
+      LIMIT 1
+    `, [userId, dateKey]),
     db.query(`
       SELECT
         COUNT(DISTINCT CASE WHEN type <> 'meditation' AND was_completed = TRUE THEN exercise_id END)::int AS unique_exercises_today,
@@ -111,9 +121,9 @@ async function getDailyMissionMetrics(userId, dateKey, db = pool) {
   ]);
 
   return {
-    todayPoints: Number(progressR.rows[0]?.today_points || 0),
-    sessionsFinished: Number(progressR.rows[0]?.sessions_finished || 0),
-    meditationsFinished: Number(progressR.rows[0]?.meditations_finished || 0),
+    todayPoints: Number(dailyLogR.rows[0]?.points || 0),
+    sessionsFinished: Number(dailyLogR.rows[0]?.sessions_finished || 0),
+    meditationsFinished: Number(dailyLogR.rows[0]?.meditations_finished || 0),
     uniqueExercisesToday: Number(activityR.rows[0]?.unique_exercises_today || 0),
     extraSessionsToday: Number(activityR.rows[0]?.extra_sessions_today || 0),
     claim: claimR.rows[0] || null,
@@ -152,22 +162,23 @@ async function getDailyMissionStatus(userId, dateKey = getTodayDateKey(), db = p
   };
 }
 
-async function getPressureSummary(userId, db = pool) {
+async function getPressureSummary(userId, db = pool, dateKey = getTodayDateKey()) {
   const [currentR, rankR] = await Promise.all([
     db.query(`
       SELECT
         u.username,
         p.total_points,
         p.streak,
-        p.today_points,
+        COALESCE(d.points, 0)::real AS today_points,
         us.buddy_username,
         us.team_name
       FROM users u
       JOIN user_progress p ON p.user_id = u.id
       LEFT JOIN user_settings us ON us.user_id = u.id
+      LEFT JOIN daily_log d ON d.user_id = u.id AND d.log_date = $2
       WHERE u.id = $1
       LIMIT 1
-    `, [userId]),
+    `, [userId, dateKey]),
     db.query(`
       SELECT rank FROM (
         SELECT user_id, RANK() OVER (ORDER BY total_points DESC) AS rank
@@ -184,57 +195,65 @@ async function getPressureSummary(userId, db = pool) {
 
   const [aboveR, belowR, buddyR, teamSummaryR, teamLeaderR] = await Promise.all([
     db.query(`
-      SELECT u.username, p.total_points, p.streak, p.today_points
+      SELECT u.username, p.total_points, p.streak, COALESCE(d.points, 0)::real AS today_points
       FROM user_progress p
       JOIN users u ON u.id = p.user_id
+      LEFT JOIN daily_log d ON d.user_id = u.id AND d.log_date = $3
       WHERE p.user_id <> $1
         AND p.total_points > $2
       ORDER BY p.total_points ASC
       LIMIT 1
-    `, [userId, current.total_points]),
+    `, [userId, current.total_points, dateKey]),
     db.query(`
-      SELECT u.username, p.total_points, p.streak, p.today_points
+      SELECT u.username, p.total_points, p.streak, COALESCE(d.points, 0)::real AS today_points
       FROM user_progress p
       JOIN users u ON u.id = p.user_id
+      LEFT JOIN daily_log d ON d.user_id = u.id AND d.log_date = $3
       WHERE p.user_id <> $1
         AND p.total_points < $2
       ORDER BY p.total_points DESC
       LIMIT 1
-    `, [userId, current.total_points]),
+    `, [userId, current.total_points, dateKey]),
     current.buddy_username
       ? db.query(`
-          SELECT u.username, p.total_points, p.streak, p.today_points
+          SELECT u.username, p.total_points, p.streak, COALESCE(d.points, 0)::real AS today_points
           FROM users u
           JOIN user_progress p ON p.user_id = u.id
+          LEFT JOIN daily_log d ON d.user_id = u.id AND d.log_date = $3
           WHERE LOWER(u.username) = LOWER($1)
             AND u.id <> $2
           LIMIT 1
-        `, [current.buddy_username, userId])
+        `, [current.buddy_username, userId, dateKey])
       : Promise.resolve({ rows: [] }),
     current.team_name
       ? db.query(`
           SELECT
             COUNT(*)::int AS member_count,
-            COALESCE(SUM(p.today_points), 0)::real AS today_points,
+            COALESCE(SUM(COALESCE(d.points, 0)), 0)::real AS today_points,
             COALESCE(SUM(p.total_points), 0)::real AS total_points,
-            COUNT(*) FILTER (WHERE p.sessions_finished >= $2 OR p.meditations_finished >= 1)::int AS secured_today
+            COUNT(*) FILTER (
+              WHERE COALESCE(d.sessions_finished, 0) >= $2
+                OR COALESCE(d.meditations_finished, 0) >= 1
+            )::int AS secured_today
           FROM user_settings us
           JOIN user_progress p ON p.user_id = us.user_id
+          LEFT JOIN daily_log d ON d.user_id = us.user_id AND d.log_date = $3
           WHERE us.team_name IS NOT NULL
             AND LOWER(us.team_name) = LOWER($1)
-        `, [current.team_name, MIN_DAILY_SESSIONS])
+        `, [current.team_name, MIN_DAILY_SESSIONS, dateKey])
       : Promise.resolve({ rows: [] }),
     current.team_name
       ? db.query(`
-          SELECT u.username, p.today_points, p.total_points
+          SELECT u.username, COALESCE(d.points, 0)::real AS today_points, p.total_points
           FROM user_settings us
           JOIN users u ON u.id = us.user_id
           JOIN user_progress p ON p.user_id = u.id
+          LEFT JOIN daily_log d ON d.user_id = u.id AND d.log_date = $2
           WHERE us.team_name IS NOT NULL
             AND LOWER(us.team_name) = LOWER($1)
-          ORDER BY p.today_points DESC, p.total_points DESC
+          ORDER BY COALESCE(d.points, 0) DESC, p.total_points DESC
           LIMIT 1
-        `, [current.team_name])
+        `, [current.team_name, dateKey])
       : Promise.resolve({ rows: [] }),
   ]);
 

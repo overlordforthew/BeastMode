@@ -1,6 +1,6 @@
 // Beast Mode Service Worker
 // Cache version — bump this to force a cache refresh on deploy
-const CACHE_VERSION = 'beastmode-v2';
+const CACHE_VERSION = 'beastmode-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -115,6 +115,27 @@ self.addEventListener('fetch', (event) => {
 
   // All other static assets: cache-first
   event.respondWith(cacheFirst(request, STATIC_CACHE));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil((async () => {
+    const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clientsList) {
+      if ('focus' in client) {
+        await client.focus();
+        if ('navigate' in client) {
+          await client.navigate(targetUrl);
+        }
+        return;
+      }
+    }
+    if (self.clients.openWindow) {
+      await self.clients.openWindow(targetUrl);
+    }
+  })());
 });
 
 // ── Strategy: cache-first ──

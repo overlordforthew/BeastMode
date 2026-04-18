@@ -1,6 +1,7 @@
 const express = require("express");
 const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
+const { syncUserProgressDay } = require("../lib/progress");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -61,6 +62,7 @@ function sanitizeTeamName(value) {
 // GET /api/user/profile
 router.get("/profile", async (req, res) => {
   try {
+    await syncUserProgressDay(req.userId, pool);
     const [userR, settingsR, progressR, awardsR] = await Promise.all([
       pool.query("SELECT id, username, language, created_at FROM users WHERE id = $1", [req.userId]),
       pool.query("SELECT * FROM user_settings WHERE user_id = $1", [req.userId]),

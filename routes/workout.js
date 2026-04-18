@@ -1,16 +1,29 @@
 const express = require("express");
 const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
+const {
+  MIN_DAILY_SESSIONS,
+  isQualifiedDay,
+  applyQualifiedDay,
+  applyMissedDay,
+  syncUserProgressDay,
+} = require("../lib/progress");
 
 const router = express.Router();
 router.use(authMiddleware);
 
-const MIN_DAILY_SESSIONS = 3;
-const MAX_FREEZES = 3;
-const FREEZE_EARN_INTERVAL = 5;
+async function syncProgressIfNeeded(req, res, next) {
+  try {
+    await syncUserProgressDay(req.userId, pool);
+    next();
+  } catch (err) {
+    console.error("Progress sync error:", err);
+    res.status(500).json({ error: "Failed to sync progress" });
+  }
+}
 
 // POST /api/workout/log
-router.post("/log", async (req, res) => {
+router.post("/log", syncProgressIfNeeded, async (req, res) => {
   try {
     const { exerciseId, exerciseName, exerciseEmoji, points, durationMinutes, wasCompleted, type } = req.body;
 
@@ -122,25 +135,14 @@ router.post("/end-day", async (req, res) => {
   try {
     const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
     const progress = progR.rows[0];
-    const qualified = progress.sessions_finished >= MIN_DAILY_SESSIONS || (progress.meditations_finished || 0) >= 1;
-
-    let newStreak = progress.streak;
-    let newFreezes = progress.streak_freezes;
-    let freezeUsed = false, freezeEarned = false;
-
-    if (qualified) {
-      newStreak = progress.streak + 1;
-      if (newStreak % FREEZE_EARN_INTERVAL === 0 && newFreezes < MAX_FREEZES) {
-        newFreezes = Math.min(newFreezes + 1, MAX_FREEZES);
-        freezeEarned = true;
-      }
-    } else {
-      if (newFreezes > 0) { newFreezes -= 1; freezeUsed = true; }
-      else { newStreak = 1; }
-    }
-
-    const newMaxStreak = Math.max(progress.max_streak, newStreak);
-    const newDayCounter = progress.day_counter + 1;
+    const qualified = isQualifiedDay(progress);
+    const advanced = qualified ? applyQualifiedDay(progress) : applyMissedDay(progress);
+    const newStreak = advanced.streak;
+    const newFreezes = advanced.streak_freezes;
+    const freezeUsed = advanced.freezeUsed;
+    const freezeEarned = advanced.freezeEarned;
+    const newMaxStreak = advanced.max_streak;
+    const newDayCounter = Number(progress.day_counter || 0) + 1;
 
     await pool.query(`
       UPDATE user_progress SET
@@ -173,11 +175,11 @@ router.post("/missed-day", async (req, res) => {
     const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
     const progress = progR.rows[0];
 
-    let newStreak = progress.streak, newFreezes = progress.streak_freezes, freezeUsed = false;
-    if (newFreezes > 0) { newFreezes -= 1; freezeUsed = true; }
-    else { newStreak = 1; }
-
-    const newDayCounter = progress.day_counter + 1;
+    const advanced = applyMissedDay(progress);
+    const newStreak = advanced.streak;
+    const newFreezes = advanced.streak_freezes;
+    const freezeUsed = advanced.freezeUsed;
+    const newDayCounter = Number(progress.day_counter || 0) + 1;
     await pool.query(`
       UPDATE user_progress SET
         streak = $1, streak_freezes = $2, today_points = 0,
@@ -197,7 +199,7 @@ router.post("/missed-day", async (req, res) => {
 });
 
 // GET /api/workout/history
-router.get("/history", async (req, res) => {
+router.get("/history", syncProgressIfNeeded, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const result = await pool.query(`
@@ -217,7 +219,7 @@ router.get("/history", async (req, res) => {
 });
 
 // GET /api/workout/weekly
-router.get("/weekly", async (req, res) => {
+router.get("/weekly", syncProgressIfNeeded, async (req, res) => {
   try {
     const data = await getWeeklySummary(req.userId);
     res.json(data);

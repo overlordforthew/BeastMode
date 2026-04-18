@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "test:smoke": "node scripts/smoke-test.js",
     "mobile:doctor": "npx cap doctor",
     "mobile:sync": "npx cap sync android",
     "mobile:open:android": "npx cap open android"
