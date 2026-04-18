@@ -146,6 +146,13 @@ export ANDROID_HOME="$SDK_DIR"
 export JAVA_HOME="$JAVA_HOME_DIR"
 export PATH="$JAVA_HOME/bin:$PATH"
 
+LOCK_FILE="$ROOT_DIR/android/.android-build.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "Another Android build is already running for $ROOT_DIR" >&2
+  exit 1
+fi
+
 printf 'sdk.dir=%s\n' "$SDK_DIR" > "$ROOT_DIR/android/local.properties"
 
 echo "Using Android SDK: $SDK_DIR"
