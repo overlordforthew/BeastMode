@@ -11,7 +11,8 @@
     "mobile:sync": "npx cap sync android",
     "mobile:open:android": "npx cap open android",
     "mobile:build:android": "bash scripts/build-android.sh debug",
-    "mobile:build:android:release": "bash scripts/build-android.sh release"
+    "mobile:build:android:release": "bash scripts/build-android.sh release",
+    "mobile:build:android:bundle": "bash scripts/build-android.sh bundle"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

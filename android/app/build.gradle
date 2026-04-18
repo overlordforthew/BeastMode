@@ -1,5 +1,25 @@
 apply plugin: 'com.android.application'
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
+def buildVersionCode = (project.findProperty("BEASTMODE_VERSION_CODE")
+        ?: System.getenv("BEASTMODE_VERSION_CODE")
+        ?: "1").toInteger()
+def buildVersionName = (project.findProperty("BEASTMODE_VERSION_NAME")
+        ?: System.getenv("BEASTMODE_VERSION_NAME")
+        ?: "1.0.0").toString()
+def releaseSigningReady =
+        keystoreProperties['storeFile']
+        && keystoreProperties['storePassword']
+        && keystoreProperties['keyAlias']
+        && keystoreProperties['keyPassword']
+
 android {
     namespace "com.namibarden.beastmode"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +27,8 @@ android {
         applicationId "com.namibarden.beastmode"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode buildVersionCode
+        versionName buildVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +36,23 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (releaseSigningReady) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
