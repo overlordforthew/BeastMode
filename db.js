@@ -14,6 +14,7 @@ const DEFAULT_EXERCISES = JSON.stringify([
   "high_knees",
   "mountain_climbers",
 ]);
+const VALID_INTERVAL_MINUTES = [15, 30, 45, 60, 90, 120];
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || (() => { throw new Error("DATABASE_URL env var is required"); })(),
@@ -28,6 +29,7 @@ async function initDb() {
   await pool.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ALTER COLUMN duration TYPE TEXT USING duration::text`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ALTER COLUMN duration SET DEFAULT '2'`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE user_settings ALTER COLUMN interval_minutes SET DEFAULT 45`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ALTER COLUMN selected_exercises SET DEFAULT '${DEFAULT_EXERCISES}'::jsonb`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS start_hour INTEGER DEFAULT 8`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS end_hour INTEGER DEFAULT 17`).catch(e => console.warn("Migration:", e.message));
@@ -38,7 +40,11 @@ async function initDb() {
   await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS push_enabled BOOLEAN DEFAULT FALSE`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS push_last_sent_at TIMESTAMPTZ`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS meditations_finished INTEGER DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS session_credits REAL DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS qualifying_meditations INTEGER DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE daily_log ADD COLUMN IF NOT EXISTS meditations_finished INTEGER DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE daily_log ADD COLUMN IF NOT EXISTS session_credits REAL DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE daily_log ADD COLUMN IF NOT EXISTS qualifying_meditations INTEGER DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_codes (
       email TEXT PRIMARY KEY,
@@ -66,6 +72,11 @@ async function initDb() {
     UPDATE user_settings
     SET
       duration = COALESCE(duration, '2'),
+      interval_minutes = CASE
+        WHEN interval_minutes = ANY(ARRAY[${VALID_INTERVAL_MINUTES.join(",")}])
+          THEN interval_minutes
+        ELSE 45
+      END,
       selected_exercises = COALESCE(selected_exercises, '${DEFAULT_EXERCISES}'::jsonb),
       start_hour = COALESCE(start_hour, 8),
       end_hour = COALESCE(end_hour, 17),
@@ -76,7 +87,19 @@ async function initDb() {
       push_enabled = COALESCE(push_enabled, FALSE)
   `).catch(e => console.warn("Migration:", e.message));
   await pool.query(`UPDATE user_progress SET meditations_finished = COALESCE(meditations_finished, 0)`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`
+    UPDATE user_progress
+    SET
+      session_credits = COALESCE(session_credits, sessions_finished, 0),
+      qualifying_meditations = COALESCE(qualifying_meditations, meditations_finished, 0)
+  `).catch(e => console.warn("Migration:", e.message));
   await pool.query(`UPDATE daily_log SET meditations_finished = COALESCE(meditations_finished, 0)`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`
+    UPDATE daily_log
+    SET
+      session_credits = COALESCE(session_credits, sessions_finished, 0),
+      qualifying_meditations = COALESCE(qualifying_meditations, meditations_finished, 0)
+  `).catch(e => console.warn("Migration:", e.message));
   await pool.query(`DELETE FROM password_reset_codes WHERE expires_at < NOW()`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`UPDATE users SET username = BTRIM(username) WHERE username <> BTRIM(username)`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`UPDATE users SET email = LOWER(BTRIM(email)) WHERE email IS NOT NULL AND email <> LOWER(BTRIM(email))`).catch(e => console.warn("Migration:", e.message));

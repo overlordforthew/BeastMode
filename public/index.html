@@ -47,6 +47,11 @@ const {
   calcMeditationPoints,
   calcMeditationPartialPoints,
   getMeditationSessionMultiplier,
+  getWorkoutSessionCredit,
+  getMeditationQualificationCredit,
+  isQualifiedDayState,
+  MIN_DAILY_SESSION_CREDITS,
+  QUALIFYING_MEDITATION_MINUTES,
   roundPoints,
   getStreakMultiplier,
   estimateAwardedPoints,
@@ -62,6 +67,14 @@ const DEMO_MODE = new URLSearchParams(window.location.search).has('demo');
 const DEFAULT_REMOTE_API_BASE = "https://beastmode.namibarden.com";
 const IS_NATIVE_SHELL = Boolean(window.Capacitor) || window.location.protocol === "capacitor:" || window.location.protocol === "ionic:";
 const API_BASE = IS_NATIVE_SHELL ? DEFAULT_REMOTE_API_BASE : "";
+const ALERT_INTERVAL_OPTIONS = [
+  { value: 15, label: "15m" },
+  { value: 30, label: "30m" },
+  { value: 45, label: "45m" },
+  { value: 60, label: "1h" },
+  { value: 90, label: "1.5h" },
+  { value: 120, label: "2h" },
+];
 let googleScriptPromise = null;
 
 async function api(path, opts = {}) {
@@ -234,7 +247,7 @@ const TRANSLATIONS = {
     medSessionBonus: "session factor", namaste: "NAMASTE", wellDone: "WELL DONE",
     medNextBonus: "Next session", breatheIn: "Breathe in...", breatheHold: "Hold...", breatheOut: "Breathe out...",
     endSession: "\u23f9 END SESSION", medToday: "Today", medCompleted: "completed",
-    workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f MEDITATION", workoutsOrMed: "workouts or 1 meditation",
+    workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f MEDITATION", workoutsOrMed: "workout credits or 5m meditation",
     ambientSound: "Ambient Sound", useHeadphones: "\uD83C\uDFA7 Use headphones for binaural beats",
     dailyMission: "DAILY MISSION", missionReady: "Mission complete. Claim your bonus.",
     missionClaimed: "Reward claimed", claimReward: "CLAIM REWARD", bonusPointsLabel: "bonus pts",
@@ -336,7 +349,7 @@ const TRANSLATIONS = {
     medSessionBonus: "factor de sesi\u00f3n", namaste: "NAMASTE", wellDone: "\u00a1BIEN HECHO!",
     medNextBonus: "Pr\u00f3xima sesi\u00f3n", breatheIn: "Inhala...", breatheHold: "Mant\u00e9n...", breatheOut: "Exhala...",
     endSession: "\u23f9 TERMINAR SESI\u00d3N", medToday: "Hoy", medCompleted: "completado",
-    workoutMode: "\ud83d\udcaa EJERCICIO", meditationMode: "\u262e\ufe0f MEDITACI\u00d3N", workoutsOrMed: "ejercicios o 1 meditaci\u00f3n",
+    workoutMode: "\ud83d\udcaa EJERCICIO", meditationMode: "\u262e\ufe0f MEDITACI\u00d3N", workoutsOrMed: "cr\u00e9ditos de ejercicio o meditaci\u00f3n de 5 min",
     ambientSound: "Sonido ambiental", useHeadphones: "\uD83C\uDFA7 Usa auriculares para beats binaurales",
     dailyMission: "MISI\u00d3N DIARIA", missionReady: "Misi\u00f3n completa. Reclama tu bonus.",
     missionClaimed: "Recompensa reclamada", claimReward: "RECLAMAR BONUS", bonusPointsLabel: "pts bonus",
@@ -438,7 +451,7 @@ const TRANSLATIONS = {
     medSessionBonus: "\u30bb\u30c3\u30b7\u30e7\u30f3\u4fc2\u6570", namaste: "\u30ca\u30de\u30b9\u30c6", wellDone: "\u3088\u304f\u3067\u304d\u307e\u3057\u305f\uff01",
     medNextBonus: "\u6b21\u306e\u30bb\u30c3\u30b7\u30e7\u30f3", breatheIn: "\u5438\u3063\u3066...", breatheHold: "\u6b62\u3081\u3066...", breatheOut: "\u5410\u3044\u3066...",
     endSession: "\u23f9 \u7d42\u4e86", medToday: "\u4eca\u65e5", medCompleted: "\u5b8c\u4e86",
-    workoutMode: "\ud83d\udcaa \u30ef\u30fc\u30af\u30a2\u30a6\u30c8", meditationMode: "\u262e\ufe0f \u77a5\u60f3", workoutsOrMed: "\u30ef\u30fc\u30af\u30a2\u30a6\u30c8\u307e\u305f\u306f1\u56de\u306e\u77a5\u60f3",
+    workoutMode: "\ud83d\udcaa \u30ef\u30fc\u30af\u30a2\u30a6\u30c8", meditationMode: "\u262e\ufe0f \u77a5\u60f3", workoutsOrMed: "\u904b\u52d5\u30af\u30ec\u30b8\u30c3\u30c8\u307e\u305f\u306f5\u5206\u77a5\u60f3",
     ambientSound: "\u74b0\u5883\u97f3", useHeadphones: "\uD83C\uDFA7 \u30d0\u30a4\u30ce\u30fc\u30e9\u30eb\u30d3\u30fc\u30c8\u306b\u306f\u30d8\u30c3\u30c9\u30d5\u30a9\u30f3\u3092\u4f7f\u7528",
     dailyMission: "\u30c7\u30a4\u30ea\u30fc\u30df\u30c3\u30b7\u30e7\u30f3", missionReady: "\u30df\u30c3\u30b7\u30e7\u30f3\u9054\u6210\u3002\u30dc\u30fc\u30ca\u30b9\u3092\u53d7\u3051\u53d6\u308d\u3046\u3002",
     missionClaimed: "\u5831\u916c\u53d7\u3051\u53d6\u308a\u6e08\u307f", claimReward: "\u5831\u916c\u3092\u53d7\u3051\u53d6\u308b", bonusPointsLabel: "\u30dc\u30fc\u30ca\u30b9pt",
@@ -911,6 +924,13 @@ function calcPoints(basePoints, durationMinutes) {
 }
 function fmtDuration(d) { return d < 1 ? `${Math.round(d * 60)}s` : `${d}m`; }
 function resolveDuration(d) { return d === "random" ? DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)] : d; }
+function fmtSessionCredits(value) {
+  const credits = roundPoints(value || 0);
+  return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
+}
+function fmtIntervalOption(value) {
+  return ALERT_INTERVAL_OPTIONS.find((option) => option.value === value)?.label || `${value}m`;
+}
 
 function getMissionImpactMessage(mission, action) {
   if (!mission || mission.claimed || !action.wasCompleted || !mission.metrics) return null;
@@ -946,18 +966,33 @@ function getMissionImpactMessage(mission, action) {
 
 function getStreakImpactMessage(context, action) {
   if (!action.wasCompleted) return null;
-  const beforeWorkouts = context?.sessionsFinished || 0;
-  const beforeMeditations = context?.meditationsFinished || 0;
-  const beforeQualified = beforeWorkouts >= 3 || beforeMeditations >= 1;
-  const afterWorkouts = beforeWorkouts + (action.kind === "workout" ? 1 : 0);
-  const afterMeditations = beforeMeditations + (action.kind === "meditation" ? 1 : 0);
-  const afterQualified = afterWorkouts >= 3 || afterMeditations >= 1;
+  const beforeCredits = context?.sessionCredits || 0;
+  const beforeQualifyingMeditations = context?.qualifyingMeditations || 0;
+  const beforeQualified = isQualifiedDayState({
+    sessionCredits: beforeCredits,
+    qualifyingMeditations: beforeQualifyingMeditations,
+    sessionsFinished: context?.sessionsFinished || 0,
+    meditationsFinished: context?.meditationsFinished || 0,
+  });
+  const afterCredits = beforeCredits + (action.kind === "workout" ? getWorkoutSessionCredit(action.durationMinutes, action.wasCompleted) : 0);
+  const afterQualifyingMeditations = beforeQualifyingMeditations + (
+    action.kind === "meditation" ? getMeditationQualificationCredit(action.durationMinutes, action.wasCompleted) : 0
+  );
+  const afterQualified = isQualifiedDayState({
+    sessionCredits: afterCredits,
+    qualifyingMeditations: afterQualifyingMeditations,
+    sessionsFinished: (context?.sessionsFinished || 0) + (action.kind === "workout" ? 1 : 0),
+    meditationsFinished: (context?.meditationsFinished || 0) + (action.kind === "meditation" ? 1 : 0),
+  });
 
   if (!beforeQualified && afterQualified) {
     return action.kind === "meditation" ? TRANSLATIONS.en.meditationLocksStreak : TRANSLATIONS.en.streakLockedNow;
   }
   if (action.kind === "workout" && !afterQualified) {
-    return `${Math.max(0, 3 - afterWorkouts)} workouts left to lock today in.`;
+    const remainingCredits = Math.max(0, MIN_DAILY_SESSION_CREDITS - afterCredits);
+    return remainingCredits <= 0.5
+      ? "One quick 30s finisher left to lock today in."
+      : `${fmtSessionCredits(remainingCredits)} workout credits left to lock today in.`;
   }
   return null;
 }
@@ -2065,7 +2100,7 @@ function MissionPopup({ mission, bonusPoints, onClose }) {
 //     SETUP SCREEN                                 
 function DailySetupScreen({ onComplete, onAccountDeleted, settings, user, lang, setLang }) {
   const t = useT(lang);
-  const [interval, setInterval_] = useState(settings?.intervalMinutes || 60);
+  const [interval, setInterval_] = useState(ALERT_INTERVAL_OPTIONS.some((option) => option.value === settings?.intervalMinutes) ? settings.intervalMinutes : 45);
   const [duration, setDuration] = useState(settings?.duration || 2);
   const [exerciseMode, setExerciseMode] = useState(
     settings?.selectedExercises?.length && settings.selectedExercises.length < EXERCISES.length ? "custom" : "all"
@@ -2141,9 +2176,12 @@ function DailySetupScreen({ onComplete, onAccountDeleted, settings, user, lang, 
       <div style={sectionStyle}>
         <div style={labelStyle}>{t("alertInterval")}</div>
         <div style={hintStyle}>{t("alertIntervalHint")}</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-          {[30, 60, 120].map(v => <button key={v} onClick={() => setInterval_(v)} style={optBtn(interval === v)}>{v === 30 ? t("min30") : v === 60 ? t("hour1") : t("hours2")}</button>)}
-        </div>
+        <select value={interval} onChange={e => setInterval_(Number(e.target.value))}
+          style={{ width: "100%", padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 600, appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FF8C00' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center" }}>
+          {ALERT_INTERVAL_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
       </div>
 
       <div style={sectionStyle}>
@@ -2386,6 +2424,7 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang, streak = 1,
     kind: "workout",
     sessionType,
     wasCompleted: completed,
+    durationMinutes,
     awardedPoints,
     exerciseId: exercise.id,
     todayExerciseIds: sessionContext?.todayExerciseIds || [],
@@ -2633,6 +2672,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
     kind: "meditation",
     sessionType: "meditation",
     wasCompleted: completed,
+    durationMinutes,
     awardedPoints,
     exerciseId: medType.id,
     todayExerciseIds: sessionContext?.todayExerciseIds || [],
@@ -2722,7 +2762,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
 }
 
 //     MEDITATION PANEL                            
-function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lang }) {
+function MeditationPanel({ todayMedSessions, qualifyingMeditationsToday = 0, onStartMeditation, totalPoints, lang }) {
   const t = useT(lang || "en");
   const [selectedType, setSelectedType] = useState(null);
   const [selectedDur, setSelectedDur] = useState(10);
@@ -2736,7 +2776,7 @@ function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lan
         <div style={{ fontSize: 12, letterSpacing: 3, color: "#8B5CF6", marginBottom: 8 }}>{"\u262E\uFE0F"} {t("meditation").toUpperCase()}</div>
         <div style={{ fontSize: 14, color: "#6D5BA3", marginBottom: 16 }}>
           {t("medToday")}: {todayMedSessions} {todayMedSessions !== 1 ? t("medSessionsTodayPlural") : t("medSessionsToday")} {t("medCompleted")}
-          {todayMedSessions > 0 && <span style={{ color: "#A78BFA", marginLeft: 8 }}>{t("medStreakQualified")}</span>}
+          {qualifyingMeditationsToday > 0 && <span style={{ color: "#A78BFA", marginLeft: 8 }}>{t("medStreakQualified")}</span>}
         </div>
         {nextSession > 1 && (
           <div style={{ display: "inline-block", padding: "4px 12px", background: "rgba(138,92,246,0.15)", borderRadius: 20, fontSize: 12, color: "#A78BFA", marginBottom: 8 }}>
@@ -3290,7 +3330,7 @@ function BeastModeApp() {
     if (!settings) return;
     if (alarmTimeoutRef.current) clearTimeout(alarmTimeoutRef.current);
     if (retryRef.current) { clearInterval(retryRef.current); retryRef.current = null; }
-    const intervalMin = settings.intervalMinutes || 60;
+    const intervalMin = settings.intervalMinutes || 45;
     const intervalMs = intervalMin * 60 * 1000;
     const actualInterval = DEMO_MODE ? Math.min(intervalMs, 20000) : intervalMs;
     const now = new Date();
@@ -3300,22 +3340,16 @@ function BeastModeApp() {
     const dayKeys = ["sun","mon","tue","wed","thu","fri","sat"];
     const activeDays = settings.activeDays || dayKeys;
 
-    // Snap a Date to the next clock boundary based on interval
-    // 30min → next :00 or :30, 60min → next :00, 120min → next even-hour :00
     const snapToClockBoundary = (date) => {
       const d = new Date(date);
-      if (intervalMin <= 30) {
-        // Snap to next :00 or :30
-        if (d.getMinutes() < 30) { d.setMinutes(30, 0, 0); }
-        else { d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); }
-      } else if (intervalMin <= 60) {
-        // Snap to next :00
-        d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1);
-      } else {
-        // Snap to next even-hour :00
-        d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1);
-        if (d.getHours() % 2 !== 0) d.setHours(d.getHours() + 1);
+      const totalMinutes = (d.getHours() * 60) + d.getMinutes();
+      const nextBoundary = (Math.floor(totalMinutes / intervalMin) + 1) * intervalMin;
+      const nextHour = Math.floor((nextBoundary % (24 * 60)) / 60);
+      const nextMinute = nextBoundary % 60;
+      if (nextBoundary >= 24 * 60) {
+        d.setDate(d.getDate() + 1);
       }
+      d.setHours(nextHour, nextMinute, 0, 0);
       return d;
     };
 
@@ -3418,7 +3452,7 @@ function BeastModeApp() {
       });
 
       // Update local state from server response
-      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: result.sessionsFinished }));
+      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: result.sessionsFinished, sessionCredits: result.sessionCredits ?? prev?.sessionCredits }));
 
       // Check for evolution
       const oldTier = getEvolution(oldTotal);
@@ -3440,7 +3474,7 @@ function BeastModeApp() {
       console.error("Failed to log workout:", e);
       // Still update UI optimistically
       const finalPts = estimateAwardedPoints(pts, progress?.streak || 1);
-      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0 }));
+      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0, sessionCredits: (prev?.sessionCredits || 0) + getWorkoutSessionCredit(durationMinutes, wasCompleted) }));
       setHistory(prev => [{ exercise, points: finalPts, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
 
@@ -3461,7 +3495,7 @@ function BeastModeApp() {
           points: pts, durationMinutes: currentMedDur, wasCompleted, type: "meditation", elapsedSeconds: meta?.elapsedSeconds ?? null,
         }),
       });
-      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? result.sessionsFinished : prev?.sessionsFinished, meditationsFinished: result.meditationsFinished ?? (prev?.meditationsFinished || 0) }));
+      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? result.sessionsFinished : prev?.sessionsFinished, sessionCredits: result.sessionCredits ?? (prev?.sessionCredits || 0), meditationsFinished: result.meditationsFinished ?? (prev?.meditationsFinished || 0), qualifyingMeditations: result.qualifyingMeditations ?? (prev?.qualifyingMeditations || 0) }));
       const oldTier = getEvolution(oldTotal);
       const newTier = getEvolution(result.totalPoints);
       if (newTier.name !== oldTier.name) setTimeout(() => setEvoPopup({ oldTier, newTier }), 600);
@@ -3474,7 +3508,7 @@ function BeastModeApp() {
     } catch(e) {
       console.error("Failed to log meditation:", e);
       const finalPts = estimateAwardedPoints(pts, streak);
-      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), meditationsFinished: wasCompleted ? (prev?.meditationsFinished || 0) + 1 : prev?.meditationsFinished || 0 }));
+      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), meditationsFinished: wasCompleted ? (prev?.meditationsFinished || 0) + 1 : prev?.meditationsFinished || 0, qualifyingMeditations: (prev?.qualifyingMeditations || 0) + getMeditationQualificationCredit(currentMedDur, wasCompleted) }));
       setHistory(prev => [{ exercise: currentMedType, points: finalPts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
 
@@ -3545,7 +3579,7 @@ function BeastModeApp() {
   const handleEndDay = async () => {
     try {
       const result = await api("/api/workout/end-day", { method: "POST" });
-      setProgress(prev => ({ ...prev, streak: result.streak, maxStreak: result.maxStreak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, meditationsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      setProgress(prev => ({ ...prev, streak: result.streak, maxStreak: result.maxStreak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, sessionCredits: 0, meditationsFinished: 0, qualifyingMeditations: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
       setTodayMedSessions(0);
       if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
       await refreshDashboardSignals();
@@ -3555,7 +3589,7 @@ function BeastModeApp() {
   const handleMissedDay = async () => {
     try {
       const result = await api("/api/workout/missed-day", { method: "POST" });
-      setProgress(prev => ({ ...prev, streak: result.streak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, meditationsFinished: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
+      setProgress(prev => ({ ...prev, streak: result.streak, streakFreezes: result.streakFreezes, todayPoints: 0, sessionsCompleted: 0, sessionsFinished: 0, sessionCredits: 0, meditationsFinished: 0, qualifyingMeditations: 0, sessionsSkipped: 0, dayCounter: result.dayCounter }));
       setTodayMedSessions(0);
       if (result.showWeekly && result.weeklyData) { setWeekData(result.weeklyData); setShowWeeklySummary(true); }
       await refreshDashboardSignals();
@@ -3586,12 +3620,13 @@ function BeastModeApp() {
   const streakFreezes = progress?.streakFreezes || 0;
   const sessionsCompleted = progress?.sessionsCompleted || 0;
   const sessionsFinished = progress?.sessionsFinished || 0;
+  const sessionCredits = progress?.sessionCredits || 0;
+  const qualifyingMeditations = progress?.qualifyingMeditations || 0;
   const streakMult = getStreakMultiplier(streak).toFixed(2);
   const isActiveToday = !settings?.activeDays || settings.activeDays.includes(getTodayKey());
-  const MIN_DAILY_SESSIONS = 3;
   const MAX_FREEZES = 3;
   const FREEZE_EARN_INTERVAL = 5;
-  const streakQualified = sessionsFinished >= MIN_DAILY_SESSIONS || todayMedSessions >= 1;
+  const streakQualified = isQualifiedDayState({ sessionCredits, qualifyingMeditations, sessionsFinished, meditationsFinished: todayMedSessions });
   const pushReady = Boolean(appConfig.webPushEnabled && notificationPermission === "granted" && pushStatus?.subscribed);
   const activationStatusMessage = notificationPermission === "denied" ? t("notificationBlocked") : activationMessage;
   const todayDateKey = new Date().toISOString().split("T")[0];
@@ -3606,7 +3641,9 @@ function BeastModeApp() {
     mission,
     pressure,
     sessionsFinished,
+    sessionCredits,
     meditationsFinished: todayMedSessions,
+    qualifyingMeditations,
     todayExerciseIds,
   };
   const alarmPrompt = buildAlarmPrompt({ mission, pressure, settings, exercise: currentExercise, duration: resolvedDuration || 2, streak });
@@ -3657,10 +3694,10 @@ function BeastModeApp() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
             <div style={{ flex: 1, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
-              <div style={{ width: `${streakQualified ? 100 : Math.max((sessionsFinished / MIN_DAILY_SESSIONS) * 100, todayMedSessions > 0 ? 100 : 0)}%`, height: "100%", borderRadius: 3, background: streakQualified ? "linear-gradient(90deg, #00E676, #69F0AE)" : "linear-gradient(90deg, #FF8C00, #FFD700)", transition: "width 0.5s ease" }} />
+              <div style={{ width: `${streakQualified ? 100 : Math.max((sessionCredits / MIN_DAILY_SESSION_CREDITS) * 100, qualifyingMeditations > 0 ? 100 : 0)}%`, height: "100%", borderRadius: 3, background: streakQualified ? "linear-gradient(90deg, #00E676, #69F0AE)" : "linear-gradient(90deg, #FF8C00, #FFD700)", transition: "width 0.5s ease" }} />
             </div>
             <span style={{ fontSize: 11, color: streakQualified ? "#00E676" : "#FF8C00", fontWeight: 700, whiteSpace: "nowrap" }}>
-              {streakQualified ? t("streakSecured") : `${sessionsFinished}/${MIN_DAILY_SESSIONS} ${t("workoutsOrMed")}`}
+              {streakQualified ? t("streakSecured") : `${fmtSessionCredits(sessionCredits)}/${MIN_DAILY_SESSION_CREDITS} ${t("workoutsOrMed")}`}
             </span>
           </div>
         </div>
@@ -3691,7 +3728,7 @@ function BeastModeApp() {
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
               <span style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>"{settings?.alarmMessage || "Let's go!"}"</span>
               {alarmPrompt?.subtitle && <span style={{ fontSize: 11, color: "#F3D8B8", maxWidth: 190, textAlign: "right", lineHeight: 1.35 }}>{alarmPrompt.subtitle}</span>}
-              <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,77,0,0.12)", borderRadius: 20, color: "#FF8C00" }}>{t("every")} {settings?.intervalMinutes || 60}m</span>
+              <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,77,0,0.12)", borderRadius: 20, color: "#FF8C00" }}>{t("every")} {fmtIntervalOption(settings?.intervalMinutes || 45)}</span>
               {settings?.startHour != null && settings?.endHour != null && <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.06)", borderRadius: 20, color: "#888" }}>{settings.startHour === 0 ? "12AM" : settings.startHour <= 12 ? settings.startHour + (settings.startHour < 12 ? "AM" : "PM") : (settings.startHour-12) + "PM"} - {settings.endHour === 0 ? "12AM" : settings.endHour <= 12 ? settings.endHour + (settings.endHour < 12 ? "AM" : "PM") : (settings.endHour-12) + "PM"}</span>}
             </div>
           </div>
@@ -3735,7 +3772,7 @@ function BeastModeApp() {
 
         {/* Meditation Panel */}
         {mode === "meditation" && (
-          <MeditationPanel todayMedSessions={todayMedSessions} onStartMeditation={startMeditation} totalPoints={totalPoints} lang={lang} />
+          <MeditationPanel todayMedSessions={todayMedSessions} qualifyingMeditationsToday={qualifyingMeditations} onStartMeditation={startMeditation} totalPoints={totalPoints} lang={lang} />
         )}
 
         {/* History */}

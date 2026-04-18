@@ -1,7 +1,7 @@
 const express = require("express");
 const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
-const { MIN_DAILY_SESSIONS, syncUserProgressDay } = require("../lib/progress");
+const { MIN_DAILY_SESSIONS, MIN_DAILY_SESSION_CREDITS, isQualifiedDay, syncUserProgressDay } = require("../lib/progress");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -99,7 +99,7 @@ function selectDailyMissionTemplate(userId, dateKey) {
 async function getDailyMissionMetrics(userId, dateKey, db = pool) {
   const [dailyLogR, activityR, claimR] = await Promise.all([
     db.query(`
-      SELECT points, sessions_finished, meditations_finished
+      SELECT points, sessions_finished, session_credits, meditations_finished, qualifying_meditations
       FROM daily_log
       WHERE user_id = $1 AND log_date = $2
       LIMIT 1
@@ -123,7 +123,9 @@ async function getDailyMissionMetrics(userId, dateKey, db = pool) {
   return {
     todayPoints: Number(dailyLogR.rows[0]?.points || 0),
     sessionsFinished: Number(dailyLogR.rows[0]?.sessions_finished || 0),
+    sessionCredits: Number((dailyLogR.rows[0]?.session_credits ?? dailyLogR.rows[0]?.sessions_finished) || 0),
     meditationsFinished: Number(dailyLogR.rows[0]?.meditations_finished || 0),
+    qualifyingMeditations: Number((dailyLogR.rows[0]?.qualifying_meditations ?? dailyLogR.rows[0]?.meditations_finished) || 0),
     uniqueExercisesToday: Number(activityR.rows[0]?.unique_exercises_today || 0),
     extraSessionsToday: Number(activityR.rows[0]?.extra_sessions_today || 0),
     claim: claimR.rows[0] || null,
@@ -148,11 +150,18 @@ async function getDailyMissionStatus(userId, dateKey = getTodayDateKey(), db = p
     progressRatio: Math.max(0, Math.min(progressCurrent / template.target, 1)),
     progressText: template.getProgressText(metrics),
     complete: template.isComplete(metrics),
-    qualificationMet: metrics.sessionsFinished >= MIN_DAILY_SESSIONS || metrics.meditationsFinished >= 1,
+    qualificationMet: isQualifiedDay({
+      session_credits: metrics.sessionCredits,
+      qualifying_meditations: metrics.qualifyingMeditations,
+      sessions_finished: metrics.sessionsFinished,
+      meditations_finished: metrics.meditationsFinished,
+    }),
     metrics: {
       todayPoints: metrics.todayPoints,
       sessionsFinished: metrics.sessionsFinished,
+      sessionCredits: metrics.sessionCredits,
       meditationsFinished: metrics.meditationsFinished,
+      qualifyingMeditations: metrics.qualifyingMeditations,
       uniqueExercisesToday: metrics.uniqueExercisesToday,
       extraSessionsToday: metrics.extraSessionsToday,
     },
@@ -232,8 +241,8 @@ async function getPressureSummary(userId, db = pool, dateKey = getTodayDateKey()
             COALESCE(SUM(COALESCE(d.points, 0)), 0)::real AS today_points,
             COALESCE(SUM(p.total_points), 0)::real AS total_points,
             COUNT(*) FILTER (
-              WHERE COALESCE(d.sessions_finished, 0) >= $2
-                OR COALESCE(d.meditations_finished, 0) >= 1
+              WHERE COALESCE(d.session_credits, COALESCE(d.sessions_finished, 0)) >= $2
+                OR COALESCE(d.qualifying_meditations, COALESCE(d.meditations_finished, 0)) >= 1
             )::int AS secured_today
           FROM user_settings us
           JOIN user_progress p ON p.user_id = us.user_id
@@ -338,7 +347,7 @@ router.get("/daily-log", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 30, 90);
     const result = await pool.query(`
-      SELECT log_date, points, sessions_finished, qualified
+      SELECT log_date, points, sessions_finished, session_credits, meditations_finished, qualifying_meditations, qualified
       FROM daily_log WHERE user_id = $1 ORDER BY log_date DESC LIMIT $2
     `, [req.userId, limit]);
 
@@ -346,6 +355,9 @@ router.get("/daily-log", async (req, res) => {
       date: row.log_date,
       points: row.points,
       sessionsFinished: row.sessions_finished,
+      sessionCredits: row.session_credits,
+      meditationsFinished: row.meditations_finished,
+      qualifyingMeditations: row.qualifying_meditations,
       qualified: row.qualified,
     })));
   } catch (err) {

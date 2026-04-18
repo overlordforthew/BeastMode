@@ -15,6 +15,7 @@ router.use(authMiddleware);
 
 const VALID_ACTIVE_DAYS = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
 const SUPPORTED_LANGUAGES = new Set(["en", "es", "ja"]);
+const VALID_INTERVAL_OPTIONS = new Set([15, 30, 45, 60, 90, 120]);
 
 function normalizeDuration(value) {
   if (value === "random") return "random";
@@ -139,7 +140,9 @@ router.get("/profile", async (req, res) => {
         streakFreezes: progress.streak_freezes,
         sessionsCompleted: progress.sessions_completed,
         sessionsFinished: progress.sessions_finished,
+        sessionCredits: progress.session_credits,
         meditationsFinished: progress.meditations_finished,
+        qualifyingMeditations: progress.qualifying_meditations,
         sessionsSkipped: progress.sessions_skipped,
         lastActiveDate: progress.last_active_date,
         dayCounter: progress.day_counter,
@@ -183,8 +186,8 @@ router.put("/settings", async (req, res) => {
     const safeTeamName = sanitizeTeamName(teamName);
     const safeTimezone = sanitizeTimezone(timezone);
 
-    if (safeInterval !== null && (!Number.isInteger(safeInterval) || safeInterval <= 0 || safeInterval > 720)) {
-      return res.status(400).json({ error: "Interval must be a whole number between 1 and 720 minutes" });
+    if (safeInterval !== null && (!Number.isInteger(safeInterval) || !VALID_INTERVAL_OPTIONS.has(safeInterval))) {
+      return res.status(400).json({ error: "Interval must be one of 15, 30, 45, 60, 90, or 120 minutes" });
     }
 
     await pool.query(`

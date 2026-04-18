@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_settings (
   user_id INTEGER PRIMARY KEY REFERENCES users(id),
   duration TEXT DEFAULT '2',
-  interval_minutes INTEGER DEFAULT 30,
+  interval_minutes INTEGER DEFAULT 45,
   selected_exercises JSONB DEFAULT '["plank","pushups","situps","squats","lunges","burpees","chair_pose","jumping_jacks","high_knees","mountain_climbers"]',
   active_days JSONB DEFAULT '["mon","tue","wed","thu","fri","sat","sun"]',
   start_hour INTEGER DEFAULT 8,
@@ -37,7 +37,9 @@ CREATE TABLE IF NOT EXISTS user_progress (
   streak_freezes INTEGER DEFAULT 0,
   sessions_completed INTEGER DEFAULT 0,
   sessions_finished INTEGER DEFAULT 0,
+  session_credits REAL DEFAULT 0,
   meditations_finished INTEGER DEFAULT 0,
+  qualifying_meditations INTEGER DEFAULT 0,
   sessions_skipped INTEGER DEFAULT 0,
   last_active_date TEXT,
   day_counter INTEGER DEFAULT 0,
@@ -82,7 +84,9 @@ CREATE TABLE IF NOT EXISTS daily_log (
   log_date TEXT NOT NULL,
   points REAL DEFAULT 0,
   sessions_finished INTEGER DEFAULT 0,
+  session_credits REAL DEFAULT 0,
   meditations_finished INTEGER DEFAULT 0,
+  qualifying_meditations INTEGER DEFAULT 0,
   qualified BOOLEAN DEFAULT FALSE,
   UNIQUE(user_id, log_date)
 );

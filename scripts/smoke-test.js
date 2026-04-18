@@ -11,6 +11,9 @@ const {
   getEvolution,
   getNextEvolution,
   getEvolutionProgress,
+  getWorkoutExercise,
+  getWorkoutSessionCredit,
+  getMeditationQualificationCredit,
 } = require("../public/scoring");
 const {
   buildScheduledPushPayload,
@@ -88,19 +91,23 @@ async function setTeamName(userId, teamName) {
 
 async function upsertDailyLog(userId, logDate, values) {
   await pool.query(`
-    INSERT INTO daily_log (user_id, log_date, points, sessions_finished, meditations_finished, qualified)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO daily_log (user_id, log_date, points, sessions_finished, session_credits, meditations_finished, qualifying_meditations, qualified)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (user_id, log_date) DO UPDATE SET
       points = EXCLUDED.points,
       sessions_finished = EXCLUDED.sessions_finished,
+      session_credits = EXCLUDED.session_credits,
       meditations_finished = EXCLUDED.meditations_finished,
+      qualifying_meditations = EXCLUDED.qualifying_meditations,
       qualified = EXCLUDED.qualified
   `, [
     userId,
     logDate,
     values.points || 0,
     values.sessions_finished || 0,
+    values.session_credits || 0,
     values.meditations_finished || 0,
+    values.qualifying_meditations || 0,
     values.qualified || false,
   ]);
 }
@@ -126,6 +133,12 @@ async function main() {
   assert.strictEqual(calcMeditationPoints(10, 1), 55, "first meditation should use the base meditation value");
   assert.strictEqual(calcMeditationPoints(10, 2), 44, "second meditation should get the softened session multiplier");
   assert.strictEqual(calcMeditationPoints(10, 3), 33, "later meditations should taper instead of compounding upward");
+  assert.strictEqual(getWorkoutExercise("chair_pose").basePoints, 11.5, "chair pose should be trimmed slightly");
+  assert.strictEqual(getWorkoutExercise("plank").basePoints, 13.5, "plank should be trimmed slightly");
+  assert.strictEqual(getWorkoutSessionCredit(0.5, true), 0.5, "30-second workouts should count as half a credit");
+  assert.strictEqual(getWorkoutSessionCredit(1, true), 1, "one minute workouts should count as a full credit");
+  assert.strictEqual(getMeditationQualificationCredit(3, true), 0, "short meditations should not lock the streak");
+  assert.strictEqual(getMeditationQualificationCredit(5, true), 1, "5-minute meditations should lock the streak");
   assert.strictEqual(getEvolution(0).threshold, 0, "the first evolution tier should start at zero points");
   assert.strictEqual(getEvolutionProgress(0), 0, "zero points should produce zero evolution progress");
   assert(getNextEvolution(0)?.threshold > 0, "zero-point users should still have a next evolution tier");
@@ -135,7 +148,7 @@ async function main() {
     token: alpha.token,
     body: {
       duration: 2,
-      intervalMinutes: 60,
+      intervalMinutes: 45,
       selectedExercises: ["pushups", "plank"],
       activeDays: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
       startHour: 8,
@@ -146,6 +159,8 @@ async function main() {
       timezone: "America/New_York",
     },
   });
+  const alphaProfileAfterSettings = await api("/api/user/profile", { token: alpha.token });
+  assert.strictEqual(alphaProfileAfterSettings.settings.intervalMinutes, 45, "settings should persist the new 45-minute interval");
 
   await setTeamName(bravo.userId, "Desk Ninjas");
   await setTeamName(charlie.userId, "Desk Ninjas");
@@ -167,6 +182,7 @@ async function main() {
   });
   assert.strictEqual(logResult.finalPoints, expectedWorkoutPoints, "server should ignore spoofed workout points");
   assert.strictEqual(logResult.totalPoints, expectedWorkoutPoints, "canonical workout points should hit progress totals");
+  assert.strictEqual(logResult.sessionCredits, 1, "full workouts should earn one streak credit");
 
   const expectedPartialWorkoutPoints = estimateAwardedPoints(calcWorkoutPartialPoints("pushups", 2, 60), 1);
   const partialLogResult = await api("/api/workout/log", {
@@ -185,6 +201,22 @@ async function main() {
   });
   assert.strictEqual(partialLogResult.finalPoints, expectedPartialWorkoutPoints, "partial workouts should use elapsed time scoring");
   assert.strictEqual(partialLogResult.sessionsFinished, 1, "partial workouts should not count as finished sessions");
+  assert.strictEqual(partialLogResult.sessionCredits, 1, "partial workouts should not add streak credits");
+
+  const shortWorkoutResult = await api("/api/workout/log", {
+    method: "POST",
+    token: alpha.token,
+    body: {
+      exerciseId: "chair_pose",
+      exerciseName: "Chair Pose",
+      exerciseEmoji: "🪑",
+      points: 999,
+      durationMinutes: 0.5,
+      wasCompleted: true,
+      type: "alarm",
+    },
+  });
+  assert.strictEqual(shortWorkoutResult.sessionCredits, 1.5, "30-second completed workouts should add half a streak credit");
 
   const expectedMeditationPoints = estimateAwardedPoints(calcMeditationPoints(10, 1), 1);
   const meditationResult = await api("/api/workout/log", {
@@ -203,6 +235,37 @@ async function main() {
   assert.strictEqual(meditationResult.finalPoints, expectedMeditationPoints, "server should ignore spoofed meditation points");
   assert.strictEqual(meditationResult.sessionsFinished, 0, "meditation should not increment workout sessions");
   assert.strictEqual(meditationResult.meditationsFinished, 1, "completed meditation should increment meditation count");
+  assert.strictEqual(meditationResult.qualifyingMeditations, 1, "10-minute meditations should count toward streak qualification");
+
+  const shortMeditation = await api("/api/workout/log", {
+    method: "POST",
+    token: bravo.token,
+    body: {
+      exerciseId: "breath",
+      exerciseName: "Breath Focus",
+      exerciseEmoji: "💨",
+      points: 999,
+      durationMinutes: 3,
+      wasCompleted: true,
+      type: "meditation",
+    },
+  });
+  assert.strictEqual(shortMeditation.qualifyingMeditations, 0, "3-minute meditations should not lock the streak");
+
+  const qualifyingMeditation = await api("/api/workout/log", {
+    method: "POST",
+    token: bravo.token,
+    body: {
+      exerciseId: "mindfulness",
+      exerciseName: "Mindfulness",
+      exerciseEmoji: "🌸",
+      points: 999,
+      durationMinutes: 5,
+      wasCompleted: true,
+      type: "meditation",
+    },
+  });
+  assert.strictEqual(qualifyingMeditation.qualifyingMeditations, 1, "5-minute meditations should lock the streak");
 
   await setProgress(delta.userId, {
     streak: 50,
@@ -232,7 +295,9 @@ async function main() {
     today_points: 72,
     sessions_completed: 3,
     sessions_finished: 3,
+    session_credits: 3,
     meditations_finished: 0,
+    qualifying_meditations: 0,
     sessions_skipped: 0,
     streak: 4,
     max_streak: 4,
@@ -243,13 +308,16 @@ async function main() {
   await upsertDailyLog(alpha.userId, yesterdayKey, {
     points: 72,
     sessions_finished: 3,
+    session_credits: 3,
     meditations_finished: 0,
+    qualifying_meditations: 0,
     qualified: true,
   });
 
   const rolledProfile = await api("/api/user/profile", { token: alpha.token });
   assert.strictEqual(rolledProfile.progress.todayPoints, 0, "rollover should clear today points");
   assert.strictEqual(rolledProfile.progress.sessionsFinished, 0, "rollover should clear session count");
+  assert.strictEqual(rolledProfile.progress.sessionCredits, 0, "rollover should clear streak credits");
   assert.strictEqual(rolledProfile.progress.streak, 5, "qualified stale day should advance the streak");
   assert.strictEqual(rolledProfile.progress.streakFreezes, 1, "5th streak day should earn a freeze");
   assert.strictEqual(rolledProfile.progress.dayCounter, 11, "rollover should advance the day counter");
@@ -280,7 +348,9 @@ async function main() {
     today_points: 0,
     sessions_completed: 0,
     sessions_finished: 0,
+    session_credits: 0,
     meditations_finished: 0,
+    qualifying_meditations: 0,
     sessions_skipped: 0,
     streak: 3,
     max_streak: 4,
@@ -300,7 +370,9 @@ async function main() {
     today_points: 999,
     sessions_completed: 3,
     sessions_finished: 3,
+    session_credits: 3,
     meditations_finished: 0,
+    qualifying_meditations: 0,
     sessions_skipped: 0,
     streak: 7,
     max_streak: 7,
@@ -338,7 +410,7 @@ async function main() {
   const scheduledRow = {
     push_enabled: true,
     subscription_count: 1,
-    interval_minutes: 60,
+    interval_minutes: 45,
     active_days: ["sat"],
     start_hour: 8,
     end_hour: 17,
@@ -348,12 +420,14 @@ async function main() {
     alarm_message: "Move now",
     today_points: 18,
     sessions_finished: 1,
+    session_credits: 1,
     meditations_finished: 0,
+    qualifying_meditations: 0,
   };
-  const dueAt = new Date("2026-04-18T13:00:00Z");
+  const dueAt = new Date("2026-04-18T16:45:00Z");
   assert.strictEqual(shouldSendScheduledPush(scheduledRow, dueAt), true, "scheduler should respect the user's local timezone");
   assert.strictEqual(
-    shouldSendScheduledPush({ ...scheduledRow, push_last_sent_at: "2026-04-18T13:10:00Z" }, dueAt),
+    shouldSendScheduledPush({ ...scheduledRow, push_last_sent_at: "2026-04-18T16:50:00Z" }, dueAt),
     false,
     "scheduler should suppress duplicate sends inside the same push bucket"
   );
@@ -362,11 +436,13 @@ async function main() {
     false,
     "scheduler should respect active day boundaries in the user's timezone"
   );
-  assert.strictEqual(getPushBucketKey(dueAt, 60, "America/New_York"), "2026-04-18:9", "push bucket keys should be generated in local time");
+  assert.strictEqual(getPushBucketKey(dueAt, 45, "America/New_York"), "2026-04-18:17", "push bucket keys should be generated in local time");
 
-  const scheduledPayload = buildScheduledPushPayload({ ...scheduledRow, sessions_finished: 0, meditations_finished: 0, today_points: 0 }, dueAt);
+  const scheduledPayload = buildScheduledPushPayload({ ...scheduledRow, sessions_finished: 0, session_credits: 0, meditations_finished: 0, qualifying_meditations: 0, today_points: 0 }, dueAt);
   assert.strictEqual(scheduledPayload.title, "Move now", "scheduled payload should use the user's alarm message");
   assert(scheduledPayload.body.includes("First reset"), "scheduled payload should reflect the user's current day state");
+  const almostQualifiedPayload = buildScheduledPushPayload({ ...scheduledRow, sessions_finished: 2, session_credits: 2.5, meditations_finished: 0, qualifying_meditations: 0 }, dueAt);
+  assert(almostQualifiedPayload.body.includes("30-second finisher"), "push copy should acknowledge the half-credit path");
 
   const originalSendNotification = webpush.sendNotification;
   const sentNotifications = [];

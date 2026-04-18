@@ -3,6 +3,7 @@ const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
 const {
   MIN_DAILY_SESSIONS,
+  MIN_DAILY_SESSION_CREDITS,
   isQualifiedDay,
   applyQualifiedDay,
   applyMissedDay,
@@ -18,6 +19,8 @@ const {
   calcMeditationPoints,
   calcMeditationPartialPoints,
   estimateAwardedPoints,
+  getWorkoutSessionCredit,
+  getMeditationQualificationCredit,
 } = require("../public/scoring");
 
 const router = express.Router();
@@ -103,9 +106,18 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
 
     const countsAsWorkout = completed && safeType !== "meditation";
     const countsAsMeditation = completed && safeType === "meditation";
+    const workoutCreditEarned = countsAsWorkout ? getWorkoutSessionCredit(safeDuration, completed) : 0;
+    const qualifyingMeditationEarned = countsAsMeditation ? getMeditationQualificationCredit(safeDuration, completed) : 0;
     const newSessionsFinished = countsAsWorkout ? progress.sessions_finished + 1 : progress.sessions_finished;
+    const newSessionCredits = Number((progress.session_credits ?? progress.sessions_finished) || 0) + workoutCreditEarned;
     const newMeditationsFinished = countsAsMeditation ? (progress.meditations_finished || 0) + 1 : (progress.meditations_finished || 0);
-    const qualifiedToday = newSessionsFinished >= MIN_DAILY_SESSIONS || newMeditationsFinished >= 1;
+    const newQualifyingMeditations = Number((progress.qualifying_meditations ?? progress.meditations_finished) || 0) + qualifyingMeditationEarned;
+    const qualifiedToday = isQualifiedDay({
+      session_credits: newSessionCredits,
+      qualifying_meditations: newQualifyingMeditations,
+      sessions_finished: newSessionsFinished,
+      meditations_finished: newMeditationsFinished,
+    });
 
     // Update progress
     await client.query(`
@@ -113,10 +125,12 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
         total_points = total_points + $1, today_points = today_points + $1,
         sessions_completed = sessions_completed + $5,
         sessions_finished = $2,
-        meditations_finished = $3,
-        last_active_date = $4, updated_at = NOW()
-      WHERE user_id = $6
-    `, [finalPts, newSessionsFinished, newMeditationsFinished, today, completed ? 1 : 0, req.userId]);
+        session_credits = $3,
+        meditations_finished = $4,
+        qualifying_meditations = $5,
+        last_active_date = $6, updated_at = NOW()
+      WHERE user_id = $7
+    `, [finalPts, newSessionsFinished, newSessionCredits, newMeditationsFinished, newQualifyingMeditations, today, req.userId]);
 
     // Update stats if completed
     if (completed) {
@@ -147,24 +161,28 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
 
     // Upsert daily log
     await client.query(`
-      INSERT INTO daily_log (user_id, log_date, points, sessions_finished, meditations_finished, qualified)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO daily_log (user_id, log_date, points, sessions_finished, session_credits, meditations_finished, qualifying_meditations, qualified)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (user_id, log_date) DO UPDATE SET
         points = daily_log.points + $3,
         sessions_finished = daily_log.sessions_finished + $4,
-        meditations_finished = daily_log.meditations_finished + $5,
-        qualified = (daily_log.sessions_finished + $4) >= $7 OR (daily_log.meditations_finished + $5) >= 1
+        session_credits = daily_log.session_credits + $5,
+        meditations_finished = daily_log.meditations_finished + $6,
+        qualifying_meditations = daily_log.qualifying_meditations + $7,
+        qualified = (daily_log.session_credits + $5) >= $9 OR (daily_log.qualifying_meditations + $7) >= 1
     `, [
       req.userId,
       today,
       finalPts,
       countsAsWorkout ? 1 : 0,
+      workoutCreditEarned,
       countsAsMeditation ? 1 : 0,
+      qualifyingMeditationEarned,
       qualifiedToday,
-      MIN_DAILY_SESSIONS,
+      MIN_DAILY_SESSION_CREDITS,
     ]);
 
-    const updated = await client.query("SELECT total_points, today_points, sessions_finished, meditations_finished FROM user_progress WHERE user_id = $1", [req.userId]);
+    const updated = await client.query("SELECT total_points, today_points, sessions_finished, session_credits, meditations_finished, qualifying_meditations FROM user_progress WHERE user_id = $1", [req.userId]);
     await client.query("COMMIT");
 
     let newAwards = [];
@@ -182,7 +200,9 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
       totalPoints: u.total_points,
       todayPoints: u.today_points,
       sessionsFinished: u.sessions_finished,
+      sessionCredits: u.session_credits,
       meditationsFinished: u.meditations_finished,
+      qualifyingMeditations: u.qualifying_meditations,
       newAwards,
     });
   } catch (err) {
@@ -211,7 +231,7 @@ router.post("/end-day", async (req, res) => {
     await pool.query(`
       UPDATE user_progress SET
         streak = $1, max_streak = $2, streak_freezes = $3,
-        today_points = 0, sessions_completed = 0, sessions_finished = 0, meditations_finished = 0, sessions_skipped = 0,
+        today_points = 0, sessions_completed = 0, sessions_finished = 0, session_credits = 0, meditations_finished = 0, qualifying_meditations = 0, sessions_skipped = 0,
         day_counter = $4, updated_at = NOW()
       WHERE user_id = $5
     `, [newStreak, newMaxStreak, newFreezes, newDayCounter, req.userId]);
@@ -247,7 +267,7 @@ router.post("/missed-day", async (req, res) => {
     await pool.query(`
       UPDATE user_progress SET
         streak = $1, streak_freezes = $2, today_points = 0,
-        sessions_completed = 0, sessions_finished = 0, meditations_finished = 0, sessions_skipped = 0,
+        sessions_completed = 0, sessions_finished = 0, session_credits = 0, meditations_finished = 0, qualifying_meditations = 0, sessions_skipped = 0,
         day_counter = $3, updated_at = NOW()
       WHERE user_id = $4
     `, [newStreak, newFreezes, newDayCounter, req.userId]);

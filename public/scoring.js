@@ -12,10 +12,10 @@
     { id: "situps", name: "Sit-ups", emoji: "🔄", basePoints: 10.5 },
     { id: "squats", name: "Squats", emoji: "🦵", basePoints: 11.5 },
     { id: "lunges", name: "Lunges", emoji: "🚶", basePoints: 12 },
-    { id: "chair_pose", name: "Chair Pose", emoji: "🪑", basePoints: 12 },
+    { id: "chair_pose", name: "Chair Pose", emoji: "🪑", basePoints: 11.5 },
     { id: "pushups", name: "Push-ups", emoji: "💪", basePoints: 13 },
     { id: "high_knees", name: "High Knees", emoji: "🏃", basePoints: 13.5 },
-    { id: "plank", name: "Plank", emoji: "🧱", basePoints: 14 },
+    { id: "plank", name: "Plank", emoji: "🧱", basePoints: 13.5 },
     { id: "mountain_climbers", name: "Mt. Climbers", emoji: "🏔️", basePoints: 15.5 },
     { id: "burpees", name: "Burpees", emoji: "⚡", basePoints: 17.5 },
   ];
@@ -60,6 +60,8 @@
 
   const WORKOUT_MIN_PARTIAL_SECONDS = 30;
   const MEDITATION_MIN_PARTIAL_SECONDS = 180;
+  const MIN_DAILY_SESSION_CREDITS = 3;
+  const QUALIFYING_MEDITATION_MINUTES = 5;
   const STREAK_STEP = 0.03;
   const STREAK_MAX_MULTIPLIER = 2;
   const EVOLUTION_TOP_THRESHOLD = 180000;
@@ -202,6 +204,27 @@
     return calcPartialPoints(fullPoints, elapsedSeconds, duration * 60, MEDITATION_MIN_PARTIAL_SECONDS);
   }
 
+  function getWorkoutSessionCredit(durationMinutes, wasCompleted = true) {
+    if (!wasCompleted) return 0;
+    const duration = toNumber(durationMinutes, 0);
+    if (duration <= 0) return 0;
+    return duration < 1 ? 0.5 : 1;
+  }
+
+  function getMeditationQualificationCredit(durationMinutes, wasCompleted = true) {
+    if (!wasCompleted) return 0;
+    return toNumber(durationMinutes, 0) >= QUALIFYING_MEDITATION_MINUTES ? 1 : 0;
+  }
+
+  function isQualifiedDayState(progress = {}) {
+    const sessionCredits = toNumber(progress.sessionCredits ?? progress.session_credits, progress.sessions_finished);
+    const qualifyingMeditations = toNumber(
+      progress.qualifyingMeditations ?? progress.qualifying_meditations,
+      progress.meditations_finished
+    );
+    return sessionCredits >= MIN_DAILY_SESSION_CREDITS || qualifyingMeditations >= 1;
+  }
+
   function getStreakMultiplier(streak) {
     const streakValue = Math.max(1, Math.floor(toNumber(streak, 1)));
     const uncapped = 1 + ((streakValue - 1) * STREAK_STEP);
@@ -277,6 +300,8 @@
     MEDITATION_BASE_POINTS,
     WORKOUT_MIN_PARTIAL_SECONDS,
     MEDITATION_MIN_PARTIAL_SECONDS,
+    MIN_DAILY_SESSION_CREDITS,
+    QUALIFYING_MEDITATION_MINUTES,
     STREAK_STEP,
     STREAK_MAX_MULTIPLIER,
     EVOLUTION_TOP_THRESHOLD,
@@ -294,6 +319,9 @@
     getMeditationSessionMultiplier,
     calcMeditationPoints,
     calcMeditationPartialPoints,
+    getWorkoutSessionCredit,
+    getMeditationQualificationCredit,
+    isQualifiedDayState,
     getStreakMultiplier,
     estimateAwardedPoints,
     getEvolution,
