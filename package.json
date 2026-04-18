@@ -9,7 +9,9 @@
     "test:smoke": "node scripts/smoke-test.js",
     "mobile:doctor": "npx cap doctor",
     "mobile:sync": "npx cap sync android",
-    "mobile:open:android": "npx cap open android"
+    "mobile:open:android": "npx cap open android",
+    "mobile:build:android": "bash scripts/build-android.sh debug",
+    "mobile:build:android:release": "bash scripts/build-android.sh release"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
