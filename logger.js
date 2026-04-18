@@ -47,8 +47,7 @@ const httpLogger = pinoHttp({
   },
   customProps(req) {
     return {
-      requestId: req.id,
-      userId: req.userId || req.admin?.id || null,
+      authUserId: req.userId || req.admin?.id || null,
     };
   },
 });
