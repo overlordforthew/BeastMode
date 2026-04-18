@@ -10,6 +10,7 @@ const { isEmailConfigured } = require("./mailer");
 const { isWebPushConfigured, startPushScheduler } = require("./lib/push");
 
 const authRoutes = require("./routes/auth");
+const adminRoutes = require("./routes/admin");
 const userRoutes = require("./routes/user");
 const workoutRoutes = require("./routes/workout");
 const statsRoutes = require("./routes/stats");
@@ -83,6 +84,7 @@ app.get("/sw.js", (req, res) => {
 });
 
 const PUBLIC_PAGE_ROUTES = {
+  "/admin": "admin.html",
   "/privacy": "privacy.html",
   "/support": "support.html",
   "/delete-account": "delete-account.html",
@@ -110,6 +112,7 @@ if (isWebPushConfigured()) {
 // Rate limit auth endpoints
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true, legacyHeaders: false, message: { error: "Too many requests, try again later" } });
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/workout", workoutRoutes);
 app.use("/api/stats", statsRoutes);

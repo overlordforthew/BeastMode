@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BeastMode Ops</title>
+  <style>
+    :root {
+      --bg: #151312;
+      --bg-soft: #1e1b19;
+      --panel: #241f1d;
+      --panel-strong: #2f2926;
+      --text: #f4eadc;
+      --muted: #b9ab97;
+      --accent: #ff8c42;
+      --accent-soft: rgba(255, 140, 66, 0.16);
+      --border: rgba(255, 255, 255, 0.08);
+      --ok: #8bd17c;
+      --warn: #ffd166;
+      --bad: #ff7b72;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(255, 140, 66, 0.14), transparent 32%),
+        linear-gradient(180deg, #171311 0%, #120f0e 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    a { color: inherit; }
+
+    .page {
+      width: min(1480px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .header,
+    .panel {
+      background: rgba(36, 31, 29, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .header {
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    .subhead {
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .auth-chip,
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .tag.ok { color: var(--ok); border-color: rgba(139, 209, 124, 0.32); background: rgba(139, 209, 124, 0.1); }
+    .tag.warn { color: var(--warn); border-color: rgba(255, 209, 102, 0.32); background: rgba(255, 209, 102, 0.1); }
+    .tag.bad { color: var(--bad); border-color: rgba(255, 123, 114, 0.32); background: rgba(255, 123, 114, 0.1); }
+
+    .controls,
+    .triage-grid,
+    .main-grid,
+    .metrics {
+      display: grid;
+      gap: 16px;
+    }
+
+    .metrics {
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .metric {
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 10px;
+    }
+
+    .metric-value {
+      font-size: clamp(24px, 3vw, 36px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .controls {
+      grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(120px, 0.6fr)) auto auto;
+      align-items: end;
+      margin-bottom: 20px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field label {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    button,
+    textarea {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      padding: 12px 14px;
+      font: inherit;
+    }
+
+    textarea { min-height: 100px; resize: vertical; }
+
+    button {
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+      background: linear-gradient(180deg, rgba(255, 140, 66, 0.22), rgba(255, 140, 66, 0.12));
+      border-color: rgba(255, 140, 66, 0.34);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 140, 66, 0.56);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--border);
+    }
+
+    .triage-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin-bottom: 20px;
+    }
+
+    .triage-card {
+      padding: 18px;
+      min-height: 240px;
+    }
+
+    .triage-card h2,
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .section-copy {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .triage-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .mini-user {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .mini-user button {
+      width: auto;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+
+    .user-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .user-name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .user-subtle,
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .main-grid {
+      grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+      align-items: start;
+    }
+
+    .table-panel,
+    .detail-panel {
+      padding: 18px;
+      min-height: 600px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    tr.clickable:hover {
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+    }
+
+    .stack {
+      display: grid;
+      gap: 6px;
+    }
+
+    .pill-row,
+    .detail-grid,
+    .pager {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .detail-card {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      padding: 12px;
+      min-height: 92px;
+    }
+
+    .detail-card .label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .detail-card .value {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .detail-section {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .empty {
+      padding: 18px;
+      border: 1px dashed rgba(255, 255, 255, 0.14);
+      border-radius: 18px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .auth-panel {
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+      gap: 12px;
+    }
+
+    .auth-panel.visible {
+      display: grid;
+    }
+
+    .error {
+      color: var(--bad);
+      font-size: 13px;
+    }
+
+    .success {
+      color: var(--ok);
+      font-size: 13px;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1120px) {
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .page { width: min(100vw - 18px, 100vw); }
+      .header, .panel { border-radius: 18px; }
+      .controls { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr; }
+      th:nth-child(4),
+      td:nth-child(4),
+      th:nth-child(5),
+      td:nth-child(5) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <div class="title-row">
+        <div>
+          <h1>BeastMode Ops</h1>
+          <p class="subhead">Operator view for signups, activation, retention risk, and user support. This is the place to answer “who’s using it, who’s stuck, and what happened to this one account?” without digging through the database.</p>
+        </div>
+        <div class="stack" style="justify-items:end;">
+          <div id="authChip" class="auth-chip">Checking admin access…</div>
+          <div class="pill-row">
+            <a class="tag" href="/" target="_blank" rel="noreferrer">Open App</a>
+            <button id="refreshAllBtn" class="secondary" type="button">Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="authPanel" class="panel auth-panel">
+        <div class="section-title">Admin access needed</div>
+        <div class="section-copy">This page reuses your normal BeastMode login token when it exists. If you are not already logged in on this device, sign in to BeastMode first, then refresh. You can also paste a temporary admin bearer token below for support work.</div>
+        <div class="field">
+          <label for="manualToken">Temporary Admin Token</label>
+          <textarea id="manualToken" placeholder="Paste a Bearer token here only if you need an override. It will be stored in sessionStorage, not localStorage."></textarea>
+        </div>
+        <div class="pill-row">
+          <button id="saveTokenBtn" type="button">Use This Token</button>
+          <button id="clearTokenBtn" class="secondary" type="button">Clear Token</button>
+        </div>
+        <div id="authError" class="error hidden"></div>
+      </div>
+
+      <div id="metrics" class="metrics"></div>
+    </section>
+
+    <section id="triage" class="triage-grid"></section>
+
+    <section class="controls">
+      <div class="field">
+        <label for="searchInput">Search</label>
+        <input id="searchInput" type="text" placeholder="Username, email, team, buddy">
+      </div>
+      <div class="field">
+        <label for="statusSelect">Status</label>
+        <select id="statusSelect">
+          <option value="">All users</option>
+          <option value="active_today">Active today</option>
+          <option value="active_7d">Active in 7 days</option>
+          <option value="dormant_7d">Dormant 7+ days</option>
+          <option value="dormant_30d">Dormant 30+ days</option>
+          <option value="never_started">Never started</option>
+          <option value="onboarding_risk">Onboarding risk</option>
+          <option value="push_opportunity">Active but no push link</option>
+          <option value="streak_watch">High streak, inactive today</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pushSelect">Push</label>
+        <select id="pushSelect">
+          <option value="">Any push state</option>
+          <option value="enabled">Push enabled</option>
+          <option value="disabled">Push disabled</option>
+          <option value="linked">Device linked</option>
+          <option value="unlinked">No linked device</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sortSelect">Sort</label>
+        <select id="sortSelect">
+          <option value="recent_activity">Recent activity</option>
+          <option value="newest">Newest</option>
+          <option value="points">Points</option>
+          <option value="streak">Streak</option>
+          <option value="name">Name</option>
+          <option value="oldest">Oldest</option>
+        </select>
+      </div>
+      <button id="applyFiltersBtn" type="button">Apply</button>
+      <button id="resetFiltersBtn" class="secondary" type="button">Reset</button>
+    </section>
+
+    <section class="main-grid">
+      <div class="panel table-panel">
+        <div class="title-row" style="margin-bottom: 14px;">
+          <div>
+            <div class="section-title">Users</div>
+            <div id="userTableMeta" class="section-copy">Loading users…</div>
+          </div>
+          <div class="pager">
+            <button id="prevPageBtn" class="secondary" type="button">Previous</button>
+            <button id="nextPageBtn" class="secondary" type="button">Next</button>
+          </div>
+        </div>
+        <div id="usersWrap"></div>
+      </div>
+
+      <div class="panel detail-panel">
+        <div class="title-row" style="margin-bottom: 12px;">
+          <div>
+            <div class="section-title">User Detail</div>
+            <div id="detailMeta" class="section-copy">Pick a user from the table or a triage card.</div>
+          </div>
+          <button id="refreshDetailBtn" class="secondary hidden" type="button">Refresh Detail</button>
+        </div>
+        <div id="detailWrap" class="empty">No user selected yet.</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      token: "",
+      me: null,
+      overview: null,
+      users: [],
+      pagination: { total: 0, limit: 50, offset: 0, hasMore: false },
+      filters: { q: "", status: "", push: "", sort: "recent_activity" },
+      selectedUserId: null,
+      selectedUserDetail: null,
+    };
+
+    const metricsEl = document.getElementById("metrics");
+    const triageEl = document.getElementById("triage");
+    const usersWrapEl = document.getElementById("usersWrap");
+    const detailWrapEl = document.getElementById("detailWrap");
+    const authChipEl = document.getElementById("authChip");
+    const authPanelEl = document.getElementById("authPanel");
+    const authErrorEl = document.getElementById("authError");
+    const detailMetaEl = document.getElementById("detailMeta");
+    const userTableMetaEl = document.getElementById("userTableMeta");
+    const refreshDetailBtn = document.getElementById("refreshDetailBtn");
+
+    const searchInput = document.getElementById("searchInput");
+    const statusSelect = document.getElementById("statusSelect");
+    const pushSelect = document.getElementById("pushSelect");
+    const sortSelect = document.getElementById("sortSelect");
+    const manualTokenInput = document.getElementById("manualToken");
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function getStoredToken() {
+      return sessionStorage.getItem("bm_admin_token") || localStorage.getItem("bm_token") || "";
+    }
+
+    function setManualToken(token) {
+      if (token) {
+        sessionStorage.setItem("bm_admin_token", token.trim());
+      } else {
+        sessionStorage.removeItem("bm_admin_token");
+      }
+    }
+
+    async function api(path) {
+      const response = await fetch(path, {
+        headers: {
+          Authorization: `Bearer ${state.token}`,
+        },
+        cache: "no-store",
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = data.error || `Request failed with ${response.status}`;
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(value || 0));
+    }
+
+    function formatCompactNumber(value) {
+      return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value || 0));
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return escapeHtml(value);
+      return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    }
+
+    function formatDateOnly(value) {
+      if (!value) return "—";
+      const date = new Date(`${value}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) return escapeHtml(value);
+      return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(date);
+    }
+
+    function badge(text, tone = "") {
+      return `<span class="tag ${tone}">${escapeHtml(text)}</span>`;
+    }
+
+    function summarizeSupportFlags(flags) {
+      if (!flags || flags.length === 0) return badge("stable", "ok");
+      return flags.slice(0, 3).map((flag) => {
+        if (flag === "never_started") return badge("never started", "warn");
+        if (flag === "onboarding_risk") return badge("onboarding risk", "bad");
+        if (flag === "push_opportunity") return badge("push opportunity", "warn");
+        if (flag === "streak_watch") return badge("streak watch", "warn");
+        if (flag === "no_email") return badge("no email", "warn");
+        return badge(flag, "warn");
+      }).join("");
+    }
+
+    function authModeLabel(mode) {
+      if (mode === "google") return "Google";
+      if (mode === "password") return "Password";
+      if (mode === "hybrid") return "Hybrid";
+      return mode || "Unknown";
+    }
+
+    function activityLabel(user) {
+      if (user.daysSinceActive === null) return "No activity yet";
+      if (user.daysSinceActive === 0) return "Active today";
+      if (user.daysSinceActive === 1) return "Active yesterday";
+      return `${user.daysSinceActive} days ago`;
+    }
+
+    function renderMetrics() {
+      const metrics = state.overview?.metrics || {};
+      const cards = [
+        ["Total Users", metrics.total_users, "Everyone in the system"],
+        ["Active Today", metrics.active_today, "Last active date is today"],
+        ["Active 7D", metrics.active_7d, "Touched BeastMode in the last week"],
+        ["New 7D", metrics.new_users_7d, "Fresh signups in the last week"],
+        ["Never Started", metrics.never_started, "Signed up but no completed session yet"],
+        ["Push Linked", metrics.push_linked_users, "At least one device subscription"],
+        ["Dormant 30D", metrics.dormant_30d, "No activity in 30 days"],
+        ["Teams", metrics.team_count, "Distinct configured team names"],
+      ];
+
+      metricsEl.innerHTML = cards.map(([label, value, help]) => `
+        <div class="metric">
+          <div class="metric-label">${escapeHtml(label)}</div>
+          <div class="metric-value">${formatCompactNumber(value || 0)}</div>
+          <div class="muted">${escapeHtml(help)}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderMiniUser(user) {
+      return `
+        <div class="mini-user">
+          <div class="user-line">
+            <div class="user-name">${escapeHtml(user.username)}</div>
+            ${badge(activityLabel(user), user.daysSinceActive === 0 ? "ok" : user.daysSinceActive !== null && user.daysSinceActive > 6 ? "warn" : "")}
+          </div>
+          <div class="user-subtle">${escapeHtml(user.email || "No email")} • ${escapeHtml(authModeLabel(user.authMode))}</div>
+          <div class="pill-row">
+            ${badge(`${formatNumber(user.totalPoints)} pts`)}
+            ${badge(`streak ${formatNumber(user.streak)}`)}
+            ${badge(user.subscriptionCount > 0 ? `${user.subscriptionCount} device${user.subscriptionCount === 1 ? "" : "s"}` : "no device", user.subscriptionCount > 0 ? "ok" : "warn")}
+          </div>
+          <div class="pill-row">${summarizeSupportFlags(user.supportFlags)}</div>
+          <div class="pill-row">
+            <button type="button" data-user-id="${user.id}">Open Detail</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTriage() {
+      const cohorts = state.overview?.cohorts || {};
+      const sections = [
+        ["Newest users", "Fresh signups so you can spot whether acquisition is waking up or stalling.", cohorts.newestUsers || []],
+        ["Onboarding risk", "People who signed up more than two days ago and still have zero completed sessions.", cohorts.onboardingRiskUsers || []],
+        ["Push opportunity", "Recently active users with no linked push device. Good targets for activation nudges.", cohorts.pushOpportunityUsers || []],
+        ["Streak watch", "High-streak users who have not checked in today and may need a save.", cohorts.streakWatchUsers || []],
+      ];
+
+      triageEl.innerHTML = sections.map(([title, copy, users]) => `
+        <div class="panel triage-card">
+          <h2>${escapeHtml(title)}</h2>
+          <p class="section-copy">${escapeHtml(copy)}</p>
+          <div class="triage-list">
+            ${users.length > 0 ? users.map(renderMiniUser).join("") : '<div class="empty">Nothing urgent in this lane right now.</div>'}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderUsers() {
+      const users = state.users || [];
+      userTableMetaEl.textContent = `${formatNumber(state.pagination.total)} users • showing ${formatNumber(users.length)} • offset ${formatNumber(state.pagination.offset)}`;
+
+      if (users.length === 0) {
+        usersWrapEl.innerHTML = '<div class="empty">No users matched the current filters.</div>';
+        return;
+      }
+
+      usersWrapEl.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Status</th>
+              <th>Points / Streak</th>
+              <th>Push</th>
+              <th>Flags</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map((user) => `
+              <tr class="clickable" data-user-id="${user.id}">
+                <td>
+                  <div class="stack">
+                    <div><strong>${escapeHtml(user.username)}</strong></div>
+                    <div class="muted">${escapeHtml(user.email || "No email")} • ${escapeHtml(authModeLabel(user.authMode))}</div>
+                    <div class="muted">Joined ${formatDate(user.createdAt)}</div>
+                  </div>
+                </td>
+                <td>
+                  <div class="stack">
+                    <div>${badge(activityLabel(user), user.daysSinceActive === 0 ? "ok" : user.daysSinceActive !== null && user.daysSinceActive > 6 ? "warn" : "")}</div>
+                    <div class="muted">${escapeHtml(user.teamName || "No team")} • ${escapeHtml(user.timezone || "UTC")}</div>
+                  </div>
+                </td>
+                <td>
+                  <div class="stack">
+                    <div><strong>${formatNumber(user.totalPoints)}</strong> total</div>
+                    <div class="muted">${formatNumber(user.streak)} streak • ${formatNumber(user.totalSessions)} sessions</div>
+                  </div>
+                </td>
+                <td>
+                  <div class="stack">
+                    <div>${user.subscriptionCount > 0 ? badge(`${user.subscriptionCount} device`, "ok") : badge("No device", "warn")}</div>
+                    <div class="muted">${user.pushEnabled ? "push enabled" : "push disabled"}</div>
+                  </div>
+                </td>
+                <td><div class="pill-row">${summarizeSupportFlags(user.supportFlags)}</div></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderDetail() {
+      const detail = state.selectedUserDetail;
+      if (!detail) {
+        refreshDetailBtn.classList.add("hidden");
+        detailWrapEl.className = "empty";
+        detailWrapEl.innerHTML = "No user selected yet.";
+        detailMetaEl.textContent = "Pick a user from the table or a triage card.";
+        return;
+      }
+
+      const user = detail.user;
+      refreshDetailBtn.classList.remove("hidden");
+      detailMetaEl.textContent = `${user.username} • ${user.email || "No email"} • ${authModeLabel(user.authMode)}`;
+      detailWrapEl.className = "";
+      detailWrapEl.innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-card"><div class="label">Total Points</div><div class="value">${formatNumber(user.totalPoints)}</div><div class="muted">${formatNumber(user.todayPoints)} today</div></div>
+          <div class="detail-card"><div class="label">Streak</div><div class="value">${formatNumber(user.streak)}</div><div class="muted">max ${formatNumber(user.maxStreak)} • freezes ${formatNumber(user.streakFreezes)}</div></div>
+          <div class="detail-card"><div class="label">Sessions</div><div class="value">${formatNumber(user.totalSessions)}</div><div class="muted">${formatNumber(user.extraSessions)} extra • ${formatNumber(user.uniqueExercisesCount)} unique moves</div></div>
+          <div class="detail-card"><div class="label">Last Active</div><div class="value">${escapeHtml(activityLabel(user))}</div><div class="muted">qualified ${user.lastQualifiedDate ? formatDateOnly(user.lastQualifiedDate) : "never"}</div></div>
+          <div class="detail-card"><div class="label">Push</div><div class="value">${user.subscriptionCount > 0 ? `${formatNumber(user.subscriptionCount)} device` : "No device"}</div><div class="muted">${user.pushEnabled ? "enabled" : "disabled"} • last sent ${user.pushLastSentAt ? formatDate(user.pushLastSentAt) : "never"}</div></div>
+          <div class="detail-card"><div class="label">Setup</div><div class="value">${escapeHtml(`${user.intervalMinutes || "?"}m / ${user.timezone || "UTC"}`)}</div><div class="muted">${user.startHour ?? "?"}:00-${user.endHour ?? "?"}:00 • ${escapeHtml(user.teamName || "solo")}</div></div>
+        </div>
+
+        <div class="pill-row">${summarizeSupportFlags(user.supportFlags)}</div>
+
+        <div class="detail-section">
+          <div class="section-title">Recent Activity</div>
+          ${detail.recentWorkouts.length > 0 ? `
+            <table>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Session</th>
+                  <th>Type</th>
+                  <th>Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detail.recentWorkouts.map((item) => `
+                  <tr>
+                    <td>${formatDate(item.createdAt)}</td>
+                    <td>${escapeHtml(`${item.exerciseEmoji || ""} ${item.exerciseName || item.exerciseId}`)}</td>
+                    <td>${escapeHtml(`${item.type} • ${item.durationMinutes}m${item.wasCompleted ? "" : " partial"}`)}</td>
+                    <td>${formatNumber(item.points)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          ` : '<div class="empty">No workout history yet.</div>'}
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title">Daily Log</div>
+          ${detail.dailyLog.length > 0 ? `
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Points</th>
+                  <th>Credits</th>
+                  <th>Meditation</th>
+                  <th>Qualified</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detail.dailyLog.map((day) => `
+                  <tr>
+                    <td>${formatDateOnly(day.date)}</td>
+                    <td>${formatNumber(day.points)}</td>
+                    <td>${escapeHtml(`${day.sessionsFinished} done • ${day.sessionCredits} credits`)}</td>
+                    <td>${escapeHtml(`${day.meditationsFinished} total • ${day.qualifyingMeditations} qualifying`)}</td>
+                    <td>${day.qualified ? badge("yes", "ok") : badge("no", "warn")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          ` : '<div class="empty">No daily log yet.</div>'}
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title">Awards & Mission Claims</div>
+          <div class="detail-grid">
+            <div class="detail-card">
+              <div class="label">Awards</div>
+              <div class="value">${formatNumber(detail.awards.length)}</div>
+              <div class="muted">${detail.awards.slice(0, 5).map((item) => item.awardId).join(", ") || "No awards yet"}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Mission Claims</div>
+              <div class="value">${formatNumber(detail.missionClaims.length)}</div>
+              <div class="muted">${detail.missionClaims[0] ? `${detail.missionClaims[0].missionId} on ${formatDateOnly(detail.missionClaims[0].date)}` : "No claims yet"}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadMe() {
+      state.me = await api("/api/admin/me");
+      authChipEl.innerHTML = `Admin live • ${escapeHtml(state.me.admin?.username || state.me.admin?.access || "access")}`;
+      authChipEl.className = "auth-chip";
+      authPanelEl.classList.remove("visible");
+      authErrorEl.classList.add("hidden");
+    }
+
+    async function loadOverview() {
+      state.overview = await api("/api/admin/overview");
+      renderMetrics();
+      renderTriage();
+    }
+
+    function buildUserQueryString() {
+      const params = new URLSearchParams();
+      params.set("limit", state.pagination.limit);
+      params.set("offset", state.pagination.offset);
+      params.set("sort", state.filters.sort);
+      if (state.filters.q) params.set("q", state.filters.q);
+      if (state.filters.status) params.set("status", state.filters.status);
+      if (state.filters.push) params.set("push", state.filters.push);
+      return params.toString();
+    }
+
+    async function loadUsers() {
+      const data = await api(`/api/admin/users?${buildUserQueryString()}`);
+      state.users = data.users || [];
+      state.pagination = data.pagination || state.pagination;
+      renderUsers();
+      document.getElementById("prevPageBtn").disabled = state.pagination.offset <= 0;
+      document.getElementById("nextPageBtn").disabled = !state.pagination.hasMore;
+    }
+
+    async function loadUserDetail(userId) {
+      state.selectedUserId = userId;
+      detailMetaEl.textContent = "Loading user detail…";
+      detailWrapEl.className = "empty";
+      detailWrapEl.innerHTML = "Loading user detail…";
+      state.selectedUserDetail = await api(`/api/admin/users/${userId}`);
+      renderDetail();
+    }
+
+    function applyFilters(resetOffset = true) {
+      state.filters.q = searchInput.value.trim();
+      state.filters.status = statusSelect.value;
+      state.filters.push = pushSelect.value;
+      state.filters.sort = sortSelect.value || "recent_activity";
+      if (resetOffset) state.pagination.offset = 0;
+      return loadUsers();
+    }
+
+    async function bootstrap() {
+      state.token = getStoredToken();
+      manualTokenInput.value = sessionStorage.getItem("bm_admin_token") || "";
+
+      if (!state.token) {
+        authChipEl.textContent = "No admin token found yet";
+        authPanelEl.classList.add("visible");
+        renderMetrics();
+        renderTriage();
+        renderUsers();
+        renderDetail();
+        return;
+      }
+
+      try {
+        await loadMe();
+        await Promise.all([loadOverview(), loadUsers()]);
+        if (state.selectedUserId) {
+          await loadUserDetail(state.selectedUserId);
+        }
+      } catch (error) {
+        console.error(error);
+        authChipEl.textContent = `Admin access blocked: ${error.message}`;
+        authPanelEl.classList.add("visible");
+        authErrorEl.textContent = error.message;
+        authErrorEl.classList.remove("hidden");
+      }
+    }
+
+    document.getElementById("applyFiltersBtn").addEventListener("click", () => {
+      applyFilters(true).catch((error) => {
+        console.error(error);
+        userTableMetaEl.textContent = error.message;
+      });
+    });
+
+    document.getElementById("resetFiltersBtn").addEventListener("click", () => {
+      searchInput.value = "";
+      statusSelect.value = "";
+      pushSelect.value = "";
+      sortSelect.value = "recent_activity";
+      applyFilters(true).catch((error) => {
+        console.error(error);
+        userTableMetaEl.textContent = error.message;
+      });
+    });
+
+    document.getElementById("refreshAllBtn").addEventListener("click", () => {
+      bootstrap();
+    });
+
+    document.getElementById("prevPageBtn").addEventListener("click", () => {
+      state.pagination.offset = Math.max(0, state.pagination.offset - state.pagination.limit);
+      loadUsers().catch((error) => {
+        console.error(error);
+        userTableMetaEl.textContent = error.message;
+      });
+    });
+
+    document.getElementById("nextPageBtn").addEventListener("click", () => {
+      if (!state.pagination.hasMore) return;
+      state.pagination.offset += state.pagination.limit;
+      loadUsers().catch((error) => {
+        console.error(error);
+        userTableMetaEl.textContent = error.message;
+      });
+    });
+
+    refreshDetailBtn.addEventListener("click", () => {
+      if (!state.selectedUserId) return;
+      loadUserDetail(state.selectedUserId).catch((error) => {
+        console.error(error);
+        detailMetaEl.textContent = error.message;
+      });
+    });
+
+    document.getElementById("saveTokenBtn").addEventListener("click", () => {
+      const token = manualTokenInput.value.trim();
+      setManualToken(token);
+      state.token = getStoredToken();
+      bootstrap();
+    });
+
+    document.getElementById("clearTokenBtn").addEventListener("click", () => {
+      setManualToken("");
+      manualTokenInput.value = "";
+      state.token = getStoredToken();
+      bootstrap();
+    });
+
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-user-id]");
+      if (!button) return;
+      const userId = Number(button.getAttribute("data-user-id"));
+      if (!Number.isFinite(userId)) return;
+      loadUserDetail(userId).catch((error) => {
+        console.error(error);
+        detailMetaEl.textContent = error.message;
+      });
+    });
+
+    bootstrap();
+  </script>
+</body>
+</html>

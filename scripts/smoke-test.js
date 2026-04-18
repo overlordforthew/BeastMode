@@ -61,10 +61,25 @@ async function api(path, { method = "GET", body, token } = {}) {
   return data;
 }
 
-async function registerUser(prefix) {
+async function apiExpectFailure(path, { method = "GET", body, token } = {}, expectedStatus) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  assert.strictEqual(response.status, expectedStatus, `${method} ${path} should fail with ${expectedStatus}`);
+  return data;
+}
+
+async function registerUser(prefix, options = {}) {
   const suffix = uniqueSuffix();
-  const username = `${prefix}${suffix}`;
-  const email = `${username}@example.com`;
+  const username = options.username || `${prefix}${suffix}`;
+  const email = options.email || `${username}@example.com`;
   const password = "beastmode123";
   const auth = await api("/api/auth/register", {
     method: "POST",
@@ -121,7 +136,7 @@ async function main() {
   const yesterdayKey = dateKeyDaysAgo(1);
   const twoDaysAgoKey = dateKeyDaysAgo(2);
 
-  const alpha = await registerUser("alpha");
+  const alpha = await registerUser("alpha", { username: "adminalpha", email: "adminalpha@example.com" });
   const bravo = await registerUser("bravo");
   const charlie = await registerUser("charlie");
   const delta = await registerUser("delta");
@@ -385,6 +400,25 @@ async function main() {
   const pressure = await api("/api/stats/pressure", { token: alpha.token });
   assert(pressure.team, "team pressure should exist when a team is configured");
   assert(pressure.team.todayPoints < 200, "team pressure should ignore stale carried-over today_points");
+
+  // Admin endpoints should expose operator-friendly user visibility without leaking to non-admins.
+  const adminMe = await api("/api/admin/me", { token: alpha.token });
+  assert.strictEqual(adminMe.ok, true, "admin me should succeed for the configured admin");
+  assert.strictEqual(adminMe.admin.username, alpha.username, "admin me should identify the logged-in admin");
+
+  const adminOverview = await api("/api/admin/overview", { token: alpha.token });
+  assert(Number(adminOverview.metrics.total_users) >= 4, "admin overview should report user counts");
+  assert(Array.isArray(adminOverview.cohorts.newestUsers), "admin overview should include cohort lists");
+
+  const adminUsers = await api(`/api/admin/users?q=${encodeURIComponent(bravo.username)}`, { token: alpha.token });
+  assert(adminUsers.users.some((user) => user.username === bravo.username), "admin user search should find matching usernames");
+
+  const adminDetail = await api(`/api/admin/users/${alpha.userId}`, { token: alpha.token });
+  assert.strictEqual(adminDetail.user.username, alpha.username, "admin detail should load the requested user");
+  assert(adminDetail.dailyLog.length >= 1, "admin detail should include daily logs");
+
+  const deniedAdmin = await apiExpectFailure("/api/admin/me", { token: bravo.token }, 403);
+  assert(deniedAdmin.error, "non-admin users should be blocked from admin routes");
 
   // Push registration and scheduler helpers should behave as expected.
   const fakeSubscription = {
