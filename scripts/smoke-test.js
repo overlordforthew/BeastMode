@@ -1,6 +1,15 @@
 const assert = require("assert");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+const webpush = require("web-push");
+const {
+  buildScheduledPushPayload,
+  getPushBucketKey,
+  getPushStatus,
+  removePushSubscription,
+  sendPushPayloadToUser,
+  shouldSendScheduledPush,
+} = require("../lib/push");
 
 const baseUrl = process.env.BASE_URL || "http://127.0.0.1:3000";
 const databaseUrl = process.env.DATABASE_URL;
@@ -112,6 +121,7 @@ async function main() {
       alarmMessage: "Move now",
       buddyUsername: bravo.username,
       teamName: "Desk Ninjas",
+      timezone: "America/New_York",
     },
   });
 
@@ -221,6 +231,95 @@ async function main() {
   const pressure = await api("/api/stats/pressure", { token: alpha.token });
   assert(pressure.team, "team pressure should exist when a team is configured");
   assert(pressure.team.todayPoints < 200, "team pressure should ignore stale carried-over today_points");
+
+  // Push registration and scheduler helpers should behave as expected.
+  const fakeSubscription = {
+    endpoint: `https://push.example.test/sub/${uniqueSuffix()}`,
+    expirationTime: null,
+    keys: {
+      p256dh: "BD6x2W2eVv9rC3vS9d2U8cJ3R3ZnQnZLd2c0d2V4dG4",
+      auth: "dGVzdGF1dGg",
+    },
+  };
+
+  const pushStatusAfterSave = await api("/api/user/push-subscription", {
+    method: "POST",
+    token: alpha.token,
+    body: { subscription: fakeSubscription },
+  });
+  assert.strictEqual(pushStatusAfterSave.subscribed, true, "push subscription route should mark the account as subscribed");
+  assert.strictEqual(pushStatusAfterSave.pushEnabled, true, "push subscription route should enable pushes");
+
+  const pushStatusFromApi = await api("/api/user/push-status", { token: alpha.token });
+  assert.strictEqual(pushStatusFromApi.subscriptionCount, 1, "push status should report one linked device");
+
+  const scheduledRow = {
+    push_enabled: true,
+    subscription_count: 1,
+    interval_minutes: 60,
+    active_days: ["sat"],
+    start_hour: 8,
+    end_hour: 17,
+    timezone: "America/New_York",
+    push_last_sent_at: null,
+    last_session_at: null,
+    alarm_message: "Move now",
+    today_points: 18,
+    sessions_finished: 1,
+    meditations_finished: 0,
+  };
+  const dueAt = new Date("2026-04-18T13:00:00Z");
+  assert.strictEqual(shouldSendScheduledPush(scheduledRow, dueAt), true, "scheduler should respect the user's local timezone");
+  assert.strictEqual(
+    shouldSendScheduledPush({ ...scheduledRow, push_last_sent_at: "2026-04-18T13:10:00Z" }, dueAt),
+    false,
+    "scheduler should suppress duplicate sends inside the same push bucket"
+  );
+  assert.strictEqual(
+    shouldSendScheduledPush({ ...scheduledRow, active_days: ["sun"] }, dueAt),
+    false,
+    "scheduler should respect active day boundaries in the user's timezone"
+  );
+  assert.strictEqual(getPushBucketKey(dueAt, 60, "America/New_York"), "2026-04-18:9", "push bucket keys should be generated in local time");
+
+  const scheduledPayload = buildScheduledPushPayload({ ...scheduledRow, sessions_finished: 0, meditations_finished: 0, today_points: 0 }, dueAt);
+  assert.strictEqual(scheduledPayload.title, "Move now", "scheduled payload should use the user's alarm message");
+  assert(scheduledPayload.body.includes("First reset"), "scheduled payload should reflect the user's current day state");
+
+  const originalSendNotification = webpush.sendNotification;
+  const sentNotifications = [];
+  webpush.sendNotification = async (subscription, payload) => {
+    sentNotifications.push({ subscription, payload: JSON.parse(payload) });
+    return { statusCode: 201 };
+  };
+
+  try {
+    const sendResult = await sendPushPayloadToUser(alpha.userId, {
+      title: "Smoke push",
+      body: "Push pipeline works",
+      tag: "smoke-push",
+      url: "https://beastmode.namibarden.com/",
+    }, pool);
+    assert.strictEqual(sendResult.sent, 1, "sendPushPayloadToUser should send to the saved subscription");
+    assert.strictEqual(sentNotifications.length, 1, "sendPushPayloadToUser should invoke web-push once");
+    assert.strictEqual(sentNotifications[0].payload.title, "Smoke push", "push payload should survive serialization");
+  } finally {
+    webpush.sendNotification = originalSendNotification;
+  }
+
+  const pushStatusAfterSend = await getPushStatus(alpha.userId, pool);
+  assert(pushStatusAfterSend.lastPushSentAt, "sending a push should update the last sent timestamp");
+
+  const pushStatusAfterDelete = await api("/api/user/push-subscription", {
+    method: "DELETE",
+    token: alpha.token,
+    body: { endpoint: fakeSubscription.endpoint },
+  });
+  assert.strictEqual(pushStatusAfterDelete.subscribed, false, "push unsubscribe route should unlink the device");
+  assert.strictEqual(pushStatusAfterDelete.pushEnabled, false, "push unsubscribe route should disable push when no devices remain");
+
+  const finalPushStatus = await removePushSubscription(alpha.userId, null, pool);
+  assert.strictEqual(finalPushStatus.subscriptionCount, 0, "cleanup should leave no push subscriptions behind");
 
   console.log("Smoke test passed");
 }

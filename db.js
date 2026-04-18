@@ -34,6 +34,9 @@ async function initDb() {
   await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS alarm_message TEXT DEFAULT 'Let''s Be Our Best!'`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS buddy_username TEXT`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS team_name TEXT`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC'`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS push_enabled BOOLEAN DEFAULT FALSE`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS push_last_sent_at TIMESTAMPTZ`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS meditations_finished INTEGER DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`ALTER TABLE daily_log ADD COLUMN IF NOT EXISTS meditations_finished INTEGER DEFAULT 0`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`
@@ -57,6 +60,8 @@ async function initDb() {
       UNIQUE(user_id, claim_date)
     )
   `).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS endpoint TEXT`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`
     UPDATE user_settings
     SET
@@ -66,7 +71,9 @@ async function initDb() {
       end_hour = COALESCE(end_hour, 17),
       alarm_message = COALESCE(alarm_message, 'Let''s Be Our Best!'),
       buddy_username = NULLIF(BTRIM(buddy_username), ''),
-      team_name = NULLIF(BTRIM(team_name), '')
+      team_name = NULLIF(BTRIM(team_name), ''),
+      timezone = COALESCE(NULLIF(BTRIM(timezone), ''), 'UTC'),
+      push_enabled = COALESCE(push_enabled, FALSE)
   `).catch(e => console.warn("Migration:", e.message));
   await pool.query(`UPDATE user_progress SET meditations_finished = COALESCE(meditations_finished, 0)`).catch(e => console.warn("Migration:", e.message));
   await pool.query(`UPDATE daily_log SET meditations_finished = COALESCE(meditations_finished, 0)`).catch(e => console.warn("Migration:", e.message));
@@ -106,7 +113,29 @@ async function initDb() {
   } else {
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique ON users (LOWER(email)) WHERE email IS NOT NULL`).catch(e => console.warn("Migration:", e.message));
   }
+  await pool.query(`
+    UPDATE push_subscriptions
+    SET endpoint = subscription::jsonb ->> 'endpoint'
+    WHERE endpoint IS NULL
+      AND subscription LIKE '{%'
+  `).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`
+    DELETE FROM push_subscriptions a
+    USING push_subscriptions b
+    WHERE a.id < b.id
+      AND a.endpoint IS NOT NULL
+      AND a.endpoint = b.endpoint
+  `).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`
+    UPDATE user_settings us
+    SET push_enabled = EXISTS (
+      SELECT 1
+      FROM push_subscriptions ps
+      WHERE ps.user_id = us.user_id
+    )
+  `).catch(e => console.warn("Migration:", e.message));
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_settings_team_name_lower ON user_settings (LOWER(team_name)) WHERE team_name IS NOT NULL`).catch(e => console.warn("Migration:", e.message));
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscription_endpoint ON push_subscriptions(endpoint) WHERE endpoint IS NOT NULL`).catch(e => console.warn("Migration:", e.message));
   console.log("Database schema initialized");
 }
 

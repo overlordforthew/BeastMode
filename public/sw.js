@@ -1,6 +1,6 @@
 // Beast Mode Service Worker
 // Cache version — bump this to force a cache refresh on deploy
-const CACHE_VERSION = 'beastmode-v3';
+const CACHE_VERSION = 'beastmode-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -136,6 +136,29 @@ self.addEventListener('notificationclick', (event) => {
       await self.clients.openWindow(targetUrl);
     }
   })());
+});
+
+self.addEventListener('push', (event) => {
+  const payload = (() => {
+    if (!event.data) return {};
+    try {
+      return event.data.json();
+    } catch {
+      return { body: event.data.text() };
+    }
+  })();
+
+  const title = payload.title || 'BeastMode reset ready';
+  const options = {
+    body: payload.body || 'Two minutes. Keep the streak moving.',
+    tag: payload.tag || 'beastmode-push',
+    renotify: true,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: payload.url || '/' },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // ── Strategy: cache-first ──

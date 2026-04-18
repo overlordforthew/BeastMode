@@ -5,8 +5,9 @@ const cors = require("cors");
 const path = require("path");
 const webpush = require("web-push");
 const rateLimit = require("express-rate-limit");
-const { initDb } = require("./db");
+const { initDb, pool } = require("./db");
 const { isEmailConfigured } = require("./mailer");
+const { isWebPushConfigured, startPushScheduler } = require("./lib/push");
 
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/user");
@@ -42,19 +43,21 @@ function isLoopbackOrigin(origin) {
   }
 }
 
+function isAllowedCorsOrigin(origin) {
+  return allowedOrigins.has(origin) || isLoopbackOrigin(origin);
+}
+
 // Trust reverse proxy (Traefik) for correct client IP in rate limiting
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 // Middleware
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin) || isLoopbackOrigin(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error(`Origin ${origin} not allowed by CORS`));
-  },
-  credentials: true,
+app.use(cors((req, callback) => {
+  const origin = req.header("Origin");
+  callback(null, {
+    origin: !origin || isAllowedCorsOrigin(origin),
+    credentials: true,
+  });
 }));
 app.use(express.json());
 
@@ -64,6 +67,8 @@ app.get("/api/config", (req, res) => {
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
     googleSignInEnabled: Boolean(process.env.GOOGLE_CLIENT_ID),
     passwordResetEnabled: isEmailConfigured() || process.env.ALLOW_DEV_RESET_CODES === "true",
+    webPushEnabled: isWebPushConfigured(),
+    vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
   });
 });
 
@@ -81,7 +86,7 @@ app.get("/sw.js", (req, res) => {
 app.use(express.static(path.join(__dirname, "public")));
 
 // Web Push
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+if (isWebPushConfigured()) {
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT || "mailto:admin@beastmode.app",
     process.env.VAPID_PUBLIC_KEY,
@@ -123,6 +128,7 @@ app.use((err, req, res, next) => {
 // Start
 async function start() {
   await initDb();
+  startPushScheduler(pool);
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Beast Mode server running on port ${PORT}`);
     console.log(`API: http://localhost:${PORT}/api/health`);

@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS user_settings (
   alarm_message TEXT DEFAULT 'Let''s Be Our Best!',
   buddy_username TEXT,
   team_name TEXT,
+  timezone TEXT DEFAULT 'UTC',
+  push_enabled BOOLEAN DEFAULT FALSE,
+  push_last_sent_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -106,10 +109,13 @@ CREATE TABLE IF NOT EXISTS daily_mission_claims (
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
+  endpoint TEXT,
   subscription TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_workout_user ON workout_history(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_daily_user ON daily_log(user_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_awards_user ON user_awards(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscription_endpoint ON push_subscriptions(endpoint) WHERE endpoint IS NOT NULL;

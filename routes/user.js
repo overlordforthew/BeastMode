@@ -2,6 +2,13 @@ const express = require("express");
 const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
 const { syncUserProgressDay } = require("../lib/progress");
+const {
+  getPushStatus,
+  isWebPushConfigured,
+  removePushSubscription,
+  savePushSubscription,
+  sendPushPayloadToUser,
+} = require("../lib/push");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -59,6 +66,22 @@ function sanitizeTeamName(value) {
   return cleaned.slice(0, 40);
 }
 
+function sanitizeTimezone(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return "UTC";
+  if (typeof value !== "string") return "UTC";
+
+  const cleaned = value.trim();
+  if (!cleaned) return "UTC";
+
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: cleaned }).format(new Date());
+    return cleaned;
+  } catch {
+    return "UTC";
+  }
+}
+
 // GET /api/user/profile
 router.get("/profile", async (req, res) => {
   try {
@@ -95,6 +118,9 @@ router.get("/profile", async (req, res) => {
         alarmMessage: settings.alarm_message,
         buddyUsername: settings.buddy_username,
         teamName: settings.team_name,
+        timezone: settings.timezone || "UTC",
+        pushEnabled: settings.push_enabled,
+        pushLastSentAt: settings.push_last_sent_at,
       },
       progress: {
         totalPoints: progress.total_points,
@@ -130,6 +156,7 @@ router.put("/settings", async (req, res) => {
       alarmMessage,
       buddyUsername,
       teamName,
+      timezone,
     } = req.body;
 
     const safeDuration = duration === undefined ? null : String(duration === "random" ? "random" : normalizeDuration(duration));
@@ -145,6 +172,7 @@ router.put("/settings", async (req, res) => {
         : null;
     const safeBuddyUsername = sanitizeUsernameReference(buddyUsername);
     const safeTeamName = sanitizeTeamName(teamName);
+    const safeTimezone = sanitizeTimezone(timezone);
 
     if (safeInterval !== null && (!Number.isInteger(safeInterval) || safeInterval <= 0 || safeInterval > 720)) {
       return res.status(400).json({ error: "Interval must be a whole number between 1 and 720 minutes" });
@@ -161,8 +189,9 @@ router.put("/settings", async (req, res) => {
         alarm_message = COALESCE($7, alarm_message),
         buddy_username = $8,
         team_name = $9,
+        timezone = COALESCE($10, timezone),
         updated_at = NOW()
-      WHERE user_id = $10
+      WHERE user_id = $11
     `, [
       safeDuration,
       safeInterval,
@@ -173,6 +202,7 @@ router.put("/settings", async (req, res) => {
       safeAlarmMessage,
       safeBuddyUsername ?? null,
       safeTeamName ?? null,
+      safeTimezone,
       req.userId,
     ]);
 
@@ -180,6 +210,71 @@ router.put("/settings", async (req, res) => {
   } catch (err) {
     console.error("Settings update error:", err);
     res.status(500).json({ error: "Failed to update settings" });
+  }
+});
+
+// GET /api/user/push-status
+router.get("/push-status", async (req, res) => {
+  try {
+    const status = await getPushStatus(req.userId, pool);
+    res.json(status);
+  } catch (err) {
+    console.error("Push status error:", err);
+    res.status(500).json({ error: "Failed to load push status" });
+  }
+});
+
+// POST /api/user/push-subscription
+router.post("/push-subscription", async (req, res) => {
+  try {
+    if (!isWebPushConfigured()) {
+      return res.status(503).json({ error: "Web push is not configured" });
+    }
+
+    const { subscription } = req.body || {};
+    const status = await savePushSubscription(req.userId, subscription, pool);
+    res.json(status);
+  } catch (err) {
+    console.error("Push subscription error:", err);
+    res.status(400).json({ error: err.message || "Failed to save push subscription" });
+  }
+});
+
+// DELETE /api/user/push-subscription
+router.delete("/push-subscription", async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    const status = await removePushSubscription(req.userId, endpoint || null, pool);
+    res.json(status);
+  } catch (err) {
+    console.error("Push unsubscribe error:", err);
+    res.status(500).json({ error: "Failed to remove push subscription" });
+  }
+});
+
+// POST /api/user/push-test
+router.post("/push-test", async (req, res) => {
+  try {
+    if (!isWebPushConfigured()) {
+      return res.status(503).json({ error: "Web push is not configured" });
+    }
+
+    const result = await sendPushPayloadToUser(req.userId, {
+      title: "BeastMode test nudge",
+      body: "Push is live on this device. Your next reset can now reach you even when the app is closed.",
+      tag: "beastmode-test",
+      url: "https://beastmode.namibarden.com/",
+    }, pool);
+
+    if (result.sent === 0) {
+      return res.status(409).json({ error: "No active push subscription found for this account" });
+    }
+
+    const status = await getPushStatus(req.userId, pool);
+    res.json({ ...status, sent: result.sent });
+  } catch (err) {
+    console.error("Push test error:", err);
+    res.status(500).json({ error: "Failed to send test push" });
   }
 });
 
