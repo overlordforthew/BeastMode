@@ -139,6 +139,8 @@ async function main() {
   const health = await api("/api/health");
   assert.strictEqual(health.status, "ok", "health endpoint should report ok");
   assert.strictEqual(health.database, "ok", "health endpoint should verify database availability");
+  const versionedHealth = await api("/api/v1/health");
+  assert.strictEqual(versionedHealth.status, "ok", "versioned health endpoint should report ok");
 
   const alpha = await registerUser("alpha", { username: "adminalpha", email: "adminalpha@example.com" });
   const bravo = await registerUser("bravo");

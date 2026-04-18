@@ -304,7 +304,7 @@ export const TRANSLATIONS = {
     testNudgeSent: "テスト通知を送信",
     lastNudge: "最終通知",
     installApp: "アプリをインストール",
-    installReady: "アプリアインストール済み",
+    installReady: "アプリはインストール済み",
   },
 };
 

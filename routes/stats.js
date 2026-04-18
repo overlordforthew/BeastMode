@@ -1,14 +1,16 @@
 const express = require("express");
 const { pool } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
-const { MIN_DAILY_SESSIONS, MIN_DAILY_SESSION_CREDITS, isQualifiedDay, syncUserProgressDay } = require("../lib/progress");
+const { MIN_DAILY_SESSIONS, isQualifiedDay, ensureUserProgressDaySynced } = require("../lib/progress");
 
 const router = express.Router();
 router.use(authMiddleware);
+const LEADERBOARD_CACHE_TTL_MS = Number(process.env.LEADERBOARD_CACHE_TTL_MS || 60 * 1000);
+let leaderboardCache = { expiresAt: 0, rows: [] };
 
 router.use(async (req, res, next) => {
   try {
-    await syncUserProgressDay(req.userId, pool);
+    await ensureUserProgressDaySynced(req.userId, pool);
     next();
   } catch (err) {
     console.error("Progress sync error:", err);
@@ -311,6 +313,27 @@ async function getPressureSummary(userId, db = pool, dateKey = getTodayDateKey()
   };
 }
 
+async function getCachedLeaderboardRows() {
+  const now = Date.now();
+  if (leaderboardCache.expiresAt > now) {
+    return leaderboardCache.rows;
+  }
+
+  const boardR = await pool.query(`
+    SELECT u.username, p.total_points, p.streak
+    FROM user_progress p
+    JOIN users u ON u.id = p.user_id
+    ORDER BY p.total_points DESC
+    LIMIT 50
+  `);
+
+  leaderboardCache = {
+    expiresAt: now + LEADERBOARD_CACHE_TTL_MS,
+    rows: boardR.rows,
+  };
+  return leaderboardCache.rows;
+}
+
 // GET /api/stats
 router.get("/", async (req, res) => {
   try {
@@ -457,13 +480,7 @@ router.get("/pressure", async (req, res) => {
 // GET /api/stats/leaderboard
 router.get("/leaderboard", async (req, res) => {
   try {
-    const boardR = await pool.query(`
-      SELECT u.username, p.total_points, p.streak
-      FROM user_progress p
-      JOIN users u ON u.id = p.user_id
-      ORDER BY p.total_points DESC
-      LIMIT 50
-    `);
+    const leaderboard = await getCachedLeaderboardRows();
 
     const rankR = await pool.query(`
       SELECT rank FROM (
@@ -474,7 +491,7 @@ router.get("/leaderboard", async (req, res) => {
     `, [req.userId]);
 
     res.json({
-      leaderboard: boardR.rows,
+      leaderboard,
       userRank: rankR.rows[0]?.rank ? Number(rankR.rows[0].rank) : null,
     });
   } catch (err) {

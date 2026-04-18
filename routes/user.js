@@ -3,7 +3,7 @@ const { z } = require("zod");
 const { pool } = require("../db");
 const { validateBody } = require("../lib/validation");
 const { authMiddleware } = require("../middleware/auth");
-const { syncUserProgressDay } = require("../lib/progress");
+const { ensureUserProgressDaySynced } = require("../lib/progress");
 const {
   getPushStatus,
   isWebPushConfigured,
@@ -128,7 +128,7 @@ const deleteAccountSchema = z.object({
 // GET /api/user/profile
 router.get("/profile", async (req, res) => {
   try {
-    await syncUserProgressDay(req.userId, pool);
+    await ensureUserProgressDaySynced(req.userId, pool);
     const [userR, settingsR, progressR, awardsR] = await Promise.all([
       pool.query("SELECT id, username, language, created_at FROM users WHERE id = $1", [req.userId]),
       pool.query("SELECT * FROM user_settings WHERE user_id = $1", [req.userId]),

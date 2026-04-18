@@ -9,7 +9,7 @@ const {
   isQualifiedDay,
   applyQualifiedDay,
   applyMissedDay,
-  syncUserProgressDay,
+  ensureUserProgressDaySynced,
 } = require("../lib/progress");
 const {
   getWorkoutExercise,
@@ -30,7 +30,7 @@ router.use(authMiddleware);
 
 async function syncProgressIfNeeded(req, res, next) {
   try {
-    await syncUserProgressDay(req.userId, pool);
+    await ensureUserProgressDaySynced(req.userId, pool);
     next();
   } catch (err) {
     console.error("Progress sync error:", err);

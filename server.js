@@ -66,7 +66,7 @@ app.use(cors((req, callback) => {
 }));
 app.use(express.json({ limit: "250kb" }));
 
-app.get("/api/config", (req, res) => {
+function sendPublicConfig(req, res) {
   res.set("Cache-Control", "no-store");
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
@@ -75,7 +75,9 @@ app.get("/api/config", (req, res) => {
     webPushEnabled: isWebPushConfigured(),
     vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
   });
-});
+}
+
+app.get(["/api/config", "/api/v1/config"], sendPublicConfig);
 
 // Service Worker — must be served from root with correct headers
 app.get("/sw.js", (req, res) => {
@@ -127,18 +129,18 @@ if (isWebPushConfigured()) {
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
-  console.log("Web Push configured");
+  logger.info("Web Push configured");
 }
 
 // Rate limit auth endpoints
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true, legacyHeaders: false, message: { error: "Too many requests, try again later" } });
-app.use("/api/auth", authLimiter, authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/workout", workoutRoutes);
-app.use("/api/stats", statsRoutes);
+app.use(["/api/auth", "/api/v1/auth"], authLimiter, authRoutes);
+app.use(["/api/admin", "/api/v1/admin"], adminRoutes);
+app.use(["/api/user", "/api/v1/user"], userRoutes);
+app.use(["/api/workout", "/api/v1/workout"], workoutRoutes);
+app.use(["/api/stats", "/api/v1/stats"], statsRoutes);
 
-app.get("/api/health", async (req, res) => {
+async function sendHealth(req, res) {
   try {
     await pool.query("SELECT 1");
     res.set("Cache-Control", "no-store");
@@ -147,10 +149,12 @@ app.get("/api/health", async (req, res) => {
     req.log?.error({ err: error }, "Health check failed");
     res.status(503).json({ status: "error", database: "down" });
   }
-});
+}
+
+app.get(["/api/health", "/api/v1/health"], sendHealth);
 
 // Unknown API routes — return 404 instead of hanging
-app.all("/api/*", (req, res) => {
+app.all(["/api/*", "/api/v1/*"], (req, res) => {
   res.status(404).json({ error: "Not found" });
 });
 

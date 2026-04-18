@@ -2,7 +2,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { logAdminAction, mapAdminActionRow } = require("../lib/admin-audit");
 const { storePasswordResetCode } = require("../lib/password-reset");
-const { syncUserProgressDay } = require("../lib/progress");
+const { ensureUserProgressDaySynced } = require("../lib/progress");
 const { getPushStatus, sendPushPayloadToUser } = require("../lib/push");
 const { isEmailConfigured, sendPasswordResetCode } = require("../mailer");
 const { adminMiddleware } = require("../middleware/admin");
@@ -556,7 +556,7 @@ router.get("/users/:userId", async (req, res) => {
       return res.status(400).json({ error: "Invalid user id" });
     }
 
-    await syncUserProgressDay(userId, pool);
+    await ensureUserProgressDaySynced(userId, pool);
 
     const [summaryR, recentWorkoutsR, dailyLogR, awardsR, missionClaimsR, recentAdminActionsR] = await Promise.all([
       pool.query(
