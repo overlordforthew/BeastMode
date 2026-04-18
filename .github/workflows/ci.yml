@@ -27,6 +27,7 @@ jobs:
 
     env:
       ADMIN_API_KEY: ci-admin-key
+      ADMIN_USERNAMES: adminalpha
       ALLOW_DEV_RESET_CODES: "true"
       DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/beastmode_test
       JWT_SECRET: ci-jwt-secret
