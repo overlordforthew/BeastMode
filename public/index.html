@@ -32,8 +32,28 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.5/babel.min.js"></script>
+<script src="/scoring.js"></script>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, createContext, useContext } = React;
+const {
+  WORKOUT_EXERCISES,
+  DURATION_MULTIPLIERS,
+  DURATION_OPTIONS,
+  MEDITATION_TYPES: SHARED_MEDITATION_TYPES,
+  MEDITATION_DURATIONS,
+  EVOLUTION_TIERS,
+  calcWorkoutPointsFromBase,
+  calcWorkoutPartialPointsFromBase,
+  calcMeditationPoints,
+  calcMeditationPartialPoints,
+  getMeditationSessionMultiplier,
+  roundPoints,
+  getStreakMultiplier,
+  estimateAwardedPoints,
+  getEvolution,
+  getNextEvolution,
+  getEvolutionProgress,
+} = window.BeastModeScoring;
 
 //     DEMO MODE (add ?demo=true to URL)           
 const DEMO_MODE = new URLSearchParams(window.location.search).has('demo');
@@ -211,7 +231,7 @@ const TRANSLATIONS = {
     medDuration: "DURATION", medSession: "Session", medSessionsToday: "meditation", medSessionsTodayPlural: "meditations",
     medStreakQualified: "\u2713 Streak qualified!", medMinPoints: "Minimum 3min to earn points",
     medPartialSession: "Partial session \u2014 proportional points", medFullSession: "\ud83c\udf89 Full session complete!",
-    medSessionBonus: "session bonus", namaste: "NAMASTE", wellDone: "WELL DONE",
+    medSessionBonus: "session factor", namaste: "NAMASTE", wellDone: "WELL DONE",
     medNextBonus: "Next session", breatheIn: "Breathe in...", breatheHold: "Hold...", breatheOut: "Breathe out...",
     endSession: "\u23f9 END SESSION", medToday: "Today", medCompleted: "completed",
     workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f MEDITATION", workoutsOrMed: "workouts or 1 meditation",
@@ -313,7 +333,7 @@ const TRANSLATIONS = {
     medDuration: "DURACI\u00d3N", medSession: "Sesi\u00f3n", medSessionsToday: "meditaci\u00f3n", medSessionsTodayPlural: "meditaciones",
     medStreakQualified: "\u2713 \u00a1Racha calificada!", medMinPoints: "M\u00ednimo 3min para ganar puntos",
     medPartialSession: "Sesi\u00f3n parcial \u2014 puntos proporcionales", medFullSession: "\ud83c\udf89 \u00a1Sesi\u00f3n completa!",
-    medSessionBonus: "bonificaci\u00f3n de sesi\u00f3n", namaste: "NAMASTE", wellDone: "\u00a1BIEN HECHO!",
+    medSessionBonus: "factor de sesi\u00f3n", namaste: "NAMASTE", wellDone: "\u00a1BIEN HECHO!",
     medNextBonus: "Pr\u00f3xima sesi\u00f3n", breatheIn: "Inhala...", breatheHold: "Mant\u00e9n...", breatheOut: "Exhala...",
     endSession: "\u23f9 TERMINAR SESI\u00d3N", medToday: "Hoy", medCompleted: "completado",
     workoutMode: "\ud83d\udcaa EJERCICIO", meditationMode: "\u262e\ufe0f MEDITACI\u00d3N", workoutsOrMed: "ejercicios o 1 meditaci\u00f3n",
@@ -415,7 +435,7 @@ const TRANSLATIONS = {
     medDuration: "\u6642\u9593", medSession: "\u30bb\u30c3\u30b7\u30e7\u30f3", medSessionsToday: "\u77a5\u60f3", medSessionsTodayPlural: "\u77a5\u60f3",
     medStreakQualified: "\u2713 \u30b9\u30c8\u30ea\u30fc\u30af\u9054\u6210!", medMinPoints: "3\u5206\u4ee5\u4e0a\u3067\u30dd\u30a4\u30f3\u30c8\u7372\u5f97",
     medPartialSession: "\u90e8\u5206\u30bb\u30c3\u30b7\u30e7\u30f3", medFullSession: "\ud83c\udf89 \u77a5\u60f3\u5b8c\u4e86!",
-    medSessionBonus: "\u30dc\u30fc\u30ca\u30b9", namaste: "\u30ca\u30de\u30b9\u30c6", wellDone: "\u3088\u304f\u3067\u304d\u307e\u3057\u305f\uff01",
+    medSessionBonus: "\u30bb\u30c3\u30b7\u30e7\u30f3\u4fc2\u6570", namaste: "\u30ca\u30de\u30b9\u30c6", wellDone: "\u3088\u304f\u3067\u304d\u307e\u3057\u305f\uff01",
     medNextBonus: "\u6b21\u306e\u30bb\u30c3\u30b7\u30e7\u30f3", breatheIn: "\u5438\u3063\u3066...", breatheHold: "\u6b62\u3081\u3066...", breatheOut: "\u5410\u3044\u3066...",
     endSession: "\u23f9 \u7d42\u4e86", medToday: "\u4eca\u65e5", medCompleted: "\u5b8c\u4e86",
     workoutMode: "\ud83d\udcaa \u30ef\u30fc\u30af\u30a2\u30a6\u30c8", meditationMode: "\u262e\ufe0f \u77a5\u60f3", workoutsOrMed: "\u30ef\u30fc\u30af\u30a2\u30a6\u30c8\u307e\u305f\u306f1\u56de\u306e\u77a5\u60f3",
@@ -507,18 +527,8 @@ persistLanguagePreference(getPreferredLanguage());
 function useT(lang) { return (key) => TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || key; }
 
 //     EXERCISES                                   
-const EXERCISES = [
-  { id: "plank", name: "Plank", emoji: "\ud83e\uddf1", basePoints: 15 },
-  { id: "pushups", name: "Push-ups", emoji: "\ud83d\udcaa", basePoints: 12 },
-  { id: "situps", name: "Sit-ups", emoji: "\ud83d\udd04", basePoints: 10 },
-  { id: "squats", name: "Squats", emoji: "\ud83e\uddb5", basePoints: 11 },
-  { id: "lunges", name: "Lunges", emoji: "\ud83d\udeb6", basePoints: 11 },
-  { id: "burpees", name: "Burpees", emoji: "\u26a1", basePoints: 18 },
-  { id: "chair_pose", name: "Chair Pose", emoji: "\ud83e\ude91", basePoints: 13 },
-  { id: "jumping_jacks", name: "Jumping Jacks", emoji: "\u2b50", basePoints: 9 },
-  { id: "high_knees", name: "High Knees", emoji: "\ud83c\udfc3", basePoints: 14 },
-  { id: "mountain_climbers", name: "Mt. Climbers", emoji: "\ud83c\udfd4\ufe0f", basePoints: 16 },
-];
+const EXERCISES = WORKOUT_EXERCISES.map((exercise) => ({ ...exercise }));
+const MEDITATION_TYPES = SHARED_MEDITATION_TYPES.map((meditation) => ({ ...meditation }));
 
 // Animated SVG stick figures for exercises
 const _exStyleInjected = { current: false };
@@ -683,30 +693,6 @@ function ExerciseAnimation({ exerciseId, size }) {
     </svg>
   );
 }
-
-const DURATION_MULTIPLIERS = { 0.5: 1, 1: 1.5, 2: 2.3, 3: 3.8, 4: 5.5, 5: 7.5, 6: 9.8, 7: 12.5 };
-const DURATION_OPTIONS = [0.5, 1, 2, 3, 4, 5, 6, 7];
-
-//     MEDITATION CONFIG                           
-const MEDITATION_DURATIONS = [3, 5, 10, 30, 60];
-const MEDITATION_POINTS = { 3: 39, 5: 78, 10: 180, 30: 600, 60: 1300 };
-const MEDITATION_COMPOUND = 1.3;
-const MEDITATION_MIN_SECONDS = 180; // 3 minutes minimum to earn points
-
-function calcMeditationPoints(durationMin, sessionNumber) {
-  const base = MEDITATION_POINTS[durationMin] || 0;
-  const multiplier = Math.pow(MEDITATION_COMPOUND, Math.max(0, sessionNumber - 1));
-  return Math.round(base * multiplier);
-}
-
-const MEDITATION_TYPES = [
-  { id: "breath", name: "Breath Focus", emoji: "\ud83d\udca8", desc: "Focus on your breathing" },
-  { id: "body_scan", name: "Body Scan", emoji: "\u2728", desc: "Scan through body sensations" },
-  { id: "loving_kindness", name: "Loving Kindness", emoji: "\ud83d\udc9c", desc: "Cultivate compassion" },
-  { id: "visualization", name: "Visualization", emoji: "\ud83c\udf04", desc: "Guided imagery journey" },
-  { id: "mindfulness", name: "Mindfulness", emoji: "\ud83c\udf38", desc: "Present moment awareness" },
-  { id: "mantra", name: "Mantra", emoji: "\ud83d\udd14", desc: "Repeat a calming phrase" },
-];
 
 // Guided meditation scripts — "at" is percentage of total time (0-1)
 const MEDITATION_SCRIPTS = {
@@ -921,17 +907,7 @@ function getMeditationPrompt(medTypeId, elapsed, totalSeconds) {
 }
 
 function calcPoints(basePoints, durationMinutes) {
-  const mult = DURATION_MULTIPLIERS[durationMinutes] || 1;
-  return Math.round(basePoints * mult * 10) / 10;
-}
-function roundPoints(value) {
-  return Math.round((Number(value) || 0) * 10) / 10;
-}
-function getStreakMultiplier(streak) {
-  return Math.pow(1.1, Math.max((streak || 1) - 1, 0));
-}
-function estimateAwardedPoints(rawPoints, streak) {
-  return roundPoints(rawPoints * getStreakMultiplier(streak));
+  return calcWorkoutPointsFromBase(basePoints, durationMinutes);
 }
 function fmtDuration(d) { return d < 1 ? `${Math.round(d * 60)}s` : `${d}m`; }
 function resolveDuration(d) { return d === "random" ? DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)] : d; }
@@ -1098,85 +1074,6 @@ const ALL_DAYS = DAYS_OF_WEEK.map(d => d.key);
 function getTodayKey() {
   const d = new Date().getDay();
   return ["sun","mon","tue","wed","thu","fri","sat"][d];
-}
-
-//     EVOLUTION TIERS — ordered by mass, 1.33x exponential from 50pts
-const EVOLUTION_TIERS = [
-  // Micro: day 1 quick wins
-  { name: "Amoeba", emoji: "\ud83e\udda0", threshold: 50 },
-  { name: "Plankton", emoji: "\ud83e\udee7", threshold: 67 },
-  { name: "Jellyfish", emoji: "\ud83e\udebc", threshold: 89 },
-  // Small invertebrates
-  { name: "Shrimp", emoji: "\ud83e\udd90", threshold: 118 },
-  { name: "Snail", emoji: "\ud83d\udc0c", threshold: 157 },
-  { name: "Crab", emoji: "\ud83e\udd80", threshold: 209 },
-  { name: "Fish", emoji: "\ud83d\udc1f", threshold: 278 },
-  { name: "Frog", emoji: "\ud83d\udc38", threshold: 370 },
-  // Small animals (by mass)
-  { name: "Lizard", emoji: "\ud83e\udd8e", threshold: 492 },
-  { name: "Rabbit", emoji: "\ud83d\udc30", threshold: 654 },
-  { name: "Cat", emoji: "\ud83d\udc08", threshold: 870 },
-  { name: "Raccoon", emoji: "\ud83e\udd9d", threshold: 1157 },
-  { name: "Fox", emoji: "\ud83e\udd8a", threshold: 1539 },
-  { name: "Dog", emoji: "\ud83d\udc15", threshold: 2047 },
-  { name: "Snake", emoji: "\ud83d\udc0d", threshold: 2723 },
-  { name: "Turtle", emoji: "\ud83d\udc22", threshold: 3621 },
-  // Medium animals
-  { name: "Deer", emoji: "\ud83e\udd8c", threshold: 4816 },
-  { name: "Wolf", emoji: "\ud83d\udc3a", threshold: 6406 },
-  { name: "Octopus", emoji: "\ud83d\udc19", threshold: 8520 },
-  { name: "Dolphin", emoji: "\ud83d\udc2c", threshold: 11331 },
-  // Large animals
-  { name: "Eagle", emoji: "\ud83e\udd85", threshold: 15071 },
-  { name: "Owl", emoji: "\ud83e\udd89", threshold: 20044 },
-  { name: "Panther", emoji: "\ud83d\udc06", threshold: 26659 },
-  { name: "Lion", emoji: "\ud83e\udd81", threshold: 35456 },
-  { name: "Tiger", emoji: "\ud83d\udc2f", threshold: 47157 },
-  { name: "Gorilla", emoji: "\ud83e\udd8d", threshold: 62719 },
-  { name: "Bear", emoji: "\ud83d\udc3b", threshold: 83416 },
-  { name: "Horse", emoji: "\ud83d\udc34", threshold: 110943 },
-  { name: "Shark", emoji: "\ud83e\udd88", threshold: 147554 },
-  { name: "Rhino", emoji: "\ud83e\udd8f", threshold: 196247 },
-  // Massive animals
-  { name: "Hippo", emoji: "\ud83e\udd9b", threshold: 261008 },
-  { name: "Elephant", emoji: "\ud83d\udc18", threshold: 347141 },
-  { name: "Whale", emoji: "\ud83d\udc0b", threshold: 461698 },
-  // Prehistoric
-  { name: "T-Rex", emoji: "\ud83e\udd96", threshold: 614058 },
-  { name: "Mammoth", emoji: "\ud83e\udda3", threshold: 816697 },
-  { name: "Saber-tooth", emoji: "\ud83d\udc05", threshold: 1086207 },
-  // Mythic
-  { name: "Phoenix", emoji: "\ud83d\udd25", threshold: 1444655 },
-  { name: "Unicorn", emoji: "\ud83e\udd84", threshold: 1921391 },
-  { name: "Griffin", emoji: "\ud83e\udd85", threshold: 2555450 },
-  { name: "Kraken", emoji: "\ud83e\udd91", threshold: 3398749 },
-  { name: "Hydra", emoji: "\ud83d\udc09", threshold: 4520336 },
-  { name: "Cerberus", emoji: "\ud83d\udc15\u200d\ud83e\uddba", threshold: 6012047 },
-  { name: "Thunderbird", emoji: "\u26a1", threshold: 7996023 },
-  { name: "Leviathan", emoji: "\ud83c\udf0a", threshold: 10634710 },
-  // Godlike
-  { name: "Titan", emoji: "\ud83d\uddff", threshold: 14144165 },
-  { name: "Behemoth", emoji: "\ud83d\udc80", threshold: 18811739 },
-  { name: "Colossus", emoji: "\ud83c\udfdb\ufe0f", threshold: 25019613 },
-  { name: "Wyvern", emoji: "\ud83e\udebd", threshold: 33276085 },
-  { name: "Bahamut", emoji: "\ud83d\udc51", threshold: 44257193 },
-  { name: "Dragon", emoji: "\ud83d\udc32", threshold: 58862067 },
-];
-
-function getEvolution(points) {
-  let tier = EVOLUTION_TIERS[0];
-  for (const t of EVOLUTION_TIERS) { if (points >= t.threshold) tier = t; else break; }
-  return tier;
-}
-function getNextEvolution(points) {
-  for (const t of EVOLUTION_TIERS) { if (points < t.threshold) return t; }
-  return null;
-}
-function getEvolutionProgress(points) {
-  const current = getEvolution(points);
-  const next = getNextEvolution(points);
-  if (!next) return 1;
-  return (points - current.threshold) / (next.threshold - current.threshold);
 }
 
 //     SOUND PLAYER                                 
@@ -2471,17 +2368,13 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang, streak = 1,
     const elapsed = totalSeconds - remaining;
     const fraction = elapsed / totalSeconds;
     setTimeFraction(fraction);
-    if (elapsed < 30) { setEarnedPoints(0); }
-    else {
-      const basePts = exercise.basePoints;
-      const pts = Math.round(basePts * fraction * 10) / 10;
-      setEarnedPoints(pts);
-    }
+    setEarnedPoints(calcWorkoutPartialPointsFromBase(exercise.basePoints, durationMinutes, elapsed));
     setStoppedEarly(true);
   };
 
   const handleCollect = () => {
-    onComplete(earnedPoints, !stoppedEarly);
+    const elapsedSeconds = completed ? totalSeconds : Math.max(0, totalSeconds - remaining);
+    onComplete(earnedPoints, !stoppedEarly, { elapsedSeconds });
   };
 
   const mins = Math.floor(remaining / 60);
@@ -2575,7 +2468,7 @@ function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang, stre
   const [running, setRunning] = useState(false);
 
   if (running && selectedEx) {
-    return <WorkoutTimer exercise={selectedEx} durationMinutes={selectedDur} lang={lang} streak={streak} sessionType="extra" sessionContext={sessionContext} onComplete={(pts, wasCompleted) => { onComplete(pts, selectedEx, wasCompleted, selectedDur); }} />;
+    return <WorkoutTimer exercise={selectedEx} durationMinutes={selectedDur} lang={lang} streak={streak} sessionType="extra" sessionContext={sessionContext} onComplete={(pts, wasCompleted, meta) => { onComplete(pts, selectedEx, wasCompleted, selectedDur, meta); }} />;
   }
 
   return (
@@ -2726,12 +2619,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     if (ambientRef.current) { ambientRef.current.stop(2); ambientRef.current = null; }
     const elapsed = totalSeconds - remaining;
-    if (elapsed < MEDITATION_MIN_SECONDS) { setEarnedPoints(0); }
-    else {
-      const fraction = elapsed / totalSeconds;
-      const basePts = calcMeditationPoints(durationMinutes, sessionNumber);
-      setEarnedPoints(Math.round(basePts * fraction));
-    }
+    setEarnedPoints(calcMeditationPartialPoints(durationMinutes, sessionNumber, elapsed));
     setStoppedEarly(true);
   };
 
@@ -2759,7 +2647,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
           {awardedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#fff", marginBottom: 12 }}>+{awardedPoints} pts</div>}
           {awardedPoints > 0 && streak > 1 && <div style={{ fontSize: 12, color: "#C4B5FD", marginBottom: 8 }}>x{getStreakMultiplier(streak).toFixed(2)} {t("streakBonusApplied")}</div>}
           {completed && <div style={{ fontSize: 13, color: "#A78BFA", marginBottom: 8 }}>{t("medFullSession")}</div>}
-          {sessionNumber > 1 && completed && <div style={{ fontSize: 12, color: "#8B5CF6", marginBottom: 8 }}>{t("medSession")} #{sessionNumber}    {Math.pow(MEDITATION_COMPOUND, sessionNumber - 1).toFixed(2)} {t("medSessionBonus")}!</div>}
+          {sessionNumber > 1 && completed && <div style={{ fontSize: 12, color: "#8B5CF6", marginBottom: 8 }}>{t("medSession")} #{sessionNumber}    x{getMeditationSessionMultiplier(sessionNumber).toFixed(2)} {t("medSessionBonus")}</div>}
           {stoppedEarly && earnedPoints > 0 && <div style={{ fontSize: 13, color: "#A78BFA", marginBottom: 8 }}>{t("medPartialSession")}</div>}
           {stoppedEarly && earnedPoints === 0 && <div style={{ fontSize: 13, color: "#FF6B6B", marginBottom: 8 }}>{t("medMinPoints")}</div>}
           {impactMessages.length > 0 && (
@@ -2772,7 +2660,10 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
               ))}
             </div>
           )}
-          <button onClick={() => onComplete(earnedPoints, !stoppedEarly)} style={{ width: "100%", maxWidth: 260, padding: "14px 28px", background: earnedPoints > 0 ? "linear-gradient(135deg, #7C3AED, #A78BFA)" : "rgba(255,255,255,0.08)", color: earnedPoints > 0 ? "#fff" : "#888", border: earnedPoints > 0 ? "none" : "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 15, fontWeight: 800, letterSpacing: 1, marginTop: 12 }}>{earnedPoints > 0 ? t("collectPoints") : t("back")}</button>
+          <button onClick={() => {
+            const elapsedSeconds = completed ? totalSeconds : Math.max(0, totalSeconds - remaining);
+            onComplete(earnedPoints, !stoppedEarly, { elapsedSeconds });
+          }} style={{ width: "100%", maxWidth: 260, padding: "14px 28px", background: earnedPoints > 0 ? "linear-gradient(135deg, #7C3AED, #A78BFA)" : "rgba(255,255,255,0.08)", color: earnedPoints > 0 ? "#fff" : "#888", border: earnedPoints > 0 ? "none" : "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 15, fontWeight: 800, letterSpacing: 1, marginTop: 12 }}>{earnedPoints > 0 ? t("collectPoints") : t("back")}</button>
         </div>
       </div>
     );
@@ -2849,7 +2740,7 @@ function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lan
         </div>
         {nextSession > 1 && (
           <div style={{ display: "inline-block", padding: "4px 12px", background: "rgba(138,92,246,0.15)", borderRadius: 20, fontSize: 12, color: "#A78BFA", marginBottom: 8 }}>
-            {t("medNextBonus")}:  {Math.pow(MEDITATION_COMPOUND, nextSession - 1).toFixed(2)} {t("medSessionBonus")}
+            {t("medNextBonus")}:  x{getMeditationSessionMultiplier(nextSession).toFixed(2)} {t("medSessionBonus")}
           </div>
         )}
       </div>
@@ -2884,7 +2775,7 @@ function MeditationPanel({ todayMedSessions, onStartMeditation, totalPoints, lan
         <div style={{ textAlign: "center", padding: "16px", background: "rgba(138,92,246,0.06)", borderRadius: 16, marginBottom: 16, border: "1px solid rgba(138,92,246,0.1)" }}>
           <div style={{ fontSize: 13, color: "#6D5BA3", marginBottom: 4 }}>{selectedType.emoji} {selectedType.name}   {selectedDur}min</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: "#A78BFA" }}>{pts} pts</div>
-          {nextSession > 1 && <div style={{ fontSize: 11, color: "#6D5BA3" }}> {Math.pow(MEDITATION_COMPOUND, nextSession - 1).toFixed(2)} {t("medSessionBonus")}</div>}
+          {nextSession > 1 && <div style={{ fontSize: 11, color: "#6D5BA3" }}> x{getMeditationSessionMultiplier(nextSession).toFixed(2)} {t("medSessionBonus")}</div>}
         </div>
       )}
 
@@ -3510,7 +3401,7 @@ function BeastModeApp() {
   }, [settings, screen, scheduleNextAlarm]);
 
   //     WORKOUT COMPLETE HANDLER                   
-  const handleWorkoutComplete = async (pts, exercise, wasCompleted, type = "alarm", durationOverride = null) => {
+  const handleWorkoutComplete = async (pts, exercise, wasCompleted, type = "alarm", durationOverride = null, meta = {}) => {
     setShowTimer(false);
     setShowExtraCredit(false);
     setShowAlarm(false);
@@ -3522,7 +3413,7 @@ function BeastModeApp() {
         method: "POST",
         body: JSON.stringify({
           exerciseId: exercise.id, exerciseName: exercise.name, exerciseEmoji: exercise.emoji,
-          points: pts, durationMinutes, wasCompleted, type,
+          points: pts, durationMinutes, wasCompleted, type, elapsedSeconds: meta?.elapsedSeconds ?? null,
         }),
       });
 
@@ -3548,8 +3439,7 @@ function BeastModeApp() {
     } catch(e) {
       console.error("Failed to log workout:", e);
       // Still update UI optimistically
-      const streakMult = Math.pow(1.1, (progress?.streak || 1) - 1);
-      const finalPts = Math.round(pts * streakMult * 10) / 10;
+      const finalPts = estimateAwardedPoints(pts, progress?.streak || 1);
       setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0 }));
       setHistory(prev => [{ exercise, points: finalPts, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
@@ -3559,7 +3449,7 @@ function BeastModeApp() {
   };
 
   //     MEDITATION COMPLETE HANDLER                   
-  const handleMeditationComplete = async (pts, wasCompleted) => {
+  const handleMeditationComplete = async (pts, wasCompleted, meta = {}) => {
     setShowMedTimer(false);
     const oldTotal = progress?.totalPoints || 0;
     if (wasCompleted) setTodayMedSessions(prev => prev + 1);
@@ -3568,7 +3458,7 @@ function BeastModeApp() {
         method: "POST",
         body: JSON.stringify({
           exerciseId: currentMedType.id, exerciseName: currentMedType.name, exerciseEmoji: currentMedType.emoji,
-          points: pts, durationMinutes: currentMedDur, wasCompleted, type: "meditation",
+          points: pts, durationMinutes: currentMedDur, wasCompleted, type: "meditation", elapsedSeconds: meta?.elapsedSeconds ?? null,
         }),
       });
       setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? result.sessionsFinished : prev?.sessionsFinished, meditationsFinished: result.meditationsFinished ?? (prev?.meditationsFinished || 0) }));
@@ -3580,7 +3470,7 @@ function BeastModeApp() {
         if (awardObj) setTimeout(() => setAwardPopup(awardObj), evoPopup ? 2000 : 800);
         setUnlockedAwards(prev => { const next = new Set(prev); result.newAwards.forEach(id => next.add(id)); return next; });
       }
-      setHistory(prev => [{ exercise: currentMedType, points: result.finalPoints || pts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
+      setHistory(prev => [{ exercise: currentMedType, points: result.finalPoints ?? pts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     } catch(e) {
       console.error("Failed to log meditation:", e);
       const finalPts = estimateAwardedPoints(pts, streak);
@@ -3696,7 +3586,7 @@ function BeastModeApp() {
   const streakFreezes = progress?.streakFreezes || 0;
   const sessionsCompleted = progress?.sessionsCompleted || 0;
   const sessionsFinished = progress?.sessionsFinished || 0;
-  const streakMult = Math.pow(1.1, streak - 1).toFixed(2);
+  const streakMult = getStreakMultiplier(streak).toFixed(2);
   const isActiveToday = !settings?.activeDays || settings.activeDays.includes(getTodayKey());
   const MIN_DAILY_SESSIONS = 3;
   const MAX_FREEZES = 3;
@@ -3886,8 +3776,8 @@ function BeastModeApp() {
 
       {/* Overlays */}
       {showAlarm && currentExercise && <AlarmPopup prompt={alarmPrompt} exercise={currentExercise} duration={resolvedDuration} onStart={() => { setShowAlarm(false); setShowTimer(true); }} onSkip={() => { setShowAlarm(false); setProgress(prev => ({ ...prev, sessionsSkipped: (prev?.sessionsSkipped || 0) + 1 })); scheduleNextAlarm(); }} />}
-      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} lang={lang} streak={streak} sessionType="alarm" sessionContext={sessionContext} onComplete={(pts, wasCompleted) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm", resolvedDuration)} />}
-      {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={(pts, ex, wasCompleted, selectedDur) => handleWorkoutComplete(pts, ex, wasCompleted, "extra", selectedDur)} onClose={() => setShowExtraCredit(false)} />}
+      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} lang={lang} streak={streak} sessionType="alarm" sessionContext={sessionContext} onComplete={(pts, wasCompleted, meta) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm", resolvedDuration, meta)} />}
+      {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={(pts, ex, wasCompleted, selectedDur, meta) => handleWorkoutComplete(pts, ex, wasCompleted, "extra", selectedDur, meta)} onClose={() => setShowExtraCredit(false)} />}
       {showMedTimer && currentMedType && <MeditationTimer medType={currentMedType} durationMinutes={currentMedDur} sessionNumber={currentMedSession} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={handleMeditationComplete} />}
       {evoPopup && <EvolutionPopup oldTier={evoPopup.oldTier} newTier={evoPopup.newTier} onClose={() => setEvoPopup(null)} />}
       {awardPopup && <AwardPopup award={awardPopup} lang={lang} onClose={() => setAwardPopup(null)} />}

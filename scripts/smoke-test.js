@@ -3,6 +3,16 @@ const crypto = require("crypto");
 const { Pool } = require("pg");
 const webpush = require("web-push");
 const {
+  calcWorkoutPoints,
+  calcWorkoutPartialPoints,
+  calcMeditationPoints,
+  estimateAwardedPoints,
+  getStreakMultiplier,
+  getEvolution,
+  getNextEvolution,
+  getEvolutionProgress,
+} = require("../public/scoring");
+const {
   buildScheduledPushPayload,
   getPushBucketKey,
   getPushStatus,
@@ -109,6 +119,17 @@ async function main() {
   const charlie = await registerUser("charlie");
   const delta = await registerUser("delta");
 
+  // Scoring and evolution math should stay sane at the edges.
+  assert.strictEqual(getStreakMultiplier(1), 1, "day-one streak multiplier should be neutral");
+  assert.strictEqual(getStreakMultiplier(30), 1.87, "streak multiplier should grow linearly");
+  assert.strictEqual(getStreakMultiplier(100), 2, "streak multiplier should cap at 2.0x");
+  assert.strictEqual(calcMeditationPoints(10, 1), 55, "first meditation should use the base meditation value");
+  assert.strictEqual(calcMeditationPoints(10, 2), 44, "second meditation should get the softened session multiplier");
+  assert.strictEqual(calcMeditationPoints(10, 3), 33, "later meditations should taper instead of compounding upward");
+  assert.strictEqual(getEvolution(0).threshold, 0, "the first evolution tier should start at zero points");
+  assert.strictEqual(getEvolutionProgress(0), 0, "zero points should produce zero evolution progress");
+  assert(getNextEvolution(0)?.threshold > 0, "zero-point users should still have a next evolution tier");
+
   await api("/api/user/settings", {
     method: "PUT",
     token: alpha.token,
@@ -130,20 +151,80 @@ async function main() {
   await setTeamName(charlie.userId, "Desk Ninjas");
 
   // Basic API sanity.
+  const expectedWorkoutPoints = estimateAwardedPoints(calcWorkoutPoints("pushups", 2), 1);
   const logResult = await api("/api/workout/log", {
+    method: "POST",
+    token: alpha.token,
+    body: {
+      exerciseId: "pushups",
+      exerciseName: "Definitely Not Push-ups",
+      exerciseEmoji: "🚫",
+      points: 999,
+      durationMinutes: 2,
+      wasCompleted: true,
+      type: "alarm",
+    },
+  });
+  assert.strictEqual(logResult.finalPoints, expectedWorkoutPoints, "server should ignore spoofed workout points");
+  assert.strictEqual(logResult.totalPoints, expectedWorkoutPoints, "canonical workout points should hit progress totals");
+
+  const expectedPartialWorkoutPoints = estimateAwardedPoints(calcWorkoutPartialPoints("pushups", 2, 60), 1);
+  const partialLogResult = await api("/api/workout/log", {
     method: "POST",
     token: alpha.token,
     body: {
       exerciseId: "pushups",
       exerciseName: "Push-ups",
       exerciseEmoji: "💪",
-      points: 12,
+      points: 500,
+      durationMinutes: 2,
+      wasCompleted: false,
+      type: "alarm",
+      elapsedSeconds: 60,
+    },
+  });
+  assert.strictEqual(partialLogResult.finalPoints, expectedPartialWorkoutPoints, "partial workouts should use elapsed time scoring");
+  assert.strictEqual(partialLogResult.sessionsFinished, 1, "partial workouts should not count as finished sessions");
+
+  const expectedMeditationPoints = estimateAwardedPoints(calcMeditationPoints(10, 1), 1);
+  const meditationResult = await api("/api/workout/log", {
+    method: "POST",
+    token: charlie.token,
+    body: {
+      exerciseId: "breath",
+      exerciseName: "Fake Meditation",
+      exerciseEmoji: "❌",
+      points: 999,
+      durationMinutes: 10,
+      wasCompleted: true,
+      type: "meditation",
+    },
+  });
+  assert.strictEqual(meditationResult.finalPoints, expectedMeditationPoints, "server should ignore spoofed meditation points");
+  assert.strictEqual(meditationResult.sessionsFinished, 0, "meditation should not increment workout sessions");
+  assert.strictEqual(meditationResult.meditationsFinished, 1, "completed meditation should increment meditation count");
+
+  await setProgress(delta.userId, {
+    streak: 50,
+    max_streak: 50,
+    last_active_date: todayKey,
+  });
+  const expectedCappedWorkoutPoints = estimateAwardedPoints(calcWorkoutPoints("burpees", 2), 50);
+  const cappedWorkout = await api("/api/workout/log", {
+    method: "POST",
+    token: delta.token,
+    body: {
+      exerciseId: "burpees",
+      exerciseName: "Burpees",
+      exerciseEmoji: "⚡",
+      points: 999,
       durationMinutes: 2,
       wasCompleted: true,
       type: "alarm",
     },
   });
-  assert(logResult.totalPoints > 0, "workout logging should award points");
+  assert.strictEqual(cappedWorkout.finalPoints, expectedCappedWorkoutPoints, "high streaks should use the capped multiplier");
+  assert.strictEqual(expectedCappedWorkoutPoints, 56, "the capped streak example should stay stable for regression checks");
 
   // Simulate a completed stale day and confirm automatic rollover.
   await clearTodayData(alpha.userId);

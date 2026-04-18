@@ -1,6 +1,6 @@
 // Beast Mode Service Worker
 // Cache version — bump this to force a cache refresh on deploy
-const CACHE_VERSION = 'beastmode-v4';
+const CACHE_VERSION = 'beastmode-v5';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -8,6 +8,7 @@ const API_CACHE = `${CACHE_VERSION}-api`;
 const PRECACHE_URLS = [
   '/',
   '/index.html',
+  '/scoring.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

@@ -8,6 +8,17 @@ const {
   applyMissedDay,
   syncUserProgressDay,
 } = require("../lib/progress");
+const {
+  getWorkoutExercise,
+  getMeditationType,
+  isSupportedWorkoutDuration,
+  isSupportedMeditationDuration,
+  calcWorkoutPoints,
+  calcWorkoutPartialPoints,
+  calcMeditationPoints,
+  calcMeditationPartialPoints,
+  estimateAwardedPoints,
+} = require("../public/scoring");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -22,41 +33,82 @@ async function syncProgressIfNeeded(req, res, next) {
   }
 }
 
+function toBoolean(value) {
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
 // POST /api/workout/log
 router.post("/log", syncProgressIfNeeded, async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { exerciseId, exerciseName, exerciseEmoji, points, durationMinutes, wasCompleted, type } = req.body;
+    const {
+      exerciseId,
+      durationMinutes,
+      wasCompleted,
+      type,
+      elapsedSeconds,
+    } = req.body || {};
 
-    // Input validation
-    if (!exerciseId || typeof exerciseName !== 'string' || exerciseName.length > 100) {
+    if (!exerciseId) {
       return res.status(400).json({ error: "Invalid exercise data" });
     }
-    const safePoints = Math.max(0, Math.min(Number(points) || 0, 1000));
-    const safeDuration = Math.max(0, Math.min(Number(durationMinutes) || 0, 120));
-    const safeType = ["alarm", "extra", "meditation"].includes(type) ? type : "alarm";
-    const safeEmoji = (exerciseEmoji || "").slice(0, 10);
 
-    // Get current progress
-    const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
+    const safeType = ["alarm", "extra", "meditation"].includes(type) ? type : "alarm";
+    const completed = toBoolean(wasCompleted);
+
+    await client.query("BEGIN");
+
+    const progR = await client.query("SELECT * FROM user_progress WHERE user_id = $1 LIMIT 1 FOR UPDATE", [req.userId]);
     const progress = progR.rows[0];
-    const streakMult = Math.pow(1.1, progress.streak - 1);
-    const finalPts = Math.round(safePoints * streakMult * 10) / 10;
+    if (!progress) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "User progress not found" });
+    }
+
+    const safeDuration = Number(durationMinutes);
+    const nextMeditationSession = Number(progress.meditations_finished || 0) + 1;
+    const activity = safeType === "meditation"
+      ? getMeditationType(exerciseId)
+      : getWorkoutExercise(exerciseId);
+
+    const durationIsSupported = safeType === "meditation"
+      ? isSupportedMeditationDuration(safeDuration)
+      : isSupportedWorkoutDuration(safeDuration);
+
+    if (!activity || !durationIsSupported) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Unsupported workout configuration" });
+    }
+
+    const rawPoints = safeType === "meditation"
+      ? (
+        completed
+          ? calcMeditationPoints(safeDuration, nextMeditationSession)
+          : calcMeditationPartialPoints(safeDuration, nextMeditationSession, elapsedSeconds)
+      )
+      : (
+        completed
+          ? calcWorkoutPoints(activity.id, safeDuration)
+          : calcWorkoutPartialPoints(activity.id, safeDuration, elapsedSeconds)
+      );
+    const finalPts = estimateAwardedPoints(rawPoints, progress.streak);
     const today = new Date().toISOString().split("T")[0];
 
     // Insert workout with the actual awarded points so history stays truthful after reloads.
-    await pool.query(
+    await client.query(
       `INSERT INTO workout_history (user_id, exercise_id, exercise_name, exercise_emoji, points, duration_minutes, was_completed, type)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [req.userId, exerciseId, exerciseName.slice(0, 100), safeEmoji, finalPts, safeDuration, wasCompleted, safeType]
+      [req.userId, activity.id, activity.name, activity.emoji, finalPts, safeDuration, completed, safeType]
     );
 
-    const countsAsWorkout = wasCompleted && safeType !== "meditation";
-    const countsAsMeditation = wasCompleted && safeType === "meditation";
+    const countsAsWorkout = completed && safeType !== "meditation";
+    const countsAsMeditation = completed && safeType === "meditation";
     const newSessionsFinished = countsAsWorkout ? progress.sessions_finished + 1 : progress.sessions_finished;
     const newMeditationsFinished = countsAsMeditation ? (progress.meditations_finished || 0) + 1 : (progress.meditations_finished || 0);
+    const qualifiedToday = newSessionsFinished >= MIN_DAILY_SESSIONS || newMeditationsFinished >= 1;
 
     // Update progress
-    await pool.query(`
+    await client.query(`
       UPDATE user_progress SET
         total_points = total_points + $1, today_points = today_points + $1,
         sessions_completed = sessions_completed + $5,
@@ -64,17 +116,18 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
         meditations_finished = $3,
         last_active_date = $4, updated_at = NOW()
       WHERE user_id = $6
-    `, [finalPts, newSessionsFinished, newMeditationsFinished, today, wasCompleted ? 1 : 0, req.userId]);
+    `, [finalPts, newSessionsFinished, newMeditationsFinished, today, completed ? 1 : 0, req.userId]);
 
     // Update stats if completed
-    if (wasCompleted) {
-      const statsR = await pool.query("SELECT unique_exercises FROM user_stats WHERE user_id = $1", [req.userId]);
-      const uniqueEx = new Set(statsR.rows[0].unique_exercises || []);
+    if (completed) {
+      const statsR = await client.query("SELECT unique_exercises FROM user_stats WHERE user_id = $1 LIMIT 1", [req.userId]);
+      const statsRow = statsR.rows[0] || { unique_exercises: [] };
+      const uniqueEx = new Set(statsRow.unique_exercises || []);
       if (safeType !== "meditation") {
-        uniqueEx.add(exerciseId);
+        uniqueEx.add(activity.id);
       }
 
-      await pool.query(`
+      await client.query(`
         UPDATE user_stats SET
           total_sessions = total_sessions + 1,
           extra_sessions = extra_sessions + $1,
@@ -93,7 +146,7 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
     }
 
     // Upsert daily log
-    await pool.query(`
+    await client.query(`
       INSERT INTO daily_log (user_id, log_date, points, sessions_finished, meditations_finished, qualified)
       VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (user_id, log_date) DO UPDATE SET
@@ -107,17 +160,25 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
       finalPts,
       countsAsWorkout ? 1 : 0,
       countsAsMeditation ? 1 : 0,
-      countsAsWorkout ? 1 >= MIN_DAILY_SESSIONS : countsAsMeditation,
+      qualifiedToday,
       MIN_DAILY_SESSIONS,
     ]);
 
-    const newAwards = await checkAndUnlockAwards(req.userId);
+    const updated = await client.query("SELECT total_points, today_points, sessions_finished, meditations_finished FROM user_progress WHERE user_id = $1", [req.userId]);
+    await client.query("COMMIT");
 
-    const updated = await pool.query("SELECT total_points, today_points, sessions_finished, meditations_finished FROM user_progress WHERE user_id = $1", [req.userId]);
+    let newAwards = [];
+    try {
+      newAwards = await checkAndUnlockAwards(req.userId);
+    } catch (awardErr) {
+      console.error("Award check error:", awardErr);
+    }
+
     const u = updated.rows[0];
 
     res.json({
       finalPoints: finalPts,
+      rawPoints,
       totalPoints: u.total_points,
       todayPoints: u.today_points,
       sessionsFinished: u.sessions_finished,
@@ -125,8 +186,11 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
       newAwards,
     });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("Workout log error:", err);
     res.status(500).json({ error: "Failed to log workout" });
+  } finally {
+    client.release();
   }
 });
 
