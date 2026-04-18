@@ -107,6 +107,7 @@ async function main() {
   const alpha = await registerUser("alpha");
   const bravo = await registerUser("bravo");
   const charlie = await registerUser("charlie");
+  const delta = await registerUser("delta");
 
   await api("/api/user/settings", {
     method: "PUT",
@@ -320,6 +321,42 @@ async function main() {
 
   const finalPushStatus = await removePushSubscription(alpha.userId, null, pool);
   assert.strictEqual(finalPushStatus.subscriptionCount, 0, "cleanup should leave no push subscriptions behind");
+
+  // Account deletion should remove the user and related data.
+  await api("/api/workout/log", {
+    method: "POST",
+    token: delta.token,
+    body: {
+      exerciseId: "pushups",
+      exerciseName: "Push-ups",
+      exerciseEmoji: "💪",
+      points: 12,
+      durationMinutes: 2,
+      wasCompleted: true,
+      type: "alarm",
+    },
+  });
+  await api("/api/user/push-subscription", {
+    method: "POST",
+    token: delta.token,
+    body: { subscription: { ...fakeSubscription, endpoint: `https://push.example.test/sub/${uniqueSuffix()}` } },
+  });
+  await api("/api/user/account", {
+    method: "DELETE",
+    token: delta.token,
+    body: { confirmation: delta.username.toUpperCase() },
+  });
+
+  const deletedUserCount = Number((await pool.query("SELECT COUNT(*)::int AS count FROM users WHERE id = $1", [delta.userId])).rows[0].count);
+  const deletedSettingsCount = Number((await pool.query("SELECT COUNT(*)::int AS count FROM user_settings WHERE user_id = $1", [delta.userId])).rows[0].count);
+  const deletedProgressCount = Number((await pool.query("SELECT COUNT(*)::int AS count FROM user_progress WHERE user_id = $1", [delta.userId])).rows[0].count);
+  const deletedHistoryCount = Number((await pool.query("SELECT COUNT(*)::int AS count FROM workout_history WHERE user_id = $1", [delta.userId])).rows[0].count);
+  const deletedPushCount = Number((await pool.query("SELECT COUNT(*)::int AS count FROM push_subscriptions WHERE user_id = $1", [delta.userId])).rows[0].count);
+  assert.strictEqual(deletedUserCount, 0, "account deletion should remove the user row");
+  assert.strictEqual(deletedSettingsCount, 0, "account deletion should remove settings");
+  assert.strictEqual(deletedProgressCount, 0, "account deletion should remove progress");
+  assert.strictEqual(deletedHistoryCount, 0, "account deletion should remove workout history");
+  assert.strictEqual(deletedPushCount, 0, "account deletion should remove push subscriptions");
 
   console.log("Smoke test passed");
 }

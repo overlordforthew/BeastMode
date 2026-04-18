@@ -82,6 +82,18 @@ app.get("/sw.js", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "sw.js"));
 });
 
+const PUBLIC_PAGE_ROUTES = {
+  "/privacy": "privacy.html",
+  "/support": "support.html",
+  "/delete-account": "delete-account.html",
+};
+
+for (const [routePath, fileName] of Object.entries(PUBLIC_PAGE_ROUTES)) {
+  app.get(routePath, (req, res) => {
+    res.sendFile(path.join(__dirname, "public", fileName));
+  });
+}
+
 // Static frontend
 app.use(express.static(path.join(__dirname, "public")));
 

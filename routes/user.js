@@ -294,4 +294,51 @@ router.put("/language", async (req, res) => {
   }
 });
 
+// DELETE /api/user/account
+router.delete("/account", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const rawConfirmation = typeof req.body?.confirmation === "string" ? req.body.confirmation.trim().toLowerCase() : "";
+
+    await client.query("BEGIN");
+    const userR = await client.query(
+      "SELECT id, username, email FROM users WHERE id = $1 FOR UPDATE",
+      [req.userId]
+    );
+
+    if (userR.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userR.rows[0];
+    if (!rawConfirmation || rawConfirmation !== String(user.username || "").trim().toLowerCase()) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Type your username exactly to delete this account" });
+    }
+
+    await client.query("DELETE FROM push_subscriptions WHERE user_id = $1", [req.userId]);
+    await client.query("DELETE FROM daily_mission_claims WHERE user_id = $1", [req.userId]);
+    await client.query("DELETE FROM user_awards WHERE user_id = $1", [req.userId]);
+    await client.query("DELETE FROM workout_history WHERE user_id = $1", [req.userId]);
+    await client.query("DELETE FROM daily_log WHERE user_id = $1", [req.userId]);
+    await client.query("DELETE FROM user_stats WHERE user_id = $1", [req.userId]);
+    await client.query("DELETE FROM user_progress WHERE user_id = $1", [req.userId]);
+    await client.query("DELETE FROM user_settings WHERE user_id = $1", [req.userId]);
+    if (user.email) {
+      await client.query("DELETE FROM password_reset_codes WHERE email = $1", [String(user.email).trim().toLowerCase()]);
+    }
+    await client.query("DELETE FROM users WHERE id = $1", [req.userId]);
+
+    await client.query("COMMIT");
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Account deletion error:", err);
+    res.status(500).json({ error: "Failed to delete account" });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
