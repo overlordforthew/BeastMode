@@ -318,6 +318,27 @@ const TRANSLATIONS = {
     endSession: "\u23f9 TERMINAR SESI\u00d3N", medToday: "Hoy", medCompleted: "completado",
     workoutMode: "\ud83d\udcaa EJERCICIO", meditationMode: "\u262e\ufe0f MEDITACI\u00d3N", workoutsOrMed: "ejercicios o 1 meditaci\u00f3n",
     ambientSound: "Sonido ambiental", useHeadphones: "\uD83C\uDFA7 Usa auriculares para beats binaurales",
+    dailyMission: "MISI\u00d3N DIARIA", missionReady: "Misi\u00f3n completa. Reclama tu bonus.",
+    missionClaimed: "Recompensa reclamada", claimReward: "RECLAMAR BONUS", bonusPointsLabel: "pts bonus",
+    quickReset: "RESET R\u00c1PIDO", quickResetHint: "Un toque. Sin espiral de configuraci\u00f3n.",
+    startReset: "INICIAR RESET DE 2 MIN", quickRandom: "Aleatorio", quickFocus: "Enfoque", quickEnergy: "Energ\u00eda", quickMobility: "Movilidad", quickCalm: "Calma",
+    socialPressure: "PRESI\u00d3N", rivalTarget: "Rival m\u00e1s cercano", buddyLane: "Chequeo buddy", teamLane: "Pulso del equipo",
+    buddyUsername: "BUDDY DE RESPONSABILIDAD", buddyUsernameHint: "Opcional: un usuario al que alcanzar o mantener detr\u00e1s.",
+    teamName: "EQUIPO / CREW", teamNameHint: "Opcional: un nombre compartido para una presi\u00f3n ligera de equipo.",
+    noPressureYet: "Agrega un buddy o equipo en ajustes para subir la responsabilidad.",
+    keepRolling: "Sigue as\u00ed", lockedInToday: "Asegurado hoy",
+    streakBonusApplied: "bonus de racha aplicado",
+    paceLine: "Mant\u00e9n el ritmo. Esta cuenta.",
+    sessionShift: "CAMBIO DE SESI\u00d3N",
+    justUnlocked: "acabas de desbloquear",
+    stillNeeded: "todav\u00eda falta",
+    streakLockedNow: "La racha de hoy ya est\u00e1 asegurada.",
+    meditationLocksStreak: "Esta meditaci\u00f3n asegura la racha de hoy.",
+    leaderboardSwing: "Esto te hace pasar a",
+    closesGap: "Esto reduce la distancia con",
+    extendsLead: "Esto ampl\u00eda tu ventaja sobre",
+    teamBanked: "Puntos del equipo guardados",
+    missionReadyNow: "La misi\u00f3n diaria est\u00e1 lista para reclamar.",
     activationTitle: "HAZ QUE PEGUE",
     activationHint: "Instala BeastMode y activa recordatorios para que realmente te haga volver.",
     enableNudges: "ACTIVAR AVISOS",
@@ -344,7 +365,7 @@ const TRANSLATIONS = {
     alarmMessage: "\u30a2\u30e9\u30fc\u30e0\u30e1\u30c3\u30bb\u30fc\u30b8", alarmHint: "\u30a2\u30e9\u30fc\u30e0\u306e\u30e1\u30c3\u30bb\u30fc\u30b8\u306f\uff1f",
     exercises: "\u30a8\u30af\u30b5\u30b5\u30a4\u30ba", allRandom: "\u5168\u3066\uff08\u30e9\u30f3\u30c0\u30e0\uff09", customPick: "\u30ab\u30b9\u30bf\u30e0",
     activateBeast: "\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9\u8d77\u52d5 \ud83d\udd25", language: "\u8a00\u8a9e",
-    random: "\ud83c\udfb2 \u30e9\u30f3\u30c0\u30e0", multiplier: "\u00e5\u20ac\u008d\u7387",
+    random: "\ud83c\udfb2 \u30e9\u30f3\u30c0\u30e0", multiplier: "\u500d\u7387",
     min30: "30\u5206", hour1: "1\u6642\u9593", hours2: "2\u6642\u9593",
     sec30: "30\u79d2", min1: "1\u5206", min2: "2\u5206", min3: "3\u5206",
     min4: "4\u5206", min5: "5\u5206", min6: "6\u5206", min7: "7\u5206",
@@ -356,13 +377,13 @@ const TRANSLATIONS = {
     sessions: "\u30bb\u30c3\u30b7\u30e7\u30f3", every: "\u6bce", recentActivity: "\u6700\u8fd1\u306e\u30a2\u30af\u30c6\u30a3\u30d3\u30c6\u30a3",
     completeFor: "\u5b8c\u4e86\u3067", startBtn: "\u25b6 \u30b9\u30bf\u30fc\u30c8", skipBtn: "\u30b9\u30ad\u30c3\u30d7",
     finishEarly: "\u23f9 \u65e9\u671f\u7d42\u4e86", crushedIt: "\u3084\u3063\u305f\u305c\uff01", goodEffort: "\u3044\u3044\u8abf\u5b50\uff01",
-    fullCompletion: "\ud83c\udf89 \u5b8c\u4e86 \u2014 \u00e5\u20ac\u008d\u7387\u30a2\u30f3\u30ed\u30c3\u30af\u00ef\u00bc\u0081", completionBonus: "+25% \u30dc\u30fc\u30ca\u30b9",
+    fullCompletion: "\ud83c\udf89 \u5b8c\u4e86 -- \u500d\u7387\u30a2\u30f3\u30ed\u30c3\u30af\uff01", completionBonus: "+25% \u30dc\u30fc\u30ca\u30b9",
     flatRate: "\u56fa\u5b9a\u30ec\u30fc\u30c8 -- \u500d\u7387\u306a\u3057", tryLonger: "30\u79d2\u4ee5\u4e0a\u3067\u30dd\u30a4\u30f3\u30c8\u7372\u5f97 -- \u6b21\u56de\u9811\u5f35\u308d\u3046\uff01",
     completingWouldEarn: "\u5b8c\u4e86\u3059\u308c\u3070\u7372\u5f97\u3067\u304d\u305f", collectPoints: "\u30dd\u30a4\u30f3\u30c8\u7372\u5f97", base: "\u30d9\u30fc\u30b9",
     extraCreditTitle: "\u2b50 \u30a8\u30af\u30b9\u30c8\u30e9\u30af\u30ec\u30b8\u30c3\u30c8", duration: "\u6642\u9593", back: "\u623b\u308b", ptsIfCompleted: "pts\uff08\u5b8c\u4e86\u6642\uff09",
     leaderboardTitle: "\ud83c\udfc6 \u30e9\u30f3\u30ad\u30f3\u30b0", levelUp: "\u30ec\u30d9\u30eb\u30a2\u30c3\u30d7\uff01", ptsTo: "pts \u6b21\u307e\u3067", continueBtn: "\u7d9a\u3051\u308b",
     demoNote: "\u26a1 \u30c7\u30e2: 20\u79d2\u3054\u3068\u306b\u30a2\u30e9\u30fc\u30e0", endDay: "\u4e00\u65e5\u7d42\u4e86", missedDay: "\u274c \u6b20\u5e2d\u65e5",
-    exerciseCount: "\u00e7\u00a8\u00ae\u00e7\u203a\u00ae", everyDay: "\u00e6\u00af\u017d\u00e6\u2014\u00a5", weekdays: "\u00e5\u00b9\u00b3\u00e6\u2014\u00a5", daysPerWk: "\u00e6\u2014\u00a5/\u00e9\u20ac\u00b1",
+    exerciseCount: "\u7a2e\u76ee", everyDay: "\u6bce\u65e5", weekdays: "\u5e73\u65e5", daysPerWk: "\u65e5/\u9031",
     login: "\u30ed\u30b0\u30a4\u30f3", register: "\u767b\u9332", password: "\u30d1\u30b9\u30ef\u30fc\u30c9", username: "\u30e6\u30fc\u30b6\u30fc\u540d", identifier: "\u30e6\u30fc\u30b6\u30fc\u540d\u307e\u305f\u306f\u30e1\u30fc\u30eb",
     email: "\u30e1\u30fc\u30eb\uff08\u4efb\u610f\uff09", emailRequired: "\u30e1\u30fc\u30eb", forgotPassword: "\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u304a\u5fd8\u308c\uff1f",
     sendCode: "\u30b3\u30fc\u30c9\u9001\u4fe1", resetPassword: "\u30d1\u30b9\u30ef\u30fc\u30c9\u30ea\u30bb\u30c3\u30c8", newPassword: "\u65b0\u3057\u3044\u30d1\u30b9\u30ef\u30fc\u30c9",
@@ -390,15 +411,36 @@ const TRANSLATIONS = {
     weekSummary: "\ud83d\udcca \u9031\u9593\u30b5\u30de\u30ea\u30fc", weekReview: "\u4eca\u9031\u306e\u30d3\u30fc\u30b9\u30c8\u30e2\u30fc\u30c9\u307e\u3068\u3081",
     sessionsCap: "\u30bb\u30c3\u30b7\u30e7\u30f3", pointsCap: "\u30dd\u30a4\u30f3\u30c8", rateCap: "\u9054\u6210\u7387", topExercise: "\u30c8\u30c3\u30d7\u7a2e\u76ee",
     pts: "PTS", streak: "\u30b9\u30c8\u30ea\u30fc\u30af", you: "\u3042\u306a\u305f",
-    meditation: "\u745e\u60f3", meditationType: "\u745e\u60f3\u30bf\u30a4\u30d7", beginMeditation: "BEGIN \ud83c\udf38",
-    medDuration: "DURATION", medSession: "Session", medSessionsToday: "\u745e\u60f3", medSessionsTodayPlural: "\u745e\u60f3",
+    meditation: "\u77a5\u60f3", meditationType: "\u77a5\u60f3\u30bf\u30a4\u30d7", beginMeditation: "\u77a5\u60f3\u3092\u59cb\u3081\u308b \ud83c\udf38",
+    medDuration: "\u6642\u9593", medSession: "\u30bb\u30c3\u30b7\u30e7\u30f3", medSessionsToday: "\u77a5\u60f3", medSessionsTodayPlural: "\u77a5\u60f3",
     medStreakQualified: "\u2713 \u30b9\u30c8\u30ea\u30fc\u30af\u9054\u6210!", medMinPoints: "3\u5206\u4ee5\u4e0a\u3067\u30dd\u30a4\u30f3\u30c8\u7372\u5f97",
-    medPartialSession: "\u90e8\u5206\u30bb\u30c3\u30b7\u30e7\u30f3", medFullSession: "\ud83c\udf89 \u5b8c\u4e86!",
-    medSessionBonus: "\u30dc\u30fc\u30ca\u30b9", namaste: "NAMASTE", wellDone: "WELL DONE!",
+    medPartialSession: "\u90e8\u5206\u30bb\u30c3\u30b7\u30e7\u30f3", medFullSession: "\ud83c\udf89 \u77a5\u60f3\u5b8c\u4e86!",
+    medSessionBonus: "\u30dc\u30fc\u30ca\u30b9", namaste: "\u30ca\u30de\u30b9\u30c6", wellDone: "\u3088\u304f\u3067\u304d\u307e\u3057\u305f\uff01",
     medNextBonus: "\u6b21\u306e\u30bb\u30c3\u30b7\u30e7\u30f3", breatheIn: "\u5438\u3063\u3066...", breatheHold: "\u6b62\u3081\u3066...", breatheOut: "\u5410\u3044\u3066...",
     endSession: "\u23f9 \u7d42\u4e86", medToday: "\u4eca\u65e5", medCompleted: "\u5b8c\u4e86",
-    workoutMode: "\ud83d\udcaa WORKOUT", meditationMode: "\u262e\ufe0f \u745e\u60f3", workoutsOrMed: "\u307e\u305f\u306f1\u56de\u745e\u60f3",
+    workoutMode: "\ud83d\udcaa \u30ef\u30fc\u30af\u30a2\u30a6\u30c8", meditationMode: "\u262e\ufe0f \u77a5\u60f3", workoutsOrMed: "\u30ef\u30fc\u30af\u30a2\u30a6\u30c8\u307e\u305f\u306f1\u56de\u306e\u77a5\u60f3",
     ambientSound: "\u74b0\u5883\u97f3", useHeadphones: "\uD83C\uDFA7 \u30d0\u30a4\u30ce\u30fc\u30e9\u30eb\u30d3\u30fc\u30c8\u306b\u306f\u30d8\u30c3\u30c9\u30d5\u30a9\u30f3\u3092\u4f7f\u7528",
+    dailyMission: "\u30c7\u30a4\u30ea\u30fc\u30df\u30c3\u30b7\u30e7\u30f3", missionReady: "\u30df\u30c3\u30b7\u30e7\u30f3\u9054\u6210\u3002\u30dc\u30fc\u30ca\u30b9\u3092\u53d7\u3051\u53d6\u308d\u3046\u3002",
+    missionClaimed: "\u5831\u916c\u53d7\u3051\u53d6\u308a\u6e08\u307f", claimReward: "\u5831\u916c\u3092\u53d7\u3051\u53d6\u308b", bonusPointsLabel: "\u30dc\u30fc\u30ca\u30b9pt",
+    quickReset: "\u30af\u30a4\u30c3\u30af\u30ea\u30bb\u30c3\u30c8", quickResetHint: "\u30ef\u30f3\u30bf\u30c3\u30d7\u3002\u8a2d\u5b9a\u3067\u8ff7\u308f\u306a\u3044\u3002",
+    startReset: "2\u5206\u30ea\u30bb\u30c3\u30c8\u958b\u59cb", quickRandom: "\u30e9\u30f3\u30c0\u30e0", quickFocus: "\u96c6\u4e2d", quickEnergy: "\u30a8\u30cd\u30eb\u30ae\u30fc", quickMobility: "\u30e2\u30d3\u30ea\u30c6\u30a3", quickCalm: "\u843d\u3061\u7740\u304f",
+    socialPressure: "\u30d7\u30ec\u30c3\u30b7\u30e3\u30fc", rivalTarget: "\u4e00\u756a\u8fd1\u3044\u30e9\u30a4\u30d0\u30eb", buddyLane: "\u30d0\u30c7\u30a3\u72b6\u6cc1", teamLane: "\u30c1\u30fc\u30e0\u306e\u52e2\u3044",
+    buddyUsername: "\u30a2\u30ab\u30a6\u30f3\u30bf\u30d3\u30ea\u30c6\u30a3\u30d0\u30c7\u30a3", buddyUsernameHint: "\u4efb\u610f: \u8ffd\u3044\u304b\u3051\u308b\u3001\u307e\u305f\u306f\u30ea\u30fc\u30c9\u3092\u5b88\u308b\u76f8\u624b\u306e\u30e6\u30fc\u30b6\u30fc\u540d\u3002",
+    teamName: "\u30c1\u30fc\u30e0 / \u30af\u30eb\u30fc", teamNameHint: "\u4efb\u610f: \u8efd\u3044\u30c1\u30fc\u30e0\u30d7\u30ec\u30c3\u30b7\u30e3\u30fc\u7528\u306e\u5171\u6709\u540d\u3002",
+    noPressureYet: "\u8a2d\u5b9a\u3067\u30d0\u30c7\u30a3\u304b\u30c1\u30fc\u30e0\u3092\u8ffd\u52a0\u3057\u3066\u3001\u7d99\u7d9a\u306e\u5727\u3092\u4e0a\u3052\u3088\u3046\u3002",
+    keepRolling: "\u3053\u306e\u8abf\u5b50", lockedInToday: "\u4eca\u65e5\u306f\u78ba\u5b9a",
+    streakBonusApplied: "\u30b9\u30c8\u30ea\u30fc\u30af\u30dc\u30fc\u30ca\u30b9\u9069\u7528",
+    paceLine: "\u30da\u30fc\u30b9\u7dad\u6301\u3002\u3053\u3053\u304c\u5927\u4e8b\u3002",
+    sessionShift: "\u30bb\u30c3\u30b7\u30e7\u30f3\u5909\u5316",
+    justUnlocked: "\u3092\u89e3\u9664",
+    stillNeeded: "\u3042\u3068\u5fc5\u8981",
+    streakLockedNow: "\u4eca\u65e5\u306e\u30b9\u30c8\u30ea\u30fc\u30af\u306f\u78ba\u5b9a\u3057\u307e\u3057\u305f\u3002",
+    meditationLocksStreak: "\u3053\u306e\u77a5\u60f3\u3067\u4eca\u65e5\u306e\u30b9\u30c8\u30ea\u30fc\u30af\u304c\u78ba\u5b9a\u3057\u307e\u3059\u3002",
+    leaderboardSwing: "\u3053\u308c\u3067\u6b21\u3092\u8ffd\u3044\u629c\u304f",
+    closesGap: "\u3053\u308c\u3067\u5dee\u3092\u7e2e\u3081\u308b",
+    extendsLead: "\u3053\u308c\u3067\u30ea\u30fc\u30c9\u3092\u5e83\u3052\u308b\u76f8\u624b",
+    teamBanked: "\u30c1\u30fc\u30e0\u30dd\u30a4\u30f3\u30c8\u52a0\u7b97",
+    missionReadyNow: "\u30c7\u30a4\u30ea\u30fc\u30df\u30c3\u30b7\u30e7\u30f3\u306e\u5831\u916c\u3092\u53d7\u3051\u53d6\u308c\u307e\u3059\u3002",
     activationTitle: "\u5b9a\u7740\u3055\u305b\u308b",
     activationHint: "BeastMode \u3092\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3057\u3001\u901a\u77e5\u3092\u8a31\u53ef\u3057\u3066\u623b\u3063\u3066\u3053\u3089\u308c\u308b\u3088\u3046\u306b\u3059\u308b\u3002",
     enableNudges: "\u901a\u77e5\u3092ON",
@@ -413,6 +455,54 @@ const TRANSLATIONS = {
     installReady: "\u30a2\u30d7\u30ea\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u6e08\u307f",
   },
 };
+
+const LANGUAGE_STORAGE_KEY = "bm_lang";
+
+function normalizeLanguageCode(value, fallback = "en") {
+  const cleaned = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!cleaned) return fallback;
+  if (cleaned === "es" || cleaned.startsWith("es-")) return "es";
+  if (cleaned === "ja" || cleaned.startsWith("ja-")) return "ja";
+  if (cleaned === "en" || cleaned.startsWith("en-")) return "en";
+  return fallback;
+}
+
+function readStoredLanguage() {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored ? normalizeLanguageCode(stored, null) : null;
+  } catch {
+    return null;
+  }
+}
+
+function detectBrowserLanguage() {
+  if (typeof navigator === "undefined") return "en";
+  return normalizeLanguageCode(navigator.languages?.[0] || navigator.language || "en");
+}
+
+function readQueryLanguage() {
+  if (typeof window === "undefined") return null;
+  const langParam = new URLSearchParams(window.location.search).get("lang");
+  return langParam ? normalizeLanguageCode(langParam, null) : null;
+}
+
+function getPreferredLanguage() {
+  return readQueryLanguage() || readStoredLanguage() || detectBrowserLanguage() || "en";
+}
+
+function persistLanguagePreference(nextLang) {
+  const normalized = normalizeLanguageCode(nextLang);
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, normalized);
+  } catch {}
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = normalized;
+  }
+  return normalized;
+}
+
+persistLanguagePreference(getPreferredLanguage());
 
 function useT(lang) { return (key) => TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || key; }
 
@@ -1397,9 +1487,10 @@ function AuthScreen({ onAuth, lang, setLang }) {
             try {
               const data = await api("/api/auth/google", {
                 method: "POST",
-                body: JSON.stringify({ credential: response.credential }),
+                body: JSON.stringify({ credential: response.credential, preferredLanguage: lang }),
               });
               localStorage.setItem("bm_token", data.token);
+              await setLang(data.user?.language || lang);
               onAuthRef.current(data);
             } catch (e) {
               setError(e.message);
@@ -1482,10 +1573,11 @@ function AuthScreen({ onAuth, lang, setLang }) {
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const body = mode === "register"
-        ? { username: trimmedIdentifier, password, email: trimmedEmail || undefined }
-        : { identifier: trimmedIdentifier, password };
+        ? { username: trimmedIdentifier, password, email: trimmedEmail || undefined, language: lang }
+        : { identifier: trimmedIdentifier, password, language: lang };
       const data = await api(endpoint, { method: "POST", body: JSON.stringify(body) });
       localStorage.setItem("bm_token", data.token);
+      await setLang(data.user?.language || lang);
       onAuthRef.current(data);
     } catch (e) {
       setError(e.message);
@@ -1678,7 +1770,7 @@ function AuthScreen({ onAuth, lang, setLang }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
-          {[{code:"en",label:"EN"},{code:"es",label:"ES"},{code:"ja",label:"JP"}].map(l => (
+          {[{code:"en",label:"EN"},{code:"es",label:"ES"},{code:"ja",label:"JA"}].map(l => (
             <button key={l.code} onClick={() => setLang(l.code)}
               style={{ padding: "6px 14px", background: lang === l.code ? "rgba(255,77,0,0.2)" : "rgba(255,255,255,0.04)", border: lang === l.code ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, color: lang === l.code ? "#FF8C00" : "#555", fontSize: 12, fontWeight: 600 }}>
               {l.label}
@@ -2247,7 +2339,7 @@ function DailySetupScreen({ onComplete, onAccountDeleted, settings, user, lang, 
         <div style={labelStyle}>{t("language")}</div>
         <div style={{ display: "flex", gap: 8 }}>
           {[{code:"en",label:"English"},{code:"es",label:"Espa\u00f1ol"},{code:"ja",label:"\u65E5\u672C\u8A9E"}].map(l => (
-            <button key={l.code} onClick={() => setLang(l.code)}
+            <button key={l.code} onClick={() => setLang(l.code, { syncRemote: true })}
               style={optBtn(lang === l.code)}>
               {l.label}
             </button>
@@ -3027,7 +3119,7 @@ function WeeklySummary({ weekData, streak, totalPoints, onClose, lang }) {
 //     MAIN APP                                     
 function BeastModeApp() {
   const [screen, setScreen] = useState("loading");
-  const [lang, setLang] = useState("en");
+  const [lang, setLangState] = useState(() => persistLanguagePreference(getPreferredLanguage()));
   const t = useT(lang);
   const [user, setUser] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -3071,6 +3163,25 @@ function BeastModeApp() {
   const retryRef = useRef(null);
   const workoutActiveRef = useRef(false);
 
+  const setLang = useCallback(async (nextLang, options = {}) => {
+    const normalized = persistLanguagePreference(nextLang);
+    setLangState(normalized);
+
+    if (options.syncRemote && localStorage.getItem("bm_token")) {
+      try {
+        await api("/api/user/language", {
+          method: "PUT",
+          body: JSON.stringify({ language: normalized }),
+        });
+        setUser((prev) => (prev ? { ...prev, language: normalized } : prev));
+      } catch (err) {
+        console.warn("Failed to sync language:", err.message || err);
+      }
+    }
+
+    return normalized;
+  }, []);
+
   // Track active overlays
   useEffect(() => {
     workoutActiveRef.current = showTimer || showExtraCredit || showAlarm || showMedTimer || !!evoPopup || !!awardPopup || showWeeklySummary;
@@ -3093,7 +3204,7 @@ function BeastModeApp() {
       api("/api/stats/pressure").catch(() => null),
     ]);
     setUser(data.user);
-    setLang(data.user?.language || "en");
+    await setLang(data.user?.language || getPreferredLanguage());
     setSettings(data.settings);
     setProgress(data.progress);
     setUnlockedAwards(new Set(data.awards || []));

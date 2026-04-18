@@ -14,6 +14,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 const VALID_ACTIVE_DAYS = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+const SUPPORTED_LANGUAGES = new Set(["en", "es", "ja"]);
 
 function normalizeDuration(value) {
   if (value === "random") return "random";
@@ -80,6 +81,14 @@ function sanitizeTimezone(value) {
   } catch {
     return "UTC";
   }
+}
+
+function normalizeLanguage(value) {
+  const cleaned = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (cleaned === "es" || cleaned.startsWith("es-")) return "es";
+  if (cleaned === "ja" || cleaned.startsWith("ja-")) return "ja";
+  if (cleaned === "en" || cleaned.startsWith("en-")) return "en";
+  return null;
 }
 
 // GET /api/user/profile
@@ -282,12 +291,13 @@ router.post("/push-test", async (req, res) => {
 router.put("/language", async (req, res) => {
   try {
     const { language } = req.body;
-    if (!language || !/^[a-z]{2}(-[A-Z]{2})?$/.test(language)) {
-      return res.status(400).json({ error: "Valid language code required (e.g. en, pt-BR)" });
+    const normalizedLanguage = normalizeLanguage(language);
+    if (!normalizedLanguage || !SUPPORTED_LANGUAGES.has(normalizedLanguage)) {
+      return res.status(400).json({ error: "Supported languages are en, es, and ja" });
     }
 
-    await pool.query("UPDATE users SET language = $1, updated_at = NOW() WHERE id = $2", [language, req.userId]);
-    res.json({ success: true });
+    await pool.query("UPDATE users SET language = $1, updated_at = NOW() WHERE id = $2", [normalizedLanguage, req.userId]);
+    res.json({ success: true, language: normalizedLanguage });
   } catch (err) {
     console.error("Language update error:", err);
     res.status(500).json({ error: "Failed to update language" });

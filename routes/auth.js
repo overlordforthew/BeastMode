@@ -43,6 +43,15 @@ function normalizeUsernameKey(username) {
   return normalizeUsername(username).toLowerCase();
 }
 
+function normalizeLanguage(language, fallback = "en") {
+  const cleaned = typeof language === "string" ? language.trim().toLowerCase() : "";
+  if (!cleaned) return fallback;
+  if (cleaned === "es" || cleaned.startsWith("es-")) return "es";
+  if (cleaned === "ja" || cleaned.startsWith("ja-")) return "ja";
+  if (cleaned === "en" || cleaned.startsWith("en-")) return "en";
+  return fallback;
+}
+
 function buildUsernameCandidate(rawValue, fallback = "beastmode") {
   const cleaned = String(rawValue || "")
     .trim()
@@ -72,9 +81,10 @@ async function createUniqueUsername(baseCandidate) {
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
-    const { username, password, email } = req.body;
+    const { username, password, email, language } = req.body;
     const normalizedUsername = normalizeUsername(username);
     const usernameKey = normalizeUsernameKey(normalizedUsername);
+    const normalizedLanguage = normalizeLanguage(language);
     if (!normalizedUsername || !password) {
       return res.status(400).json({ error: "Username and password are required" });
     }
@@ -98,8 +108,8 @@ router.post("/register", async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, language",
-      [normalizedUsername, hash, normalizedEmail]
+      "INSERT INTO users (username, password_hash, email, language) VALUES ($1, $2, $3, $4) RETURNING id, username, language",
+      [normalizedUsername, hash, normalizedEmail, normalizedLanguage]
     );
     const user = result.rows[0];
     const userId = user.id;
@@ -122,9 +132,10 @@ router.post("/register", async (req, res) => {
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
   try {
-    const { username, identifier, password } = req.body;
+    const { username, identifier, password, language } = req.body;
     const loginIdentifier = normalizeUsername(identifier || username);
     const loginKey = normalizeUsernameKey(identifier || username);
+    const normalizedLanguage = normalizeLanguage(language);
     if (!loginIdentifier || !password) {
       return res.status(400).json({ error: "Username or email and password are required" });
     }
@@ -149,6 +160,11 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    if (normalizedLanguage && user.language !== normalizedLanguage) {
+      await pool.query("UPDATE users SET language = $1, updated_at = NOW() WHERE id = $2", [normalizedLanguage, user.id]);
+      user.language = normalizedLanguage;
+    }
+
     const token = generateToken(user.id);
     res.json(buildAuthResponse(user, token));
   } catch (err) {
@@ -160,13 +176,14 @@ router.post("/login", async (req, res) => {
 // POST /api/auth/google
 router.post("/google", async (req, res) => {
   try {
-    const { credential } = req.body;
+    const { credential, preferredLanguage } = req.body;
     if (!credential) {
       return res.status(400).json({ error: "Missing Google credential" });
     }
     if (!googleClient) {
       return res.status(500).json({ error: "Google sign-in is not configured" });
     }
+    const normalizedLanguage = normalizeLanguage(preferredLanguage);
 
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
@@ -188,6 +205,10 @@ router.post("/google", async (req, res) => {
     let result = await pool.query("SELECT id, username, language FROM users WHERE google_id = $1", [googleId]);
     if (result.rows.length > 0) {
       const user = result.rows[0];
+      if (normalizedLanguage && user.language !== normalizedLanguage) {
+        await pool.query("UPDATE users SET language = $1, updated_at = NOW() WHERE id = $2", [normalizedLanguage, user.id]);
+        user.language = normalizedLanguage;
+      }
       const token = generateToken(user.id);
       return res.json(buildAuthResponse(user, token));
     }
@@ -197,7 +218,11 @@ router.post("/google", async (req, res) => {
       result = await pool.query("SELECT id, username, language FROM users WHERE LOWER(email) = $1", [email]);
       if (result.rows.length > 0) {
         const user = result.rows[0];
-        await pool.query("UPDATE users SET google_id = $1 WHERE id = $2", [googleId, user.id]);
+        await pool.query(
+          "UPDATE users SET google_id = $1, language = $2, updated_at = NOW() WHERE id = $3",
+          [googleId, normalizedLanguage || user.language || "en", user.id]
+        );
+        user.language = normalizedLanguage || user.language || "en";
         const token = generateToken(user.id);
         return res.json(buildAuthResponse(user, token));
       }
@@ -207,8 +232,8 @@ router.post("/google", async (req, res) => {
     const username = await createUniqueUsername(name || `beast${googleId.slice(-6)}`);
 
     result = await pool.query(
-      "INSERT INTO users (username, google_id, email) VALUES ($1, $2, $3) RETURNING id, username, language",
-      [username, googleId, email || null]
+      "INSERT INTO users (username, google_id, email, language) VALUES ($1, $2, $3, $4) RETURNING id, username, language",
+      [username, googleId, email || null, normalizedLanguage || "en"]
     );
     const user = result.rows[0];
     const userId = user.id;
