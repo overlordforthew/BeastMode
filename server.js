@@ -96,6 +96,20 @@ for (const [routePath, fileName] of Object.entries(PUBLIC_PAGE_ROUTES)) {
   });
 }
 
+app.get("/downloads/beastmode.apk", (req, res) => {
+  const apkPath = path.join(__dirname, "android", "app", "build", "outputs", "apk", "release", "app-release.apk");
+  res.download(apkPath, "beastmode-android.apk", (error) => {
+    if (!error) return;
+    if (error.code === "ENOENT") {
+      return res.status(404).json({ error: "Android APK is not available on this build yet" });
+    }
+    console.error("APK download error:", error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "Failed to download APK" });
+    }
+  });
+});
+
 // Static frontend
 app.use(express.static(path.join(__dirname, "public")));
 
