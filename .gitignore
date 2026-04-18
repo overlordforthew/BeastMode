@@ -1,5 +1,8 @@
 .env
+.codex
+.npmrc
 node_modules/
+__pycache__/
 *.log
 public/app.js
 android/.gradle/

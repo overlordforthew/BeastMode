@@ -75,6 +75,10 @@ Validate these declarations against the live app behavior before final submissio
 - Signed APK: `android/app/build/outputs/apk/release/app-release.apk`
 - Signed AAB: `android/app/build/outputs/bundle/release/app-release.aab`
 - Upload certificate fingerprints are generated locally by the Android signing setup.
+- Current internal-test release target: version code `2`, version name `1.0.1`
+- Play listing assets live under `docs/play-assets/`
+- Feature graphic: `docs/play-assets/feature-graphic-1024x500.png`
+- Phone screenshots: `docs/play-assets/phone/*.png`
 
 ## Submission Checklist
 
@@ -82,5 +86,16 @@ Validate these declarations against the live app behavior before final submissio
 2. Add the support, privacy, and deletion URLs above.
 3. Complete App Access with reviewer credentials created specifically for Play review.
 4. Complete Data Safety and Content Rating.
-5. Add phone screenshots and app icon assets.
+5. Upload the generated feature graphic and at least 2-4 phone screenshots from `docs/play-assets/phone/`.
 6. After internal review passes, promote to closed or production.
+
+## Exact Upload Sequence
+
+1. In Play Console, create or open the `Beast Mode` app under package `com.namibarden.beastmode`.
+2. Go to `Testing -> Internal testing` and create a release.
+3. Upload `android/app/build/outputs/bundle/release/app-release.aab`.
+4. Set the support, privacy, and deletion URLs from the top of this doc.
+5. In `App access`, use the dedicated reviewer account created outside git for Play review.
+6. In `Store listing`, use the short/full description above plus the assets in `docs/play-assets/`.
+7. Finish `Data safety`, `Content rating`, and `Target audience`.
+8. Submit to internal testing first, then install from the Play review link before promoting any wider track.
