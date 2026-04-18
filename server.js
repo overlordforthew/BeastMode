@@ -96,7 +96,7 @@ for (const [routePath, fileName] of Object.entries(PUBLIC_PAGE_ROUTES)) {
   });
 }
 
-app.get("/downloads/beastmode.apk", (req, res) => {
+function sendAndroidApk(req, res) {
   const apkPath = path.join(__dirname, "android", "app", "build", "outputs", "apk", "release", "app-release.apk");
   res.download(apkPath, "beastmode-android.apk", (error) => {
     if (!error) return;
@@ -108,7 +108,10 @@ app.get("/downloads/beastmode.apk", (req, res) => {
       return res.status(500).json({ error: "Failed to download APK" });
     }
   });
-});
+}
+
+app.get("/beastmode.apk", sendAndroidApk);
+app.get("/downloads/beastmode.apk", sendAndroidApk);
 
 // Static frontend
 app.use(express.static(path.join(__dirname, "public")));
