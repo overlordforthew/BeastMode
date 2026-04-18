@@ -4,8 +4,11 @@
   "description": "Beast Mode fitness app backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "npm run build:web && node server.js",
     "dev": "node --watch server.js",
+    "build:web": "node scripts/build-web.js",
+    "dev:web": "node scripts/build-web.js --watch",
+    "test:unit": "node --test test/*.test.js",
     "test:smoke": "node scripts/smoke-test.js",
     "mobile:doctor": "npx cap doctor",
     "mobile:sync": "npx cap sync android",
@@ -16,6 +19,7 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.1",
@@ -24,11 +28,17 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^8.0.5",
     "pg": "^8.13.1",
-    "web-push": "^3.6.7"
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "web-push": "^3.6.7",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@capacitor/android": "^7.6.2",
     "@capacitor/cli": "^7.6.2",
-    "@capacitor/core": "^7.6.2"
+    "@capacitor/core": "^7.6.2",
+    "esbuild": "^0.28.0"
   }
 }

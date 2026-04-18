@@ -136,6 +136,10 @@ async function main() {
   const yesterdayKey = dateKeyDaysAgo(1);
   const twoDaysAgoKey = dateKeyDaysAgo(2);
 
+  const health = await api("/api/health");
+  assert.strictEqual(health.status, "ok", "health endpoint should report ok");
+  assert.strictEqual(health.database, "ok", "health endpoint should verify database availability");
+
   const alpha = await registerUser("alpha", { username: "adminalpha", email: "adminalpha@example.com" });
   const bravo = await registerUser("bravo");
   const charlie = await registerUser("charlie");
@@ -198,6 +202,8 @@ async function main() {
   assert.strictEqual(logResult.finalPoints, expectedWorkoutPoints, "server should ignore spoofed workout points");
   assert.strictEqual(logResult.totalPoints, expectedWorkoutPoints, "canonical workout points should hit progress totals");
   assert.strictEqual(logResult.sessionCredits, 1, "full workouts should earn one streak credit");
+  const alphaProfileAfterWorkout = await api("/api/user/profile", { token: alpha.token });
+  assert.strictEqual(alphaProfileAfterWorkout.progress.sessionsCompleted, 1, "completed workouts should increment sessionsCompleted exactly once");
 
   const expectedPartialWorkoutPoints = estimateAwardedPoints(calcWorkoutPartialPoints("pushups", 2, 60), 1);
   const partialLogResult = await api("/api/workout/log", {
@@ -217,6 +223,8 @@ async function main() {
   assert.strictEqual(partialLogResult.finalPoints, expectedPartialWorkoutPoints, "partial workouts should use elapsed time scoring");
   assert.strictEqual(partialLogResult.sessionsFinished, 1, "partial workouts should not count as finished sessions");
   assert.strictEqual(partialLogResult.sessionCredits, 1, "partial workouts should not add streak credits");
+  const alphaProfileAfterPartialWorkout = await api("/api/user/profile", { token: alpha.token });
+  assert.strictEqual(alphaProfileAfterPartialWorkout.progress.sessionsCompleted, 1, "partial workouts should not inflate sessionsCompleted");
 
   const shortWorkoutResult = await api("/api/workout/log", {
     method: "POST",

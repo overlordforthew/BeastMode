@@ -1,11 +1,13 @@
 require("dotenv").config();
 
 const express = require("express");
+const compression = require("compression");
 const cors = require("cors");
 const path = require("path");
 const webpush = require("web-push");
 const rateLimit = require("express-rate-limit");
 const { initDb, pool } = require("./db");
+const { httpLogger, logger } = require("./logger");
 const { isEmailConfigured } = require("./mailer");
 const { isWebPushConfigured, startPushScheduler } = require("./lib/push");
 
@@ -53,6 +55,8 @@ app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 // Middleware
+app.use(httpLogger);
+app.use(compression());
 app.use(cors((req, callback) => {
   const origin = req.header("Origin");
   callback(null, {
@@ -60,7 +64,7 @@ app.use(cors((req, callback) => {
     credentials: true,
   });
 }));
-app.use(express.json());
+app.use(express.json({ limit: "250kb" }));
 
 app.get("/api/config", (req, res) => {
   res.set("Cache-Control", "no-store");
@@ -134,8 +138,15 @@ app.use("/api/user", userRoutes);
 app.use("/api/workout", workoutRoutes);
 app.use("/api/stats", statsRoutes);
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", time: new Date().toISOString() });
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.set("Cache-Control", "no-store");
+    res.json({ status: "ok", time: new Date().toISOString(), database: "ok" });
+  } catch (error) {
+    req.log?.error({ err: error }, "Health check failed");
+    res.status(503).json({ status: "error", database: "down" });
+  }
 });
 
 // Unknown API routes — return 404 instead of hanging
@@ -153,7 +164,7 @@ app.use((err, req, res, next) => {
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ error: "Invalid JSON" });
   }
-  console.error("Server error:", err);
+  req.log?.error({ err }, "Unhandled request error");
   res.status(500).json({ error: "Internal server error" });
 });
 
@@ -162,11 +173,10 @@ async function start() {
   await initDb();
   startPushScheduler(pool);
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Beast Mode server running on port ${PORT}`);
-    console.log(`API: http://localhost:${PORT}/api/health`);
+    logger.info({ port: PORT }, "Beast Mode server running");
   });
 }
 start().catch((err) => {
-  console.error("Fatal startup error:", err);
+  logger.error({ err }, "Fatal startup error");
   process.exit(1);
 });

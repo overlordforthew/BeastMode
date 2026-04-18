@@ -1,5 +1,7 @@
 const express = require("express");
+const { z } = require("zod");
 const { pool } = require("../db");
+const { validateBody } = require("../lib/validation");
 const { authMiddleware } = require("../middleware/auth");
 const { syncUserProgressDay } = require("../lib/progress");
 const {
@@ -92,6 +94,37 @@ function normalizeLanguage(value) {
   return null;
 }
 
+const settingsSchema = z.object({
+  duration: z.union([z.string(), z.number()]).optional(),
+  intervalMinutes: z.coerce.number().int().optional(),
+  selectedExercises: z.array(z.string()).max(20).optional(),
+  activeDays: z.array(z.string()).max(7).optional(),
+  startHour: z.union([z.coerce.number().int(), z.null(), z.literal("")]).optional(),
+  endHour: z.union([z.coerce.number().int(), z.null(), z.literal("")]).optional(),
+  alarmMessage: z.union([z.string(), z.null()]).optional(),
+  buddyUsername: z.union([z.string(), z.null()]).optional(),
+  teamName: z.union([z.string(), z.null()]).optional(),
+  timezone: z.union([z.string(), z.null()]).optional(),
+});
+
+const pushSubscriptionSchema = z.object({
+  subscription: z.object({
+    endpoint: z.string().url("Subscription endpoint must be a valid URL"),
+  }).passthrough(),
+});
+
+const pushUnsubscribeSchema = z.object({
+  endpoint: z.string().url("Endpoint must be a valid URL").optional(),
+});
+
+const languageSchema = z.object({
+  language: z.string().trim().min(1, "Language is required"),
+});
+
+const deleteAccountSchema = z.object({
+  confirmation: z.string().trim().min(1, "Type your username to delete this account"),
+});
+
 // GET /api/user/profile
 router.get("/profile", async (req, res) => {
   try {
@@ -156,7 +189,7 @@ router.get("/profile", async (req, res) => {
 });
 
 // PUT /api/user/settings
-router.put("/settings", async (req, res) => {
+router.put("/settings", validateBody(settingsSchema), async (req, res) => {
   try {
     const {
       duration,
@@ -237,7 +270,7 @@ router.get("/push-status", async (req, res) => {
 });
 
 // POST /api/user/push-subscription
-router.post("/push-subscription", async (req, res) => {
+router.post("/push-subscription", validateBody(pushSubscriptionSchema), async (req, res) => {
   try {
     if (!isWebPushConfigured()) {
       return res.status(503).json({ error: "Web push is not configured" });
@@ -253,7 +286,7 @@ router.post("/push-subscription", async (req, res) => {
 });
 
 // DELETE /api/user/push-subscription
-router.delete("/push-subscription", async (req, res) => {
+router.delete("/push-subscription", validateBody(pushUnsubscribeSchema), async (req, res) => {
   try {
     const { endpoint } = req.body || {};
     const status = await removePushSubscription(req.userId, endpoint || null, pool);
@@ -291,7 +324,7 @@ router.post("/push-test", async (req, res) => {
 });
 
 // PUT /api/user/language
-router.put("/language", async (req, res) => {
+router.put("/language", validateBody(languageSchema), async (req, res) => {
   try {
     const { language } = req.body;
     const normalizedLanguage = normalizeLanguage(language);
@@ -308,7 +341,7 @@ router.put("/language", async (req, res) => {
 });
 
 // DELETE /api/user/account
-router.delete("/account", async (req, res) => {
+router.delete("/account", validateBody(deleteAccountSchema), async (req, res) => {
   const client = await pool.connect();
   try {
     const rawConfirmation = typeof req.body?.confirmation === "string" ? req.body.confirmation.trim().toLowerCase() : "";

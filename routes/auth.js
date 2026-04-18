@@ -1,7 +1,9 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { OAuth2Client } = require("google-auth-library");
+const { z } = require("zod");
 const { pool, initUserData } = require("../db");
+const { validateBody } = require("../lib/validation");
 const { normalizeEmail, storePasswordResetCode } = require("../lib/password-reset");
 const { generateToken } = require("../middleware/auth");
 const { isEmailConfigured, sendPasswordResetCode } = require("../mailer");
@@ -74,20 +76,45 @@ async function createUniqueUsername(baseCandidate) {
   return `${base.slice(0, 12)}${Date.now().toString().slice(-6)}`;
 }
 
+const registerSchema = z.object({
+  username: z.string().trim().min(1, "Username is required").max(40, "Username must be 40 characters or fewer"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  email: z.string().trim().email("Email must be valid").optional(),
+  language: z.string().trim().optional(),
+});
+
+const loginSchema = z.object({
+  username: z.string().trim().min(1).optional(),
+  identifier: z.string().trim().min(1).optional(),
+  password: z.string().min(1, "Password is required"),
+  language: z.string().trim().optional(),
+}).refine((value) => Boolean(value.identifier || value.username), {
+  message: "Username or email is required",
+  path: ["identifier"],
+});
+
+const googleSchema = z.object({
+  credential: z.string().trim().min(1, "Missing Google credential"),
+  preferredLanguage: z.string().trim().optional(),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Email must be valid"),
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().trim().email("Email must be valid"),
+  code: z.string().trim().min(1, "Reset code is required").max(64, "Reset code is too long"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
 // POST /api/auth/register
-router.post("/register", async (req, res) => {
+router.post("/register", validateBody(registerSchema), async (req, res) => {
   try {
     const { username, password, email, language } = req.body;
     const normalizedUsername = normalizeUsername(username);
     const usernameKey = normalizeUsernameKey(normalizedUsername);
     const normalizedLanguage = normalizeLanguage(language);
-    if (!normalizedUsername || !password) {
-      return res.status(400).json({ error: "Username and password are required" });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
-    }
-
     const normalizedEmail = email ? normalizeEmail(email) : null;
     const [existingUsername, existingEmail] = await Promise.all([
       pool.query("SELECT id FROM users WHERE LOWER(username) = $1 LIMIT 1", [usernameKey]),
@@ -126,16 +153,12 @@ router.post("/register", async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", validateBody(loginSchema), async (req, res) => {
   try {
     const { username, identifier, password, language } = req.body;
     const loginIdentifier = normalizeUsername(identifier || username);
     const loginKey = normalizeUsernameKey(identifier || username);
     const normalizedLanguage = normalizeLanguage(language);
-    if (!loginIdentifier || !password) {
-      return res.status(400).json({ error: "Username or email and password are required" });
-    }
-
     const result = await pool.query(
       `SELECT id, username, language, password_hash
        FROM users
@@ -170,12 +193,9 @@ router.post("/login", async (req, res) => {
 });
 
 // POST /api/auth/google
-router.post("/google", async (req, res) => {
+router.post("/google", validateBody(googleSchema), async (req, res) => {
   try {
     const { credential, preferredLanguage } = req.body;
-    if (!credential) {
-      return res.status(400).json({ error: "Missing Google credential" });
-    }
     if (!googleClient) {
       return res.status(500).json({ error: "Google sign-in is not configured" });
     }
@@ -244,13 +264,9 @@ router.post("/google", async (req, res) => {
 });
 
 // POST /api/auth/forgot-password
-router.post("/forgot-password", async (req, res) => {
+router.post("/forgot-password", validateBody(forgotPasswordSchema), async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
     const emailKey = normalizeEmail(email);
     const emailEnabled = isEmailConfigured();
     const productionLike = isProductionLike();
@@ -283,16 +299,9 @@ router.post("/forgot-password", async (req, res) => {
 });
 
 // POST /api/auth/reset-password
-router.post("/reset-password", async (req, res) => {
+router.post("/reset-password", validateBody(resetPasswordSchema), async (req, res) => {
   try {
     const { email, code, newPassword } = req.body;
-    if (!email || !code || !newPassword) {
-      return res.status(400).json({ error: "Email, code, and new password are required" });
-    }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
-    }
-
     const emailKey = normalizeEmail(email);
     const resetR = await pool.query("SELECT code_hash, expires_at, attempts FROM password_reset_codes WHERE email = $1", [emailKey]);
     if (resetR.rows.length === 0) {

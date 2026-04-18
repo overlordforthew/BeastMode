@@ -1,5 +1,7 @@
 const express = require("express");
+const { z } = require("zod");
 const { pool } = require("../db");
+const { validateBody } = require("../lib/validation");
 const { authMiddleware } = require("../middleware/auth");
 const {
   MIN_DAILY_SESSIONS,
@@ -40,8 +42,16 @@ function toBoolean(value) {
   return value === true || value === "true" || value === 1 || value === "1";
 }
 
+const workoutLogSchema = z.object({
+  exerciseId: z.string().trim().min(1, "Exercise is required"),
+  durationMinutes: z.coerce.number().positive("Duration must be positive"),
+  wasCompleted: z.union([z.boolean(), z.string(), z.number()]),
+  type: z.enum(["alarm", "extra", "meditation"]).optional(),
+  elapsedSeconds: z.coerce.number().min(0).optional(),
+});
+
 // POST /api/workout/log
-router.post("/log", syncProgressIfNeeded, async (req, res) => {
+router.post("/log", validateBody(workoutLogSchema), syncProgressIfNeeded, async (req, res) => {
   const client = await pool.connect();
   try {
     const {
@@ -127,10 +137,19 @@ router.post("/log", syncProgressIfNeeded, async (req, res) => {
         sessions_finished = $2,
         session_credits = $3,
         meditations_finished = $4,
-        qualifying_meditations = $5,
-        last_active_date = $6, updated_at = NOW()
-      WHERE user_id = $7
-    `, [finalPts, newSessionsFinished, newSessionCredits, newMeditationsFinished, newQualifyingMeditations, today, req.userId]);
+        qualifying_meditations = $6,
+        last_active_date = $7, updated_at = NOW()
+      WHERE user_id = $8
+    `, [
+      finalPts,
+      newSessionsFinished,
+      newSessionCredits,
+      newMeditationsFinished,
+      countsAsWorkout ? 1 : 0,
+      newQualifyingMeditations,
+      today,
+      req.userId,
+    ]);
 
     // Update stats if completed
     if (completed) {

@@ -1,6 +1,6 @@
 // Beast Mode Service Worker
 // Cache version — bump this to force a cache refresh on deploy
-const CACHE_VERSION = 'beastmode-v5';
+const CACHE_VERSION = 'beastmode-v6';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -8,14 +8,10 @@ const API_CACHE = `${CACHE_VERSION}-api`;
 const PRECACHE_URLS = [
   '/',
   '/index.html',
-  '/scoring.js',
+  '/app.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  // CDN dependencies
-  'https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.5/babel.min.js',
 ];
 
 // Offline fallback page (inline HTML returned when both network and cache miss)
@@ -90,6 +86,12 @@ self.addEventListener('fetch', (event) => {
   // API calls: network-first, fall back to cache
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkFirst(request, API_CACHE));
+    return;
+  }
+
+  // App shell: prefer the network so deploys replace old bundles quickly
+  if (url.pathname === '/app.js') {
+    event.respondWith(networkFirst(request, STATIC_CACHE));
     return;
   }
 

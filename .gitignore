@@ -1,6 +1,7 @@
 .env
 node_modules/
 *.log
+public/app.js
 android/.gradle/
 android/.android-build.lock
 android/local.properties
