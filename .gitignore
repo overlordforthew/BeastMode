@@ -2,6 +2,7 @@
 node_modules/
 *.log
 android/.gradle/
+android/.android-build.lock
 android/local.properties
 android/app/build/
 android/build/
