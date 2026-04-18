@@ -139,6 +139,13 @@ async function getDailyMissionStatus(userId, dateKey = getTodayDateKey(), db = p
     progressText: template.getProgressText(metrics),
     complete: template.isComplete(metrics),
     qualificationMet: metrics.sessionsFinished >= MIN_DAILY_SESSIONS || metrics.meditationsFinished >= 1,
+    metrics: {
+      todayPoints: metrics.todayPoints,
+      sessionsFinished: metrics.sessionsFinished,
+      meditationsFinished: metrics.meditationsFinished,
+      uniqueExercisesToday: metrics.uniqueExercisesToday,
+      extraSessionsToday: metrics.extraSessionsToday,
+    },
     claimed,
     claimedAt: metrics.claim?.created_at || null,
     date: dateKey,

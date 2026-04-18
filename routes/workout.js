@@ -23,20 +23,20 @@ router.post("/log", async (req, res) => {
     const safeType = ["alarm", "extra", "meditation"].includes(type) ? type : "alarm";
     const safeEmoji = (exerciseEmoji || "").slice(0, 10);
 
-    const today = new Date().toISOString().split("T")[0];
-
-    // Insert workout
-    await pool.query(
-      `INSERT INTO workout_history (user_id, exercise_id, exercise_name, exercise_emoji, points, duration_minutes, was_completed, type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [req.userId, exerciseId, exerciseName.slice(0, 100), safeEmoji, safePoints, safeDuration, wasCompleted, safeType]
-    );
-
     // Get current progress
     const progR = await pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]);
     const progress = progR.rows[0];
     const streakMult = Math.pow(1.1, progress.streak - 1);
     const finalPts = Math.round(safePoints * streakMult * 10) / 10;
+    const today = new Date().toISOString().split("T")[0];
+
+    // Insert workout with the actual awarded points so history stays truthful after reloads.
+    await pool.query(
+      `INSERT INTO workout_history (user_id, exercise_id, exercise_name, exercise_emoji, points, duration_minutes, was_completed, type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [req.userId, exerciseId, exerciseName.slice(0, 100), safeEmoji, finalPts, safeDuration, wasCompleted, safeType]
+    );
+
     const countsAsWorkout = wasCompleted && safeType !== "meditation";
     const countsAsMeditation = wasCompleted && safeType === "meditation";
     const newSessionsFinished = countsAsWorkout ? progress.sessions_finished + 1 : progress.sessions_finished;

@@ -168,6 +168,18 @@ const TRANSLATIONS = {
     teamName: "TEAM / CREW", teamNameHint: "Optional: a shared squad name for lightweight team pressure.",
     noPressureYet: "Add a buddy or team in settings to turn up the accountability.",
     keepRolling: "Keep rolling", lockedInToday: "Locked in today",
+    streakBonusApplied: "streak bonus applied",
+    paceLine: "Keep the pace. This one matters.",
+    sessionShift: "SESSION SHIFT",
+    justUnlocked: "just unlocked",
+    stillNeeded: "still needed",
+    streakLockedNow: "Today's streak is secured.",
+    meditationLocksStreak: "This meditation locks in today's streak.",
+    leaderboardSwing: "This jumps you past",
+    closesGap: "This closes the gap to",
+    extendsLead: "This extends your lead on",
+    teamBanked: "Team points banked",
+    missionReadyNow: "Daily mission ready to claim.",
   },
   es: {
     welcomeTitle: "BEAST MODE", welcomeSub: "Evoluciona de ameba a depredador supremo con micro-ejercicios",
@@ -717,8 +729,139 @@ function calcPoints(basePoints, durationMinutes) {
   const mult = DURATION_MULTIPLIERS[durationMinutes] || 1;
   return Math.round(basePoints * mult * 10) / 10;
 }
+function roundPoints(value) {
+  return Math.round((Number(value) || 0) * 10) / 10;
+}
+function getStreakMultiplier(streak) {
+  return Math.pow(1.1, Math.max((streak || 1) - 1, 0));
+}
+function estimateAwardedPoints(rawPoints, streak) {
+  return roundPoints(rawPoints * getStreakMultiplier(streak));
+}
 function fmtDuration(d) { return d < 1 ? `${Math.round(d * 60)}s` : `${d}m`; }
 function resolveDuration(d) { return d === "random" ? DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)] : d; }
+
+function getMissionImpactMessage(mission, action) {
+  if (!mission || mission.claimed || !action.wasCompleted || !mission.metrics) return null;
+  const metrics = mission.metrics;
+  let before = mission.progressCurrent || 0;
+  let after = before;
+
+  if (mission.id === "streak_builder" && action.kind === "workout") {
+    after = Math.min(3, (metrics.sessionsFinished || 0) + 1);
+  } else if (mission.id === "mind_body_stack") {
+    const workouts = Math.min(2, (metrics.sessionsFinished || 0) + (action.kind === "workout" ? 1 : 0));
+    const meditations = Math.min(1, (metrics.meditationsFinished || 0) + (action.kind === "meditation" ? 1 : 0));
+    after = workouts + meditations;
+  } else if (mission.id === "point_sprint") {
+    after = Math.min(60, Math.round((metrics.todayPoints || 0) + (action.awardedPoints || 0)));
+  } else if (mission.id === "variety_hunt" && action.kind === "workout") {
+    const uniqueSet = new Set(action.todayExerciseIds || []);
+    uniqueSet.add(action.exerciseId);
+    after = Math.min(2, uniqueSet.size);
+  } else if (mission.id === "afterburn") {
+    const workouts = Math.min(2, (metrics.sessionsFinished || 0) + (action.kind === "workout" ? 1 : 0));
+    const extra = Math.min(1, (metrics.extraSessionsToday || 0) + (action.sessionType === "extra" ? 1 : 0));
+    after = workouts + extra;
+  }
+
+  if (after <= before) return null;
+  const remaining = Math.max(0, mission.progressTarget - after);
+  if (remaining === 0) {
+    return `${mission.title} ${TRANSLATIONS.en.justUnlocked}. +${mission.bonusPoints} waiting.`;
+  }
+  return `${mission.title}: ${after}/${mission.progressTarget}. ${remaining} left.`;
+}
+
+function getStreakImpactMessage(context, action) {
+  if (!action.wasCompleted) return null;
+  const beforeWorkouts = context?.sessionsFinished || 0;
+  const beforeMeditations = context?.meditationsFinished || 0;
+  const beforeQualified = beforeWorkouts >= 3 || beforeMeditations >= 1;
+  const afterWorkouts = beforeWorkouts + (action.kind === "workout" ? 1 : 0);
+  const afterMeditations = beforeMeditations + (action.kind === "meditation" ? 1 : 0);
+  const afterQualified = afterWorkouts >= 3 || afterMeditations >= 1;
+
+  if (!beforeQualified && afterQualified) {
+    return action.kind === "meditation" ? TRANSLATIONS.en.meditationLocksStreak : TRANSLATIONS.en.streakLockedNow;
+  }
+  if (action.kind === "workout" && !afterQualified) {
+    return `${Math.max(0, 3 - afterWorkouts)} workouts left to lock today in.`;
+  }
+  return null;
+}
+
+function getPressureImpactMessage(pressure, action) {
+  if (!pressure || !action.wasCompleted || !action.awardedPoints) return null;
+  if (pressure.rivalAbove && action.awardedPoints >= pressure.rivalAbove.gap) {
+    return `${TRANSLATIONS.en.leaderboardSwing} ${pressure.rivalAbove.username}.`;
+  }
+  if (pressure.buddy?.ahead && action.awardedPoints >= pressure.buddy.gap) {
+    return `You catch ${pressure.buddy.username} with this one.`;
+  }
+  if (pressure.buddy && !pressure.buddy.ahead) {
+    return `${TRANSLATIONS.en.extendsLead} ${pressure.buddy.username}.`;
+  }
+  if (pressure.rivalAbove) {
+    return `${TRANSLATIONS.en.closesGap} ${pressure.rivalAbove.username}.`;
+  }
+  if (pressure.team?.teamName) {
+    return `${pressure.team.teamName}: ${TRANSLATIONS.en.teamBanked} +${Math.round(action.awardedPoints)}.`;
+  }
+  return null;
+}
+
+function getSessionImpactMessages(context, action) {
+  const messages = [
+    getMissionImpactMessage(context?.mission, action),
+    getStreakImpactMessage(context, action),
+    getPressureImpactMessage(context?.pressure, action),
+  ].filter(Boolean);
+
+  return messages.slice(0, 3);
+}
+
+function buildAlarmPrompt({ mission, pressure, settings, exercise, duration, streak }) {
+  const baseMessage = settings?.alarmMessage?.trim() || "Time to move!";
+  const estimatedPoints = exercise ? estimateAwardedPoints(calcPoints(exercise.basePoints, duration || 2), streak || 1) : null;
+  const chips = [];
+  let subtitle = TRANSLATIONS.en.paceLine;
+
+  if (mission && !mission.claimed) {
+    if (mission.id === "point_sprint") {
+      const remaining = Math.max(0, 60 - Math.round(mission.metrics?.todayPoints || 0));
+      subtitle = remaining > 0 ? `${remaining} pts to clear ${mission.title}.` : TRANSLATIONS.en.missionReadyNow;
+    } else if (mission.id === "streak_builder") {
+      const remaining = Math.max(0, 3 - (mission.metrics?.sessionsFinished || 0));
+      subtitle = remaining > 0 ? `${remaining} workouts left for ${mission.title}.` : TRANSLATIONS.en.missionReadyNow;
+    } else if (mission.id === "mind_body_stack") {
+      const workoutsLeft = Math.max(0, 2 - (mission.metrics?.sessionsFinished || 0));
+      const meditationLeft = Math.max(0, 1 - (mission.metrics?.meditationsFinished || 0));
+      subtitle = workoutsLeft === 0 && meditationLeft === 0
+        ? TRANSLATIONS.en.missionReadyNow
+        : `${workoutsLeft} workout + ${meditationLeft} meditation left for ${mission.title}.`;
+    } else {
+      subtitle = mission.progressText;
+    }
+    chips.push(`${mission.emoji} ${mission.title}`);
+  }
+
+  if (pressure?.rivalAbove) {
+    chips.push(`${pressure.rivalAbove.gap} pts to pass ${pressure.rivalAbove.username}`);
+  } else if (pressure?.buddy) {
+    chips.push(`${pressure.buddy.gap} pts vs ${pressure.buddy.username}`);
+  }
+
+  if (estimatedPoints) {
+    chips.push(`+${estimatedPoints} pts`);
+  }
+
+  return {
+    title: baseMessage,
+    subtitle,
+    chips,
+  };
+}
 
 //     AWARDS                                       
 const AWARDS = [
@@ -1824,7 +1967,7 @@ function DailySetupScreen({ onComplete, settings, lang, setLang }) {
 }
 
 //     ALARM POPUP                                  
-function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
+function AlarmPopup({ prompt, exercise, duration, onStart, onSkip }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
 
@@ -1832,7 +1975,8 @@ function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
       <div style={{ background: "linear-gradient(145deg, #1a0a00, #2d1400)", borderRadius: 24, padding: "32px 24px", maxWidth: 380, width: "100%", textAlign: "center", border: "2px solid rgba(255,77,0,0.4)", animation: "glow 2s infinite", opacity: visible ? 1 : 0, transform: visible ? "scale(1)" : "scale(0.9)", transition: "all 0.3s ease" }}>
         <div style={{ fontSize: 14, color: "#888", marginBottom: 8, letterSpacing: 2 }}>  BEAST MODE</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#FFD700", marginBottom: 16 }}>{message || "Time to move!"}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#FFD700", marginBottom: 8 }}>{prompt?.title || "Time to move!"}</div>
+        {prompt?.subtitle && <div style={{ fontSize: 13, color: "#F3D8B8", lineHeight: 1.45, marginBottom: 14 }}>{prompt.subtitle}</div>}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 8 }}>
           <ExerciseAnimation exerciseId={exercise.id} size={56} />
           <div style={{ textAlign: "left" }}>
@@ -1840,6 +1984,15 @@ function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
             <div style={{ fontSize: 13, color: "#FF8C00" }}>{calcPoints(exercise.basePoints, duration)} pts   {fmtDuration(duration)}</div>
           </div>
         </div>
+        {prompt?.chips?.length ? (
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+            {prompt.chips.map((chip, index) => (
+              <span key={index} style={{ padding: "6px 10px", background: "rgba(255,255,255,0.08)", borderRadius: 999, border: "1px solid rgba(255,255,255,0.08)", fontSize: 11, color: "#F6F1EA" }}>
+                {chip}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
           <button onClick={onStart} style={{ flex: 2, padding: "14px 20px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, letterSpacing: 1 }}>  START</button>
           <button onClick={onSkip} style={{ flex: 1, padding: "14px 16px", background: "rgba(255,255,255,0.08)", color: "#888", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 14, fontWeight: 600 }}>SKIP</button>
@@ -1850,7 +2003,7 @@ function AlarmPopup({ message, exercise, duration, onStart, onSkip }) {
 }
 
 //     WORKOUT TIMER                                
-function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
+function WorkoutTimer({ exercise, durationMinutes, onComplete, lang, streak = 1, sessionType = "alarm", sessionContext = null }) {
   const t = useT(lang || "en");
   const totalSeconds = Math.round(durationMinutes * 60);
   const [remaining, setRemaining] = useState(totalSeconds);
@@ -1917,6 +2070,15 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
   const secs = remaining % 60;
   const progress = 1 - (remaining / totalSeconds);
   const circumference = 2 * Math.PI * 78;
+  const awardedPoints = estimateAwardedPoints(earnedPoints, streak);
+  const impactMessages = getSessionImpactMessages(sessionContext, {
+    kind: "workout",
+    sessionType,
+    wasCompleted: completed,
+    awardedPoints,
+    exerciseId: exercise.id,
+    todayExerciseIds: sessionContext?.todayExerciseIds || [],
+  });
 
   if (completed || stoppedEarly) {
     return (
@@ -1924,10 +2086,21 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
         <div style={{ background: "linear-gradient(145deg, #0d0d1a, #1a1a2e)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,77,0,0.15)" }}>
           <div style={{ fontSize: 60, marginBottom: 12 }}>{completed ? "\ud83c\udfc6" : "\ud83d\udcaa"}</div>
           <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 2, color: "#FFD700", marginBottom: 16 }}>{completed ? t("crushedIt") : t("goodEffort")}</div>
-          {earnedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #FF4D00, #FFD700)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#000", marginBottom: 12 }}>+{earnedPoints} pts</div>}
+          {awardedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #FF4D00, #FFD700)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#000", marginBottom: 12 }}>+{awardedPoints} pts</div>}
+          {awardedPoints > 0 && streak > 1 && <div style={{ fontSize: 12, color: "#FFB347", marginBottom: 8 }}>x{getStreakMultiplier(streak).toFixed(2)} {t("streakBonusApplied")}</div>}
           {completed && <div style={{ fontSize: 13, color: "#00E676", marginBottom: 8 }}>{t("fullCompletion")}</div>}
-          {stoppedEarly && earnedPoints > 0 && <div style={{ fontSize: 13, color: "#FF8C00", marginBottom: 8 }}>{Math.round(timeFraction * 100)}% completed   flat rate</div>}
+          {stoppedEarly && awardedPoints > 0 && <div style={{ fontSize: 13, color: "#FF8C00", marginBottom: 8 }}>{Math.round(timeFraction * 100)}% completed   partial credit secured</div>}
           {stoppedEarly && earnedPoints === 0 && <div style={{ fontSize: 13, color: "#FF6B6B", marginBottom: 8 }}>{t("tryLonger")}</div>}
+          {impactMessages.length > 0 && (
+            <div style={{ marginTop: 16, marginBottom: 6, padding: "14px 16px", borderRadius: 16, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
+              <div style={{ fontSize: 11, letterSpacing: 1.6, color: "#8F8F97", marginBottom: 8 }}>{t("sessionShift")}</div>
+              {impactMessages.map((message, index) => (
+                <div key={index} style={{ fontSize: 13, color: "#F5E8D4", lineHeight: 1.45, marginBottom: index === impactMessages.length - 1 ? 0 : 8 }}>
+                  {message}
+                </div>
+              ))}
+            </div>
+          )}
           <button onClick={handleCollect} style={{ width: "100%", maxWidth: 260, padding: "14px 28px", background: "linear-gradient(135deg, #FF4D00, #FF8C00)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 800, letterSpacing: 1, marginTop: 12 }}>{t("collectPoints")}</button>
         </div>
       </div>
@@ -1950,6 +2123,8 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
         ) : !started ? (
           <div>
             <div style={{ fontSize: 48, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace", marginBottom: 24 }}>{fmtDuration(durationMinutes)}</div>
+            <div style={{ fontSize: 13, color: "#FFB347", marginBottom: streak > 1 ? 6 : 18 }}>+{estimateAwardedPoints(calcPoints(exercise.basePoints, durationMinutes), streak)} pts</div>
+            {streak > 1 && <div style={{ fontSize: 11, color: "#FFB347", marginBottom: 18 }}>x{getStreakMultiplier(streak).toFixed(2)} {t("streakBonusApplied")}</div>}
             <button onClick={() => setCountdownNum(3)}
               style={{ padding: "16px 40px", background: "linear-gradient(135deg, #00C853, #00E676)", color: "#000", border: "none", borderRadius: 14, fontSize: 18, fontWeight: 800, letterSpacing: 2 }}>{"\u25B6"} GO!</button>
           </div>
@@ -1975,14 +2150,14 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang }) {
 }
 
 //     EXTRA CREDIT MODAL                           
-function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang }) {
+function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang, streak = 1, sessionContext = null }) {
   const t = useT(lang || "en");
   const [selectedEx, setSelectedEx] = useState(null);
   const [selectedDur, setSelectedDur] = useState(duration === "random" ? 2 : duration);
   const [running, setRunning] = useState(false);
 
   if (running && selectedEx) {
-    return <WorkoutTimer exercise={selectedEx} durationMinutes={selectedDur} lang={lang} onComplete={(pts, wasCompleted) => { onComplete(pts, selectedEx, wasCompleted); }} />;
+    return <WorkoutTimer exercise={selectedEx} durationMinutes={selectedDur} lang={lang} streak={streak} sessionType="extra" sessionContext={sessionContext} onComplete={(pts, wasCompleted) => { onComplete(pts, selectedEx, wasCompleted, selectedDur); }} />;
   }
 
   return (
@@ -2028,7 +2203,7 @@ function ExtraCreditModal({ exercises, duration, onComplete, onClose, lang }) {
 }
 
 //     MEDITATION TIMER                            
-function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, lang }) {
+function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, lang, streak = 1, sessionContext = null }) {
   const t = useT(lang || "en");
   const totalSeconds = durationMinutes * 60;
   const [remaining, setRemaining] = useState(totalSeconds);
@@ -2147,6 +2322,15 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
   const progress = 1 - (remaining / totalSeconds);
   const breathScale = breathPhase === "inhale" ? 1.3 : breathPhase === "hold" ? 1.3 : 1.0;
   const breathLabel = breathPhase === "inhale" ? t("breatheIn") : breathPhase === "hold" ? t("breatheHold") : t("breatheOut");
+  const awardedPoints = estimateAwardedPoints(earnedPoints, streak);
+  const impactMessages = getSessionImpactMessages(sessionContext, {
+    kind: "meditation",
+    sessionType: "meditation",
+    wasCompleted: completed,
+    awardedPoints,
+    exerciseId: medType.id,
+    todayExerciseIds: sessionContext?.todayExerciseIds || [],
+  });
 
   if (completed || stoppedEarly) {
     return (
@@ -2154,11 +2338,22 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
         <div style={{ background: "linear-gradient(145deg, #0a0a1a, #0d1025)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(138,92,246,0.2)" }}>
           <div style={{ fontSize: 60, marginBottom: 12 }}>{completed ? "\uD83C\uDF38" : "\u262E\uFE0F"}</div>
           <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 2, color: "#C4B5FD", marginBottom: 16 }}>{completed ? t("namaste") : t("wellDone")}</div>
-          {earnedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#fff", marginBottom: 12 }}>+{earnedPoints} pts</div>}
+          {awardedPoints > 0 && <div style={{ display: "inline-block", padding: "10px 28px", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", borderRadius: 30, fontSize: 24, fontWeight: 900, color: "#fff", marginBottom: 12 }}>+{awardedPoints} pts</div>}
+          {awardedPoints > 0 && streak > 1 && <div style={{ fontSize: 12, color: "#C4B5FD", marginBottom: 8 }}>x{getStreakMultiplier(streak).toFixed(2)} {t("streakBonusApplied")}</div>}
           {completed && <div style={{ fontSize: 13, color: "#A78BFA", marginBottom: 8 }}>{t("medFullSession")}</div>}
           {sessionNumber > 1 && completed && <div style={{ fontSize: 12, color: "#8B5CF6", marginBottom: 8 }}>{t("medSession")} #{sessionNumber}    {Math.pow(MEDITATION_COMPOUND, sessionNumber - 1).toFixed(2)} {t("medSessionBonus")}!</div>}
           {stoppedEarly && earnedPoints > 0 && <div style={{ fontSize: 13, color: "#A78BFA", marginBottom: 8 }}>{t("medPartialSession")}</div>}
           {stoppedEarly && earnedPoints === 0 && <div style={{ fontSize: 13, color: "#FF6B6B", marginBottom: 8 }}>{t("medMinPoints")}</div>}
+          {impactMessages.length > 0 && (
+            <div style={{ marginTop: 16, marginBottom: 6, padding: "14px 16px", borderRadius: 16, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
+              <div style={{ fontSize: 11, letterSpacing: 1.6, color: "#8F8F97", marginBottom: 8 }}>{t("sessionShift")}</div>
+              {impactMessages.map((message, index) => (
+                <div key={index} style={{ fontSize: 13, color: "#EEE9FF", lineHeight: 1.45, marginBottom: index === impactMessages.length - 1 ? 0 : 8 }}>
+                  {message}
+                </div>
+              ))}
+            </div>
+          )}
           <button onClick={() => onComplete(earnedPoints, !stoppedEarly)} style={{ width: "100%", maxWidth: 260, padding: "14px 28px", background: earnedPoints > 0 ? "linear-gradient(135deg, #7C3AED, #A78BFA)" : "rgba(255,255,255,0.08)", color: earnedPoints > 0 ? "#fff" : "#888", border: earnedPoints > 0 ? "none" : "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 15, fontWeight: 800, letterSpacing: 1, marginTop: 12 }}>{earnedPoints > 0 ? t("collectPoints") : t("back")}</button>
         </div>
       </div>
@@ -2180,7 +2375,8 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
         {!started ? (
           <div>
             <div style={{ fontSize: 48, fontWeight: 900, color: "#A78BFA", fontFamily: "'Courier New', monospace", marginBottom: 8 }}>{durationMinutes}:00</div>
-            <div style={{ fontSize: 13, color: "#6D5BA3", marginBottom: 24 }}>{calcMeditationPoints(durationMinutes, sessionNumber)} pts   {t("medSession")} #{sessionNumber}</div>
+            <div style={{ fontSize: 13, color: "#6D5BA3", marginBottom: 6 }}>{estimateAwardedPoints(calcMeditationPoints(durationMinutes, sessionNumber), streak)} pts   {t("medSession")} #{sessionNumber}</div>
+            {streak > 1 && <div style={{ fontSize: 11, color: "#8B5CF6", marginBottom: 18 }}>x{getStreakMultiplier(streak).toFixed(2)} {t("streakBonusApplied")}</div>}
             {medType.id === "visualization" && <div style={{ fontSize: 11, color: "#8B5CF6", marginBottom: 12 }}>{t("useHeadphones")}</div>}
             <button onClick={() => { setStarted(true); setGuidedText(getMeditationPrompt(medType.id, 0, totalSeconds)); playSound("bell"); try { ambientRef.current = new AmbientAudio(); ambientRef.current.setVolume(ambientVol); if (ambientMuted) ambientRef.current.toggleMute(); ambientRef.current.start(medType.id, 3); } catch(e) { console.warn("Ambient audio:", e); } }} style={{ padding: "16px 40px", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", color: "#fff", border: "none", borderRadius: 14, fontSize: 18, fontWeight: 800, letterSpacing: 2 }}>{t("beginMeditation")}</button>
           </div>
@@ -2738,23 +2934,24 @@ function BeastModeApp() {
   }, [settings, screen, scheduleNextAlarm]);
 
   //     WORKOUT COMPLETE HANDLER                   
-  const handleWorkoutComplete = async (pts, exercise, wasCompleted, type = "alarm") => {
+  const handleWorkoutComplete = async (pts, exercise, wasCompleted, type = "alarm", durationOverride = null) => {
     setShowTimer(false);
     setShowExtraCredit(false);
     setShowAlarm(false);
 
     const oldTotal = progress?.totalPoints || 0;
+    const durationMinutes = durationOverride ?? resolvedDuration ?? 2;
     try {
       const result = await api("/api/workout/log", {
         method: "POST",
         body: JSON.stringify({
           exerciseId: exercise.id, exerciseName: exercise.name, exerciseEmoji: exercise.emoji,
-          points: pts, durationMinutes: resolvedDuration || 2, wasCompleted, type,
+          points: pts, durationMinutes, wasCompleted, type,
         }),
       });
 
       // Update local state from server response
-      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: result.sessionsFinished }));
+      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: result.sessionsFinished }));
 
       // Check for evolution
       const oldTier = getEvolution(oldTotal);
@@ -2777,7 +2974,7 @@ function BeastModeApp() {
       // Still update UI optimistically
       const streakMult = Math.pow(1.1, (progress?.streak || 1) - 1);
       const finalPts = Math.round(pts * streakMult * 10) / 10;
-      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0 }));
+      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0 }));
       setHistory(prev => [{ exercise, points: finalPts, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
 
@@ -2798,7 +2995,7 @@ function BeastModeApp() {
           points: pts, durationMinutes: currentMedDur, wasCompleted, type: "meditation",
         }),
       });
-      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, sessionsFinished: wasCompleted ? result.sessionsFinished : prev?.sessionsFinished, meditationsFinished: result.meditationsFinished ?? (prev?.meditationsFinished || 0) }));
+      setProgress(prev => ({ ...prev, totalPoints: result.totalPoints, todayPoints: result.todayPoints, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? result.sessionsFinished : prev?.sessionsFinished, meditationsFinished: result.meditationsFinished ?? (prev?.meditationsFinished || 0) }));
       const oldTier = getEvolution(oldTotal);
       const newTier = getEvolution(result.totalPoints);
       if (newTier.name !== oldTier.name) setTimeout(() => setEvoPopup({ oldTier, newTier }), 600);
@@ -2810,8 +3007,8 @@ function BeastModeApp() {
       setHistory(prev => [{ exercise: currentMedType, points: result.finalPoints || pts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     } catch(e) {
       console.error("Failed to log meditation:", e);
-      const finalPts = pts;
-      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + 1, meditationsFinished: wasCompleted ? (prev?.meditationsFinished || 0) + 1 : prev?.meditationsFinished || 0 }));
+      const finalPts = estimateAwardedPoints(pts, streak);
+      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), meditationsFinished: wasCompleted ? (prev?.meditationsFinished || 0) + 1 : prev?.meditationsFinished || 0 }));
       setHistory(prev => [{ exercise: currentMedType, points: finalPts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     }
 
@@ -2926,6 +3123,22 @@ function BeastModeApp() {
   const MAX_FREEZES = 3;
   const FREEZE_EARN_INTERVAL = 5;
   const streakQualified = sessionsFinished >= MIN_DAILY_SESSIONS || todayMedSessions >= 1;
+  const todayDateKey = new Date().toISOString().split("T")[0];
+  const todayExerciseIds = Array.from(new Set(
+    history
+      .filter((item) => item?.time && String(item.time).startsWith(todayDateKey) && item.wasCompleted !== false && item.type !== "meditation")
+      .map((item) => item.exercise?.id)
+      .filter(Boolean)
+  ));
+  const sessionContext = {
+    streak,
+    mission,
+    pressure,
+    sessionsFinished,
+    meditationsFinished: todayMedSessions,
+    todayExerciseIds,
+  };
+  const alarmPrompt = buildAlarmPrompt({ mission, pressure, settings, exercise: currentExercise, duration: resolvedDuration || 2, streak });
 
   return (
     <div style={{ minHeight: "100vh", background: mode === "meditation" ? "linear-gradient(180deg, #0a0a1a 0%, #10062a 100%)" : "#0a0a0f", color: "#fff", transition: "background 0.5s ease" }}>
@@ -2992,6 +3205,7 @@ function BeastModeApp() {
             <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#666", marginBottom: 4 }}>{t("nextAlert")}</div><div style={{ fontSize: 28, fontWeight: 900, color: "#FF4D00", fontFamily: "'Courier New', monospace" }}>{countdown || "\u2014"}</div></div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
               <span style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>"{settings?.alarmMessage || "Let's go!"}"</span>
+              {alarmPrompt?.subtitle && <span style={{ fontSize: 11, color: "#F3D8B8", maxWidth: 190, textAlign: "right", lineHeight: 1.35 }}>{alarmPrompt.subtitle}</span>}
               <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,77,0,0.12)", borderRadius: 20, color: "#FF8C00" }}>{t("every")} {settings?.intervalMinutes || 60}m</span>
               {settings?.startHour != null && settings?.endHour != null && <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.06)", borderRadius: 20, color: "#888" }}>{settings.startHour === 0 ? "12AM" : settings.startHour <= 12 ? settings.startHour + (settings.startHour < 12 ? "AM" : "PM") : (settings.startHour-12) + "PM"} - {settings.endHour === 0 ? "12AM" : settings.endHour <= 12 ? settings.endHour + (settings.endHour < 12 ? "AM" : "PM") : (settings.endHour-12) + "PM"}</span>}
             </div>
@@ -3076,10 +3290,10 @@ function BeastModeApp() {
       </div>
 
       {/* Overlays */}
-      {showAlarm && currentExercise && <AlarmPopup message={settings?.alarmMessage} exercise={currentExercise} duration={resolvedDuration} onStart={() => { setShowAlarm(false); setShowTimer(true); }} onSkip={() => { setShowAlarm(false); setProgress(prev => ({ ...prev, sessionsSkipped: (prev?.sessionsSkipped || 0) + 1 })); scheduleNextAlarm(); }} />}
-      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} lang={lang} onComplete={(pts, wasCompleted) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm")} />}
-      {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} lang={lang} onComplete={(pts, ex, wasCompleted) => handleWorkoutComplete(pts, ex, wasCompleted, "extra")} onClose={() => setShowExtraCredit(false)} />}
-      {showMedTimer && currentMedType && <MeditationTimer medType={currentMedType} durationMinutes={currentMedDur} sessionNumber={currentMedSession} lang={lang} onComplete={handleMeditationComplete} />}
+      {showAlarm && currentExercise && <AlarmPopup prompt={alarmPrompt} exercise={currentExercise} duration={resolvedDuration} onStart={() => { setShowAlarm(false); setShowTimer(true); }} onSkip={() => { setShowAlarm(false); setProgress(prev => ({ ...prev, sessionsSkipped: (prev?.sessionsSkipped || 0) + 1 })); scheduleNextAlarm(); }} />}
+      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} lang={lang} streak={streak} sessionType="alarm" sessionContext={sessionContext} onComplete={(pts, wasCompleted) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm", resolvedDuration)} />}
+      {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={(pts, ex, wasCompleted, selectedDur) => handleWorkoutComplete(pts, ex, wasCompleted, "extra", selectedDur)} onClose={() => setShowExtraCredit(false)} />}
+      {showMedTimer && currentMedType && <MeditationTimer medType={currentMedType} durationMinutes={currentMedDur} sessionNumber={currentMedSession} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={handleMeditationComplete} />}
       {evoPopup && <EvolutionPopup oldTier={evoPopup.oldTier} newTier={evoPopup.newTier} onClose={() => setEvoPopup(null)} />}
       {awardPopup && <AwardPopup award={awardPopup} lang={lang} onClose={() => setAwardPopup(null)} />}
       {missionPopup && <MissionPopup mission={missionPopup.mission} bonusPoints={missionPopup.bonusPoints} onClose={() => setMissionPopup(null)} />}
