@@ -33,33 +33,107 @@
     ul { padding-left: 20px; margin-top: 10px; }
     a { color: var(--accent-2); }
     .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 10px; }
+    .toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+    .lang-switcher { display: inline-flex; gap: 8px; flex-wrap: wrap; padding: 8px; border-radius: 999px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+    .lang-switcher button {
+      border: 1px solid rgba(255,255,255,0.08);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    .lang-switcher button.active { color: var(--text); border-color: rgba(255,140,0,0.32); background: rgba(255,140,0,0.12); }
   </style>
+  <script>
+    window.LEGAL_TRANSLATIONS = {
+      en: {
+        metaTitle: "Beast Mode Support",
+        eyebrow: "Beast Mode",
+        title: "Support",
+        intro: "Need help with login, nudges, account recovery, or account deletion? This is the public support page for Beast Mode.",
+        fastestTitle: "Fastest way to get help",
+        fastestBody: 'Email <a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Support">overlord.gil.ai@gmail.com</a> and include:',
+        bullet1: "Your Beast Mode username",
+        bullet2: "The device and browser or Android version you are using",
+        bullet3: "A short description of the problem",
+        bullet4: "A screenshot if the issue is visual or login-related",
+        deletionTitle: "Account deletion",
+        deletionBody: 'You can delete your account directly inside the app from Settings. If you no longer have app access, use the instructions at <a href="/delete-account">/delete-account</a>.',
+        privacyTitle: "Privacy",
+        privacyBody: 'Privacy policy: <a href="/privacy">/privacy</a>'
+      },
+      es: {
+        metaTitle: "Soporte de Beast Mode",
+        eyebrow: "Beast Mode",
+        title: "Soporte",
+        intro: "¿Necesitas ayuda con el inicio de sesión, avisos, recuperación de cuenta o eliminación de cuenta? Esta es la página pública de soporte de Beast Mode.",
+        fastestTitle: "La forma más rápida de obtener ayuda",
+        fastestBody: 'Escribe a <a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Support">overlord.gil.ai@gmail.com</a> e incluye:',
+        bullet1: "Tu nombre de usuario de Beast Mode",
+        bullet2: "El dispositivo y navegador o la versión de Android que estás usando",
+        bullet3: "Una breve descripción del problema",
+        bullet4: "Una captura si el problema es visual o está relacionado con el login",
+        deletionTitle: "Eliminación de cuenta",
+        deletionBody: 'Puedes eliminar tu cuenta directamente dentro de la app desde Ajustes. Si ya no tienes acceso a la app, usa las instrucciones en <a href="/delete-account">/delete-account</a>.',
+        privacyTitle: "Privacidad",
+        privacyBody: 'Política de privacidad: <a href="/privacy">/privacy</a>'
+      },
+      ja: {
+        metaTitle: "Beast Mode サポート",
+        eyebrow: "Beast Mode",
+        title: "サポート",
+        intro: "ログイン、通知、アカウント復旧、またはアカウント削除で困っていますか？ ここは Beast Mode の公開サポートページです。",
+        fastestTitle: "最速でサポートを受ける方法",
+        fastestBody: '<a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Support">overlord.gil.ai@gmail.com</a> にメールし、次の内容を入れてください:',
+        bullet1: "Beast Mode のユーザー名",
+        bullet2: "使用中の端末とブラウザ、または Android のバージョン",
+        bullet3: "問題の簡単な説明",
+        bullet4: "表示やログインの問題ならスクリーンショット",
+        deletionTitle: "アカウント削除",
+        deletionBody: 'アプリ内の設定から直接アカウントを削除できます。アプリに入れない場合は、<a href="/delete-account">/delete-account</a> の案内を使ってください。',
+        privacyTitle: "プライバシー",
+        privacyBody: 'プライバシーポリシー: <a href="/privacy">/privacy</a>'
+      }
+    };
+  </script>
+  <script defer src="/legal-i18n.js"></script>
 </head>
 <body>
   <main>
+    <div class="toolbar">
+      <div class="lang-switcher" aria-label="Language selector">
+        <button type="button" data-lang-option="en">English</button>
+        <button type="button" data-lang-option="es">Español</button>
+        <button type="button" data-lang-option="ja">日本語</button>
+      </div>
+    </div>
     <div class="card">
-      <div class="eyebrow">Beast Mode</div>
-      <h1>Support</h1>
-      <p>Need help with login, nudges, account recovery, or account deletion? This is the public support page for Beast Mode.</p>
+      <div class="eyebrow" data-i18n="eyebrow">Beast Mode</div>
+      <h1 data-i18n="title">Support</h1>
+      <p data-i18n="intro">Need help with login, nudges, account recovery, or account deletion? This is the public support page for Beast Mode.</p>
     </div>
 
     <div class="card">
-      <h2>Fastest way to get help</h2>
-      <p>
+      <h2 data-i18n="fastestTitle">Fastest way to get help</h2>
+      <p data-i18n-html="fastestBody">
         Email <a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Support">overlord.gil.ai@gmail.com</a>
         and include:
       </p>
       <ul>
-        <li>Your Beast Mode username</li>
-        <li>The device and browser or Android version you are using</li>
-        <li>A short description of the problem</li>
-        <li>A screenshot if the issue is visual or login-related</li>
+        <li data-i18n="bullet1">Your Beast Mode username</li>
+        <li data-i18n="bullet2">The device and browser or Android version you are using</li>
+        <li data-i18n="bullet3">A short description of the problem</li>
+        <li data-i18n="bullet4">A screenshot if the issue is visual or login-related</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>Account deletion</h2>
-      <p>
+      <h2 data-i18n="deletionTitle">Account deletion</h2>
+      <p data-i18n-html="deletionBody">
         You can delete your account directly inside the app from Settings.
         If you no longer have app access, use the instructions at
         <a href="/delete-account">/delete-account</a>.
@@ -67,8 +141,8 @@
     </div>
 
     <div class="card">
-      <h2>Privacy</h2>
-      <p>
+      <h2 data-i18n="privacyTitle">Privacy</h2>
+      <p data-i18n-html="privacyBody">
         Privacy policy: <a href="/privacy">/privacy</a>
       </p>
     </div>

@@ -33,52 +33,144 @@
     ul, ol { padding-left: 20px; margin-top: 10px; }
     a { color: var(--accent-2); }
     .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 10px; }
+    .toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+    .lang-switcher { display: inline-flex; gap: 8px; flex-wrap: wrap; padding: 8px; border-radius: 999px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+    .lang-switcher button {
+      border: 1px solid rgba(255,255,255,0.08);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    .lang-switcher button.active { color: var(--text); border-color: rgba(255,107,107,0.32); background: rgba(255,107,107,0.12); }
   </style>
+  <script>
+    window.LEGAL_TRANSLATIONS = {
+      en: {
+        metaTitle: "Delete Beast Mode Account",
+        eyebrow: "Beast Mode",
+        title: "Delete your account",
+        effectiveDate: "Effective date: April 18, 2026",
+        intro: "Beast Mode lets you delete your account inside the app. If you do not have app access anymore, this page explains how to request deletion outside the app.",
+        insideTitle: "Delete inside the app",
+        inside1: "Log in to Beast Mode.",
+        inside2: "Open Settings.",
+        inside3: "Go to the Danger Zone section.",
+        inside4: "Type your username and confirm deletion.",
+        outsideTitle: "Delete outside the app",
+        outsideBody: 'Email <a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Delete%20Account%20Request">overlord.gil.ai@gmail.com</a> with the subject line <strong>Beast Mode Delete Account Request</strong> and include:',
+        outside1: "Your Beast Mode username",
+        outside2: "The email address attached to the account, if you added one",
+        outside3: "A short note confirming you want the account permanently deleted",
+        deletionScope: "Once processed, Beast Mode deletes your profile, saved settings, workout and meditation history, streak progress, awards, daily logs, push subscriptions, and password reset records tied to that account.",
+        relatedTitle: "Related links",
+        privacyLink: 'Privacy policy: <a href="/privacy">/privacy</a>',
+        supportLink: 'Support: <a href="/support">/support</a>',
+        backLink: 'Back to Beast Mode: <a href="/">/</a>'
+      },
+      es: {
+        metaTitle: "Eliminar cuenta de Beast Mode",
+        eyebrow: "Beast Mode",
+        title: "Elimina tu cuenta",
+        effectiveDate: "Fecha de vigencia: 18 de abril de 2026",
+        intro: "Beast Mode te permite eliminar tu cuenta dentro de la app. Si ya no tienes acceso a la app, esta página explica cómo solicitar la eliminación desde fuera.",
+        insideTitle: "Eliminar dentro de la app",
+        inside1: "Inicia sesión en Beast Mode.",
+        inside2: "Abre Ajustes.",
+        inside3: "Ve a la sección Zona de Riesgo.",
+        inside4: "Escribe tu nombre de usuario y confirma la eliminación.",
+        outsideTitle: "Eliminar fuera de la app",
+        outsideBody: 'Escribe a <a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Delete%20Account%20Request">overlord.gil.ai@gmail.com</a> con el asunto <strong>Beast Mode Delete Account Request</strong> e incluye:',
+        outside1: "Tu nombre de usuario de Beast Mode",
+        outside2: "El correo vinculado a la cuenta, si agregaste uno",
+        outside3: "Una nota breve confirmando que quieres eliminar la cuenta de forma permanente",
+        deletionScope: "Una vez procesado, Beast Mode elimina tu perfil, ajustes guardados, historial de entrenos y meditaciones, progreso de racha, premios, registros diarios, suscripciones push y registros de restablecimiento asociados a esa cuenta.",
+        relatedTitle: "Enlaces relacionados",
+        privacyLink: 'Política de privacidad: <a href="/privacy">/privacy</a>',
+        supportLink: 'Soporte: <a href="/support">/support</a>',
+        backLink: 'Volver a Beast Mode: <a href="/">/</a>'
+      },
+      ja: {
+        metaTitle: "Beast Mode アカウント削除",
+        eyebrow: "Beast Mode",
+        title: "アカウントを削除する",
+        effectiveDate: "発効日: 2026年4月18日",
+        intro: "Beast Mode ではアプリ内からアカウントを削除できます。もうアプリに入れない場合は、このページからアプリ外で削除を依頼する方法を案内します。",
+        insideTitle: "アプリ内で削除する",
+        inside1: "Beast Mode にログインします。",
+        inside2: "設定を開きます。",
+        inside3: "危険ゾーンへ進みます。",
+        inside4: "ユーザー名を入力して削除を確定します。",
+        outsideTitle: "アプリ外で削除する",
+        outsideBody: '<a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Delete%20Account%20Request">overlord.gil.ai@gmail.com</a> 宛てに、件名を <strong>Beast Mode Delete Account Request</strong> としてメールし、次を含めてください:',
+        outside1: "Beast Mode のユーザー名",
+        outside2: "登録している場合は、そのメールアドレス",
+        outside3: "アカウントを完全に削除したいことを確認する短いメモ",
+        deletionScope: "処理が完了すると、プロフィール、保存済み設定、ワークアウトと瞑想の履歴、連続記録、アワード、日次ログ、Push 購読、パスワードリセット記録が削除されます。",
+        relatedTitle: "関連リンク",
+        privacyLink: 'プライバシーポリシー: <a href="/privacy">/privacy</a>',
+        supportLink: 'サポート: <a href="/support">/support</a>',
+        backLink: 'Beast Mode に戻る: <a href="/">/</a>'
+      }
+    };
+  </script>
+  <script defer src="/legal-i18n.js"></script>
 </head>
 <body>
   <main>
+    <div class="toolbar">
+      <div class="lang-switcher" aria-label="Language selector">
+        <button type="button" data-lang-option="en">English</button>
+        <button type="button" data-lang-option="es">Español</button>
+        <button type="button" data-lang-option="ja">日本語</button>
+      </div>
+    </div>
     <div class="card">
-      <div class="eyebrow">Beast Mode</div>
-      <h1>Delete your account</h1>
-      <p>Effective date: April 18, 2026</p>
-      <p>
+      <div class="eyebrow" data-i18n="eyebrow">Beast Mode</div>
+      <h1 data-i18n="title">Delete your account</h1>
+      <p data-i18n="effectiveDate">Effective date: April 18, 2026</p>
+      <p data-i18n="intro">
         Beast Mode lets you delete your account inside the app. If you do not have app access anymore,
         this page explains how to request deletion outside the app.
       </p>
     </div>
 
     <div class="card">
-      <h2>Delete inside the app</h2>
+      <h2 data-i18n="insideTitle">Delete inside the app</h2>
       <ol>
-        <li>Log in to Beast Mode.</li>
-        <li>Open Settings.</li>
-        <li>Go to the Danger Zone section.</li>
-        <li>Type your username and confirm deletion.</li>
+        <li data-i18n="inside1">Log in to Beast Mode.</li>
+        <li data-i18n="inside2">Open Settings.</li>
+        <li data-i18n="inside3">Go to the Danger Zone section.</li>
+        <li data-i18n="inside4">Type your username and confirm deletion.</li>
       </ol>
     </div>
 
     <div class="card">
-      <h2>Delete outside the app</h2>
-      <p>
+      <h2 data-i18n="outsideTitle">Delete outside the app</h2>
+      <p data-i18n-html="outsideBody">
         Email <a href="mailto:overlord.gil.ai@gmail.com?subject=Beast%20Mode%20Delete%20Account%20Request">overlord.gil.ai@gmail.com</a>
         with the subject line <strong>Beast Mode Delete Account Request</strong> and include:
       </p>
       <ul>
-        <li>Your Beast Mode username</li>
-        <li>The email address attached to the account, if you added one</li>
-        <li>A short note confirming you want the account permanently deleted</li>
+        <li data-i18n="outside1">Your Beast Mode username</li>
+        <li data-i18n="outside2">The email address attached to the account, if you added one</li>
+        <li data-i18n="outside3">A short note confirming you want the account permanently deleted</li>
       </ul>
-      <p>
+      <p data-i18n="deletionScope">
         Once processed, Beast Mode deletes your profile, saved settings, workout and meditation history,
         streak progress, awards, daily logs, push subscriptions, and password reset records tied to that account.
       </p>
     </div>
 
     <div class="card">
-      <h2>Related links</h2>
-      <p><a href="/privacy">Privacy policy</a></p>
-      <p><a href="/support">Support</a></p>
-      <p><a href="/">Back to Beast Mode</a></p>
+      <h2 data-i18n="relatedTitle">Related links</h2>
+      <p data-i18n-html="privacyLink"><a href="/privacy">Privacy policy</a></p>
+      <p data-i18n-html="supportLink"><a href="/support">Support</a></p>
+      <p data-i18n-html="backLink"><a href="/">Back to Beast Mode</a></p>
     </div>
   </main>
 </body>
