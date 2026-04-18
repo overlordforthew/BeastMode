@@ -327,6 +327,20 @@
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      margin-bottom: 10px;
+    }
+
+    .notice-line {
+      min-height: 20px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
     .empty {
       padding: 18px;
       border: 1px dashed rgba(255, 255, 255, 0.14);
@@ -388,6 +402,7 @@
           <div id="authChip" class="auth-chip">Checking admin access…</div>
           <div class="pill-row">
             <a class="tag" href="/" target="_blank" rel="noreferrer">Open App</a>
+            <button id="exportCsvBtn" class="secondary" type="button">Export CSV</button>
             <button id="refreshAllBtn" class="secondary" type="button">Refresh</button>
           </div>
         </div>
@@ -477,8 +492,14 @@
             <div class="section-title">User Detail</div>
             <div id="detailMeta" class="section-copy">Pick a user from the table or a triage card.</div>
           </div>
-          <button id="refreshDetailBtn" class="secondary hidden" type="button">Refresh Detail</button>
+          <div class="pager">
+            <button id="copySnapshotBtn" class="secondary hidden" type="button">Copy Snapshot</button>
+            <button id="sendResetBtn" class="secondary hidden" type="button">Send Reset Email</button>
+            <button id="sendPushBtn" class="secondary hidden" type="button">Send Test Nudge</button>
+            <button id="refreshDetailBtn" class="secondary hidden" type="button">Refresh Detail</button>
+          </div>
         </div>
+        <div id="detailActionStatus" class="notice-line"></div>
         <div id="detailWrap" class="empty">No user selected yet.</div>
       </div>
     </section>
@@ -504,8 +525,12 @@
     const authPanelEl = document.getElementById("authPanel");
     const authErrorEl = document.getElementById("authError");
     const detailMetaEl = document.getElementById("detailMeta");
+    const detailActionStatusEl = document.getElementById("detailActionStatus");
     const userTableMetaEl = document.getElementById("userTableMeta");
+    const copySnapshotBtn = document.getElementById("copySnapshotBtn");
     const refreshDetailBtn = document.getElementById("refreshDetailBtn");
+    const sendResetBtn = document.getElementById("sendResetBtn");
+    const sendPushBtn = document.getElementById("sendPushBtn");
 
     const searchInput = document.getElementById("searchInput");
     const statusSelect = document.getElementById("statusSelect");
@@ -534,13 +559,30 @@
       }
     }
 
-    async function api(path) {
+    async function api(path, { method = "GET", body, responseType = "json" } = {}) {
       const response = await fetch(path, {
+        method,
         headers: {
           Authorization: `Bearer ${state.token}`,
+          ...(responseType === "json" ? { "Content-Type": "application/json" } : {}),
         },
+        body: body ? JSON.stringify(body) : undefined,
         cache: "no-store",
       });
+
+      if (responseType === "blob") {
+        if (!response.ok) {
+          let message = `Request failed with ${response.status}`;
+          try {
+            const data = await response.json();
+            message = data.error || message;
+          } catch {}
+          const error = new Error(message);
+          error.status = response.status;
+          throw error;
+        }
+        return response.blob();
+      }
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -727,6 +769,11 @@
       const detail = state.selectedUserDetail;
       if (!detail) {
         refreshDetailBtn.classList.add("hidden");
+        copySnapshotBtn.classList.add("hidden");
+        sendResetBtn.classList.add("hidden");
+        sendPushBtn.classList.add("hidden");
+        detailActionStatusEl.textContent = "";
+        detailActionStatusEl.className = "notice-line";
         detailWrapEl.className = "empty";
         detailWrapEl.innerHTML = "No user selected yet.";
         detailMetaEl.textContent = "Pick a user from the table or a triage card.";
@@ -735,6 +782,9 @@
 
       const user = detail.user;
       refreshDetailBtn.classList.remove("hidden");
+      copySnapshotBtn.classList.remove("hidden");
+      sendResetBtn.classList.toggle("hidden", !user.email);
+      sendPushBtn.classList.remove("hidden");
       detailMetaEl.textContent = `${user.username} • ${user.email || "No email"} • ${authModeLabel(user.authMode)}`;
       detailWrapEl.className = "";
       detailWrapEl.innerHTML = `
@@ -858,10 +908,65 @@
     async function loadUserDetail(userId) {
       state.selectedUserId = userId;
       detailMetaEl.textContent = "Loading user detail…";
+      detailActionStatusEl.textContent = "";
+      detailActionStatusEl.className = "notice-line";
       detailWrapEl.className = "empty";
       detailWrapEl.innerHTML = "Loading user detail…";
       state.selectedUserDetail = await api(`/api/admin/users/${userId}`);
       renderDetail();
+    }
+
+    function showDetailActionStatus(message, tone = "success") {
+      detailActionStatusEl.textContent = message;
+      detailActionStatusEl.className = `notice-line ${tone}`;
+    }
+
+    async function copySupportSnapshot() {
+      if (!state.selectedUserDetail?.supportSnapshot) return;
+      await navigator.clipboard.writeText(state.selectedUserDetail.supportSnapshot);
+      showDetailActionStatus("Support snapshot copied to clipboard.");
+    }
+
+    async function sendPasswordResetEmail() {
+      if (!state.selectedUserId) return;
+      showDetailActionStatus("Sending password reset email…");
+      const result = await api(`/api/admin/users/${state.selectedUserId}/password-reset`, {
+        method: "POST",
+        body: {},
+      });
+      if (result.delivery === "email") {
+        showDetailActionStatus(`Password reset email sent to ${result.email}.`);
+        return;
+      }
+      if (result.delivery === "dev") {
+        showDetailActionStatus(`Development reset code created for ${result.email}: ${result.devCode}`);
+        return;
+      }
+      showDetailActionStatus("Password reset issued.");
+    }
+
+    async function sendAdminPushTest() {
+      if (!state.selectedUserId) return;
+      showDetailActionStatus("Sending test nudge…");
+      const result = await api(`/api/admin/users/${state.selectedUserId}/push-test`, {
+        method: "POST",
+        body: {},
+      });
+      showDetailActionStatus(`Test nudge sent to ${result.sent} linked device${result.sent === 1 ? "" : "s"}.`);
+      await loadUserDetail(state.selectedUserId);
+    }
+
+    async function exportUsersCsv() {
+      const query = buildUserQueryString();
+      const blob = await api(`/api/admin/users-export.csv?${query}`, { responseType: "blob" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `beastmode-users-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     }
 
     function applyFilters(resetOffset = true) {
@@ -924,6 +1029,13 @@
       bootstrap();
     });
 
+    document.getElementById("exportCsvBtn").addEventListener("click", () => {
+      exportUsersCsv().catch((error) => {
+        console.error(error);
+        userTableMetaEl.textContent = error.message;
+      });
+    });
+
     document.getElementById("prevPageBtn").addEventListener("click", () => {
       state.pagination.offset = Math.max(0, state.pagination.offset - state.pagination.limit);
       loadUsers().catch((error) => {
@@ -946,6 +1058,27 @@
       loadUserDetail(state.selectedUserId).catch((error) => {
         console.error(error);
         detailMetaEl.textContent = error.message;
+      });
+    });
+
+    copySnapshotBtn.addEventListener("click", () => {
+      copySupportSnapshot().catch((error) => {
+        console.error(error);
+        showDetailActionStatus(error.message, "error");
+      });
+    });
+
+    sendResetBtn.addEventListener("click", () => {
+      sendPasswordResetEmail().catch((error) => {
+        console.error(error);
+        showDetailActionStatus(error.message, "error");
+      });
+    });
+
+    sendPushBtn.addEventListener("click", () => {
+      sendAdminPushTest().catch((error) => {
+        console.error(error);
+        showDetailActionStatus(error.message, "error");
       });
     });
 

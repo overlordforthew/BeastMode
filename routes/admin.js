@@ -1,6 +1,9 @@
 const express = require("express");
 const { pool } = require("../db");
+const { storePasswordResetCode } = require("../lib/password-reset");
 const { syncUserProgressDay } = require("../lib/progress");
+const { getPushStatus, sendPushPayloadToUser } = require("../lib/push");
+const { isEmailConfigured, sendPasswordResetCode } = require("../mailer");
 const { adminMiddleware } = require("../middleware/admin");
 
 const router = express.Router();
@@ -179,6 +182,53 @@ function summarizeUserRow(row) {
     lastQualifiedDate: row.last_qualified_date,
     supportFlags: buildSupportFlags(row),
   };
+}
+
+function isProductionLike() {
+  return process.env.NODE_ENV === "production" || Boolean(process.env.COOLIFY_RESOURCE_UUID);
+}
+
+function allowDevResetCodes() {
+  return process.env.ALLOW_DEV_RESET_CODES === "true";
+}
+
+function csvEscape(value) {
+  const normalized = value === null || value === undefined ? "" : String(value);
+  if (/[",\n]/.test(normalized)) {
+    return `"${normalized.replace(/"/g, '""')}"`;
+  }
+  return normalized;
+}
+
+function buildSupportSnapshot(detail) {
+  const user = detail.user;
+  const recentDay = detail.dailyLog?.[0];
+  const recentWorkout = detail.recentWorkouts?.[0];
+  return [
+    `BeastMode support snapshot`,
+    `user_id: ${user.id}`,
+    `username: ${user.username}`,
+    `email: ${user.email || "none"}`,
+    `auth_mode: ${user.authMode}`,
+    `language: ${user.language}`,
+    `created_at: ${user.createdAt}`,
+    `activity_status: ${user.activityStatus}`,
+    `last_active_date: ${user.lastActiveDate || "never"}`,
+    `days_since_active: ${user.daysSinceActive ?? "n/a"}`,
+    `total_points: ${user.totalPoints}`,
+    `today_points: ${user.todayPoints}`,
+    `streak: ${user.streak}`,
+    `max_streak: ${user.maxStreak}`,
+    `push_enabled: ${user.pushEnabled}`,
+    `subscription_count: ${user.subscriptionCount}`,
+    `timezone: ${user.timezone || "UTC"}`,
+    `interval_minutes: ${user.intervalMinutes || ""}`,
+    `team_name: ${user.teamName || ""}`,
+    `buddy_username: ${user.buddyUsername || ""}`,
+    `support_flags: ${(user.supportFlags || []).join(", ") || "none"}`,
+    `latest_daily_log: ${recentDay ? `${recentDay.date} | points=${recentDay.points} | session_credits=${recentDay.sessionCredits} | qualifying_meditations=${recentDay.qualifyingMeditations} | qualified=${recentDay.qualified}` : "none"}`,
+    `latest_workout: ${recentWorkout ? `${recentWorkout.createdAt} | ${recentWorkout.type} | ${recentWorkout.exerciseName} | ${recentWorkout.durationMinutes}m | ${recentWorkout.points} pts | completed=${recentWorkout.wasCompleted}` : "none"}`,
+  ].join("\n");
 }
 
 function buildUserWhereClause(filters, values) {
@@ -521,10 +571,229 @@ router.get("/users/:userId", async (req, res) => {
         bonusPoints: Number(row.bonus_points || 0),
         createdAt: row.created_at,
       })),
+      supportSnapshot: buildSupportSnapshot({
+        user: summary,
+        recentWorkouts: recentWorkoutsR.rows.map((row) => ({
+          createdAt: row.created_at,
+          type: row.type,
+          exerciseId: row.exercise_id,
+          exerciseName: row.exercise_name,
+          exerciseEmoji: row.exercise_emoji,
+          points: Number(row.points || 0),
+          durationMinutes: Number(row.duration_minutes || 0),
+          wasCompleted: Boolean(row.was_completed),
+        })),
+        dailyLog: dailyLogR.rows.map((row) => ({
+          date: row.log_date,
+          points: Number(row.points || 0),
+          sessionsFinished: Number(row.sessions_finished || 0),
+          sessionCredits: Number(row.session_credits || 0),
+          meditationsFinished: Number(row.meditations_finished || 0),
+          qualifyingMeditations: Number(row.qualifying_meditations || 0),
+          qualified: Boolean(row.qualified),
+        })),
+      }),
     });
   } catch (error) {
     console.error("Admin user detail error:", error);
     res.status(500).json({ error: "Failed to load user detail" });
+  }
+});
+
+router.post("/users/:userId/password-reset", async (req, res) => {
+  try {
+    const userId = clampInteger(req.params.userId, NaN, 1, Number.MAX_SAFE_INTEGER);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
+
+    const userR = await pool.query(
+      "SELECT id, username, email FROM users WHERE id = $1 LIMIT 1",
+      [userId]
+    );
+    if (userR.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userR.rows[0];
+    if (!user.email) {
+      return res.status(409).json({ error: "This user does not have an email address on file" });
+    }
+
+    const { emailKey, code, expiresAt } = await storePasswordResetCode(user.email, pool);
+    const emailEnabled = isEmailConfigured();
+
+    if (emailEnabled) {
+      await sendPasswordResetCode(emailKey, code);
+      return res.json({
+        success: true,
+        delivery: "email",
+        email: emailKey,
+        expiresAt,
+      });
+    }
+
+    if (!allowDevResetCodes() || isProductionLike()) {
+      return res.status(503).json({ error: "Password reset email is not configured" });
+    }
+
+    return res.json({
+      success: true,
+      delivery: "dev",
+      email: emailKey,
+      expiresAt,
+      devCode: code,
+    });
+  } catch (error) {
+    console.error("Admin password reset error:", error);
+    res.status(500).json({ error: "Failed to issue password reset" });
+  }
+});
+
+router.post("/users/:userId/push-test", async (req, res) => {
+  try {
+    const userId = clampInteger(req.params.userId, NaN, 1, Number.MAX_SAFE_INTEGER);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
+
+    const userR = await pool.query(
+      "SELECT id, username FROM users WHERE id = $1 LIMIT 1",
+      [userId]
+    );
+    if (userR.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userR.rows[0];
+    const previewOnly = req.body?.previewOnly === true;
+    const status = await getPushStatus(userId, pool);
+    if ((status.subscriptionCount || 0) === 0) {
+      return res.status(409).json({ error: "No active push subscription found for this user" });
+    }
+
+    if (previewOnly) {
+      return res.json({
+        success: true,
+        previewOnly: true,
+        sent: status.subscriptionCount,
+        status,
+      });
+    }
+
+    const result = await sendPushPayloadToUser(userId, {
+      title: "BeastMode support nudge",
+      body: `Operator test for ${user.username}. If this landed, push delivery is healthy on this account.`,
+      tag: `admin-push-test-${userId}`,
+      url: "https://beastmode.namibarden.com/",
+    }, pool);
+    const refreshedStatus = await getPushStatus(userId, pool);
+    res.json({
+      success: true,
+      sent: result.sent,
+      status: refreshedStatus,
+    });
+  } catch (error) {
+    console.error("Admin push test error:", error);
+    res.status(500).json({ error: "Failed to send admin push test" });
+  }
+});
+
+router.get("/users-export.csv", async (req, res) => {
+  try {
+    const q = normalizeQuery(req.query.q);
+    const status = normalizeEnum(
+      String(req.query.status || "").trim(),
+      new Set(["", "active_today", "active_7d", "dormant_7d", "dormant_30d", "never_started", "onboarding_risk", "push_opportunity", "streak_watch"]),
+      ""
+    );
+    const push = normalizeEnum(
+      String(req.query.push || "").trim(),
+      new Set(["", "enabled", "disabled", "linked", "unlinked"]),
+      ""
+    );
+    const sort = normalizeEnum(
+      String(req.query.sort || "").trim(),
+      new Set(["", "recent_activity", "newest", "oldest", "points", "streak", "name"]),
+      "recent_activity"
+    );
+
+    const filters = { q, status, push };
+    const values = [];
+    const whereClause = buildUserWhereClause(filters, values);
+    const usersR = await pool.query(
+      `${USER_BASE_CTE}
+       SELECT base.*
+       FROM base
+       ${whereClause}
+       ${getUsersOrderBy(sort)}
+       LIMIT 5000`,
+      values
+    );
+
+    const users = usersR.rows.map(summarizeUserRow);
+    const rows = [
+      [
+        "id",
+        "username",
+        "email",
+        "language",
+        "auth_mode",
+        "created_at",
+        "activity_status",
+        "last_active_date",
+        "days_since_active",
+        "total_points",
+        "today_points",
+        "streak",
+        "max_streak",
+        "total_sessions",
+        "session_credits",
+        "meditations_finished",
+        "push_enabled",
+        "subscription_count",
+        "timezone",
+        "interval_minutes",
+        "team_name",
+        "buddy_username",
+        "support_flags",
+      ],
+      ...users.map((user) => [
+        user.id,
+        user.username,
+        user.email || "",
+        user.language || "en",
+        user.authMode,
+        user.createdAt,
+        user.activityStatus,
+        user.lastActiveDate || "",
+        user.daysSinceActive ?? "",
+        user.totalPoints,
+        user.todayPoints,
+        user.streak,
+        user.maxStreak,
+        user.totalSessions,
+        user.sessionCredits,
+        user.meditationsFinished,
+        user.pushEnabled,
+        user.subscriptionCount,
+        user.timezone || "UTC",
+        user.intervalMinutes || "",
+        user.teamName || "",
+        user.buddyUsername || "",
+        (user.supportFlags || []).join("|"),
+      ]),
+    ];
+
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    res.set({
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="beastmode-users-${getTodayDateKey()}.csv"`,
+    });
+    res.send(csv);
+  } catch (error) {
+    console.error("Admin CSV export error:", error);
+    res.status(500).json({ error: "Failed to export users" });
   }
 });
 

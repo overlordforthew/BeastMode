@@ -2,12 +2,12 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const { OAuth2Client } = require("google-auth-library");
 const { pool, initUserData } = require("../db");
+const { normalizeEmail, storePasswordResetCode } = require("../lib/password-reset");
 const { generateToken } = require("../middleware/auth");
 const { isEmailConfigured, sendPasswordResetCode } = require("../mailer");
 
 const router = express.Router();
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
-const RESET_CODE_TTL = 15 * 60 * 1000;
 const MAX_RESET_ATTEMPTS = 5;
 
 function isProductionLike() {
@@ -29,10 +29,6 @@ function buildAuthResponse(user, token) {
       language: user.language || "en",
     },
   };
-}
-
-function normalizeEmail(email) {
-  return typeof email === "string" ? email.trim().toLowerCase() : "";
 }
 
 function normalizeUsername(username) {
@@ -267,17 +263,7 @@ router.post("/forgot-password", async (req, res) => {
       return res.json({ message: "If an account with that email exists, a reset code has been sent." });
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const codeHash = await bcrypt.hash(code, 10);
-    await pool.query(`
-      INSERT INTO password_reset_codes (email, code_hash, expires_at, attempts, updated_at)
-      VALUES ($1, $2, NOW() + ($3 * INTERVAL '1 millisecond'), 0, NOW())
-      ON CONFLICT (email) DO UPDATE SET
-        code_hash = EXCLUDED.code_hash,
-        expires_at = EXCLUDED.expires_at,
-        attempts = 0,
-        updated_at = NOW()
-    `, [emailKey, codeHash, RESET_CODE_TTL]);
+    const { code } = await storePasswordResetCode(emailKey, pool);
 
     if (emailEnabled) {
       await sendPasswordResetCode(emailKey, code);

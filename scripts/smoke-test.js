@@ -416,6 +416,23 @@ async function main() {
   const adminDetail = await api(`/api/admin/users/${alpha.userId}`, { token: alpha.token });
   assert.strictEqual(adminDetail.user.username, alpha.username, "admin detail should load the requested user");
   assert(adminDetail.dailyLog.length >= 1, "admin detail should include daily logs");
+  assert(adminDetail.supportSnapshot.includes(`username: ${alpha.username}`), "admin detail should include a support snapshot");
+
+  const adminCsvRes = await fetch(`${baseUrl}/api/admin/users-export.csv?sort=recent_activity`, {
+    headers: { Authorization: `Bearer ${alpha.token}` },
+  });
+  const adminCsvText = await adminCsvRes.text();
+  assert.strictEqual(adminCsvRes.status, 200, "admin CSV export should succeed");
+  assert(adminCsvText.includes("username,email"), "admin CSV should include headers");
+  assert(adminCsvText.includes(alpha.username), "admin CSV should include matching users");
+
+  const adminReset = await api(`/api/admin/users/${bravo.userId}/password-reset`, {
+    method: "POST",
+    token: alpha.token,
+    body: {},
+  });
+  assert.strictEqual(adminReset.delivery, "dev", "admin reset should fall back to dev delivery in smoke mode");
+  assert(/^\d{6}$/.test(adminReset.devCode), "admin reset should return a six-digit development code");
 
   const deniedAdmin = await apiExpectFailure("/api/admin/me", { token: bravo.token }, 403);
   assert(deniedAdmin.error, "non-admin users should be blocked from admin routes");
@@ -495,6 +512,14 @@ async function main() {
     assert.strictEqual(sendResult.sent, 1, "sendPushPayloadToUser should send to the saved subscription");
     assert.strictEqual(sentNotifications.length, 1, "sendPushPayloadToUser should invoke web-push once");
     assert.strictEqual(sentNotifications[0].payload.title, "Smoke push", "push payload should survive serialization");
+
+    const adminPushTest = await api(`/api/admin/users/${alpha.userId}/push-test`, {
+      method: "POST",
+      token: alpha.token,
+      body: { previewOnly: true },
+    });
+    assert.strictEqual(adminPushTest.sent, 1, "admin push test should send to the linked device");
+    assert.strictEqual(adminPushTest.previewOnly, true, "admin push preview should stay local-safe");
   } finally {
     webpush.sendNotification = originalSendNotification;
   }
