@@ -57,7 +57,7 @@ async function createUniqueUsername(baseCandidate) {
   let candidate = base;
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const existing = await pool.query("SELECT id FROM users WHERE LOWER(username) = LOWER($1)", [candidate]);
+    const existing = await pool.query("SELECT id FROM users WHERE LOWER(username) = $1", [candidate]);
     if (existing.rows.length === 0) {
       return candidate;
     }
