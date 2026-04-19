@@ -59,6 +59,8 @@ async function initDb() {
       ["users.email column", "ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE"],
       ["users.google_id column", "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE"],
       ["users.password_hash nullable", "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL"],
+      ["users.onboarded_at column", "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMPTZ"],
+      ["user_settings.active_days weekday default", `ALTER TABLE user_settings ALTER COLUMN active_days SET DEFAULT '["mon","tue","wed","thu","fri"]'::jsonb`],
       ["user_settings.duration type", "ALTER TABLE user_settings ALTER COLUMN duration TYPE TEXT USING duration::text"],
       ["user_settings.duration default", "ALTER TABLE user_settings ALTER COLUMN duration SET DEFAULT '2'"],
       ["user_settings.interval_minutes default", "ALTER TABLE user_settings ALTER COLUMN interval_minutes SET DEFAULT 45"],

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import BeastModeScoring from "../public/scoring.js";
 import AuthScreen from "./components/AuthScreen.jsx";
+import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import DailySetupScreen from "./components/SetupScreen.jsx";
 import { AlarmPopup, ExtraCreditModal, WorkoutTimer } from "./components/WorkoutFlow.jsx";
 import { MeditationPanel, MeditationTimer } from "./components/Meditation.jsx";
@@ -146,7 +147,7 @@ function BeastModeApp() {
     setHistory(recentHistory);
     setMission(missionData?.mission || null);
     setPressure(pressureData || null);
-    if (!data.settings?.selectedExercises?.length) { setScreen("setup"); }
+    if (!data.user?.onboardedAt) { setScreen("onboarding"); }
     else { setScreen("dashboard"); }
   }, []);
 
@@ -611,6 +612,7 @@ function BeastModeApp() {
   //     SCREENS                                    
   if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>{"\uD83D\uDD25"}</div></div>;
   if (screen === "auth") return <AuthScreen onAuth={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} lang={lang} setLang={setLang} />;
+  if (screen === "onboarding") return <OnboardingScreen onComplete={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} user={user} settings={settings} lang={lang} setLang={setLang} webPushEnabled={Boolean(appConfig.webPushEnabled)} notificationPermission={notificationPermission} onRequestPush={handleEnableNudges} />;
   if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); refreshDashboardSignals(); }} onAccountDeleted={handleLogout} settings={settings} user={user} lang={lang} setLang={setLang} />;
   if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} lang={lang} />;

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE,
   google_id TEXT UNIQUE,
   language TEXT DEFAULT 'en',
+  onboarded_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -16,7 +17,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   duration TEXT DEFAULT '2',
   interval_minutes INTEGER DEFAULT 45,
   selected_exercises JSONB DEFAULT '["plank","pushups","situps","squats","lunges","burpees","chair_pose","jumping_jacks","high_knees","mountain_climbers"]',
-  active_days JSONB DEFAULT '["mon","tue","wed","thu","fri","sat","sun"]',
+  active_days JSONB DEFAULT '["mon","tue","wed","thu","fri"]',
   start_hour INTEGER DEFAULT 8,
   end_hour INTEGER DEFAULT 17,
   alarm_message TEXT DEFAULT 'Let''s Be Our Best!',

@@ -131,7 +131,7 @@ router.get("/profile", async (req, res) => {
   try {
     await ensureUserProgressDaySynced(req.userId, pool);
     const [userR, settingsR, progressR, awardsR] = await Promise.all([
-      pool.query("SELECT id, username, language, created_at FROM users WHERE id = $1", [req.userId]),
+      pool.query("SELECT id, username, language, created_at, onboarded_at FROM users WHERE id = $1", [req.userId]),
       pool.query("SELECT * FROM user_settings WHERE user_id = $1", [req.userId]),
       pool.query("SELECT * FROM user_progress WHERE user_id = $1", [req.userId]),
       pool.query("SELECT award_id FROM user_awards WHERE user_id = $1", [req.userId]),
@@ -151,6 +151,7 @@ router.get("/profile", async (req, res) => {
         username: user.username,
         language: user.language,
         createdAt: user.created_at,
+        onboardedAt: user.onboarded_at,
       },
       settings: {
         duration: normalizeDuration(settings.duration),
@@ -186,6 +187,23 @@ router.get("/profile", async (req, res) => {
   } catch (err) {
     console.error("Profile error:", err);
     res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+// POST /api/user/onboarding/complete
+router.post("/onboarding/complete", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "UPDATE users SET onboarded_at = COALESCE(onboarded_at, NOW()), updated_at = NOW() WHERE id = $1 RETURNING onboarded_at",
+      [req.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json({ success: true, onboardedAt: result.rows[0].onboarded_at });
+  } catch (err) {
+    console.error("Onboarding complete error:", err);
+    res.status(500).json({ error: "Failed to mark onboarding complete" });
   }
 });
 
