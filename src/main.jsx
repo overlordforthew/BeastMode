@@ -4,6 +4,7 @@ import BeastModeScoring from "../public/scoring.js";
 import AuthScreen from "./components/AuthScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import DailySetupScreen from "./components/SetupScreen.jsx";
+import UpdateBanner from "./components/UpdateBanner.jsx";
 import { AlarmPopup, ExtraCreditModal, WorkoutTimer } from "./components/WorkoutFlow.jsx";
 import { MeditationPanel, MeditationTimer } from "./components/Meditation.jsx";
 import {
@@ -18,14 +19,17 @@ import {
 import { ActivationCard, MissionCard, PressureCard, QuickStartCard } from "./components/DashboardCards.jsx";
 import { EvolutionBadge, EvolutionBar } from "./components/EvolutionStatus.jsx";
 import {
+  APP_VERSION,
   api,
   fetchPublicConfig,
+  isNewerVersion,
   isStandaloneApp,
   showSystemNotification,
   supportsNotifications,
   supportsWebPush,
   urlBase64ToUint8Array,
 } from "./lib/app-client.js";
+import { configureNativeShell, onHardwareBack } from "./lib/native-shell.js";
 import { playSound } from "./lib/audio.js";
 import { AWARDS, EXERCISES, MEDITATION_TYPES, getTodayKey } from "./lib/app-data.js";
 import { getPreferredLanguage, persistLanguagePreference, useT } from "./lib/i18n.js";
@@ -65,7 +69,8 @@ function BeastModeApp() {
   const [pressure, setPressure] = useState(null);
   const [missionClaiming, setMissionClaiming] = useState(false);
   const [missionPopup, setMissionPopup] = useState(null);
-  const [appConfig, setAppConfig] = useState({ webPushEnabled: false, vapidPublicKey: null });
+  const [appConfig, setAppConfig] = useState({ webPushEnabled: false, vapidPublicKey: null, latestAppVersion: null, downloadUrl: null });
+  const [loadError, setLoadError] = useState(null);
   const [pushStatus, setPushStatus] = useState({ webPushEnabled: false, subscribed: false, pushEnabled: false, subscriptionCount: 0, lastPushSentAt: null });
   const [activationMessage, setActivationMessage] = useState("");
   const [notificationPermission, setNotificationPermission] = useState(() => supportsNotifications() ? Notification.permission : "unsupported");
@@ -151,13 +156,32 @@ function BeastModeApp() {
     else { setScreen("dashboard"); }
   }, []);
 
-  //     INIT: Check token and load profile      
+  //     INIT: Check token and load profile
   useEffect(() => {
+    configureNativeShell();
     const token = localStorage.getItem("bm_token");
     if (!token) { setScreen("auth"); return; }
-    loadSession().catch(() => {
-      localStorage.removeItem("bm_token");
-      setScreen("auth");
+    setLoadError(null);
+    loadSession().catch((err) => {
+      if (err?.message === "API error" || /401|403|Unauthorized/.test(err?.message || "")) {
+        localStorage.removeItem("bm_token");
+        setScreen("auth");
+      } else {
+        setLoadError(err?.message || "Could not reach BeastMode");
+      }
+    });
+  }, [loadSession]);
+
+  const retryLoadSession = useCallback(() => {
+    setLoadError(null);
+    setScreen("loading");
+    loadSession().catch((err) => {
+      if (err?.message === "API error" || /401|403|Unauthorized/.test(err?.message || "")) {
+        localStorage.removeItem("bm_token");
+        setScreen("auth");
+      } else {
+        setLoadError(err?.message || "Could not reach BeastMode");
+      }
     });
   }, [loadSession]);
 
@@ -169,6 +193,8 @@ function BeastModeApp() {
         setAppConfig({
           webPushEnabled: Boolean(config.webPushEnabled),
           vapidPublicKey: config.vapidPublicKey || null,
+          latestAppVersion: config.latestAppVersion || null,
+          downloadUrl: config.downloadUrl || null,
         });
       })
       .catch((err) => {
@@ -476,10 +502,7 @@ function BeastModeApp() {
       setHistory(prev => [{ exercise, points: result.finalPoints, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     } catch(e) {
       console.error("Failed to log workout:", e);
-      // Still update UI optimistically
-      const finalPts = estimateAwardedPoints(pts, progress?.streak || 1);
-      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), sessionsFinished: wasCompleted ? (prev?.sessionsFinished || 0) + 1 : prev?.sessionsFinished || 0, sessionCredits: (prev?.sessionCredits || 0) + getWorkoutSessionCredit(durationMinutes, wasCompleted) }));
-      setHistory(prev => [{ exercise, points: finalPts, wasCompleted, type, time: new Date().toISOString() }, ...prev.slice(0, 19)]);
+      setActivationMessage(t("workoutLogFailed"));
     }
 
     await refreshDashboardSignals();
@@ -511,9 +534,7 @@ function BeastModeApp() {
       setHistory(prev => [{ exercise: currentMedType, points: result.finalPoints ?? pts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
     } catch(e) {
       console.error("Failed to log meditation:", e);
-      const finalPts = estimateAwardedPoints(pts, streak);
-      setProgress(prev => ({ ...prev, totalPoints: (prev?.totalPoints || 0) + finalPts, todayPoints: (prev?.todayPoints || 0) + finalPts, sessionsCompleted: (prev?.sessionsCompleted || 0) + (wasCompleted ? 1 : 0), meditationsFinished: wasCompleted ? (prev?.meditationsFinished || 0) + 1 : prev?.meditationsFinished || 0, qualifyingMeditations: (prev?.qualifyingMeditations || 0) + getMeditationQualificationCredit(currentMedDur, wasCompleted) }));
-      setHistory(prev => [{ exercise: currentMedType, points: finalPts, wasCompleted, type: "meditation", time: new Date().toISOString() }, ...prev.slice(0, 19)]);
+      setActivationMessage(t("workoutLogFailed"));
     }
 
     await refreshDashboardSignals();
@@ -609,8 +630,25 @@ function BeastModeApp() {
     setScreen("auth");
   };
 
-  //     SCREENS                                    
-  if (screen === "loading") return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>{"\uD83D\uDD25"}</div></div>;
+  //     SCREENS
+  if (screen === "loading") {
+    if (loadError) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", gap: 14 }}>
+          <div style={{ fontSize: 42 }}>{"\u26A1"}</div>
+          <div style={{ fontSize: 14, color: "#FFB6B6", lineHeight: 1.5, maxWidth: 300 }}>{t("connectionTrouble")}</div>
+          <div style={{ fontSize: 11, color: "#555", maxWidth: 300, wordBreak: "break-word" }}>{loadError}</div>
+          <button onClick={retryLoadSession} style={{ marginTop: 4, padding: "12px 24px", background: "linear-gradient(135deg, #FF4D00, #FF8C00)", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, letterSpacing: 1 }}>{t("retry")}</button>
+        </div>
+      );
+    }
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <div style={{ fontSize: 48, animation: "pulse 1.5s infinite" }}>{"\uD83D\uDD25"}</div>
+        <div style={{ fontSize: 12, letterSpacing: 2, color: "#666" }}>BEAST MODE</div>
+      </div>
+    );
+  }
   if (screen === "auth") return <AuthScreen onAuth={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} lang={lang} setLang={setLang} />;
   if (screen === "onboarding") return <OnboardingScreen onComplete={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} user={user} settings={settings} lang={lang} setLang={setLang} webPushEnabled={Boolean(appConfig.webPushEnabled)} notificationPermission={notificationPermission} onRequestPush={handleEnableNudges} />;
   if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); refreshDashboardSignals(); }} onAccountDeleted={handleLogout} settings={settings} user={user} lang={lang} setLang={setLang} />;
@@ -656,6 +694,7 @@ function BeastModeApp() {
   return (
     <div style={{ minHeight: "100vh", background: mode === "meditation" ? "linear-gradient(180deg, #0a0a1a 0%, #10062a 100%)" : "#0a0a0f", color: "#fff", transition: "background 0.5s ease" }}>
       <div style={{ maxWidth: 420, margin: "0 auto", padding: "20px 16px", overflowY: "auto", maxHeight: "100vh" }}>
+        <UpdateBanner latestVersion={appConfig.latestAppVersion} downloadUrl={appConfig.downloadUrl} lang={lang} />
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -722,14 +761,23 @@ function BeastModeApp() {
           onSendTest={handleSendTestNudge}
           lang={lang}
         />
-        <QuickStartCard onStartQuick={startQuickReset} lang={lang} />
+        {mode === "workout" && (
+          <QuickStartCard
+            onStartQuick={startQuickReset}
+            durationMinutes={settings?.duration}
+            lang={lang}
+          />
+        )}
         <PressureCard pressure={pressure} onOpenLeaderboard={() => setScreen("leaderboard")} lang={lang} />
 
         {mode === "workout" && (<>
         {/* Next Alarm / Rest Day */}
         {isActiveToday ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", borderRadius: 16, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#666", marginBottom: 4 }}>{t("nextAlert")}</div><div style={{ fontSize: 28, fontWeight: 900, color: "#FF4D00", fontFamily: "'Courier New', monospace" }}>{countdown || "\u2014"}</div></div>
+            <div>
+              <div style={{ fontSize: 12, letterSpacing: 3, color: "#888", marginBottom: 6, fontWeight: 700 }}>{t("nextAlert")}</div>
+              <div style={{ fontSize: 52, fontWeight: 900, color: "#FF4D00", fontFamily: "'Courier New', monospace", letterSpacing: 2, lineHeight: 1, textShadow: "0 0 24px rgba(255,77,0,0.55), 0 0 8px rgba(255,140,0,0.45)" }}>{countdown || "\u2014"}</div>
+            </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
               <span style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>"{settings?.alarmMessage || "Let's go!"}"</span>
               {alarmPrompt?.subtitle && <span style={{ fontSize: 11, color: "#F3D8B8", maxWidth: 190, textAlign: "right", lineHeight: 1.35 }}>{alarmPrompt.subtitle}</span>}
@@ -818,9 +866,9 @@ function BeastModeApp() {
 
       {/* Overlays */}
       {showAlarm && currentExercise && <AlarmPopup prompt={alarmPrompt} exercise={currentExercise} duration={resolvedDuration} onStart={() => { setShowAlarm(false); setShowTimer(true); }} onSkip={() => { setShowAlarm(false); setProgress(prev => ({ ...prev, sessionsSkipped: (prev?.sessionsSkipped || 0) + 1 })); scheduleNextAlarm(); }} />}
-      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} lang={lang} streak={streak} sessionType="alarm" sessionContext={sessionContext} onComplete={(pts, wasCompleted, meta) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm", resolvedDuration, meta)} />}
+      {showTimer && currentExercise && <WorkoutTimer exercise={currentExercise} durationMinutes={resolvedDuration} lang={lang} streak={streak} sessionType="alarm" sessionContext={sessionContext} onComplete={(pts, wasCompleted, meta) => handleWorkoutComplete(pts, currentExercise, wasCompleted, "alarm", resolvedDuration, meta)} onClose={() => { setShowTimer(false); setCurrentExercise(null); }} />}
       {showExtraCredit && <ExtraCreditModal exercises={EXERCISES} duration={settings?.duration || 2} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={(pts, ex, wasCompleted, selectedDur, meta) => handleWorkoutComplete(pts, ex, wasCompleted, "extra", selectedDur, meta)} onClose={() => setShowExtraCredit(false)} />}
-      {showMedTimer && currentMedType && <MeditationTimer medType={currentMedType} durationMinutes={currentMedDur} sessionNumber={currentMedSession} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={handleMeditationComplete} />}
+      {showMedTimer && currentMedType && <MeditationTimer medType={currentMedType} durationMinutes={currentMedDur} sessionNumber={currentMedSession} lang={lang} streak={streak} sessionContext={sessionContext} onComplete={handleMeditationComplete} onClose={() => { setShowMedTimer(false); setCurrentMedType(null); }} />}
       {evoPopup && <EvolutionPopup oldTier={evoPopup.oldTier} newTier={evoPopup.newTier} onClose={() => setEvoPopup(null)} />}
       {awardPopup && <AwardPopup award={awardPopup} lang={lang} onClose={() => setAwardPopup(null)} />}
       {missionPopup && <MissionPopup mission={missionPopup.mission} bonusPoints={missionPopup.bonusPoints} onClose={() => setMissionPopup(null)} />}

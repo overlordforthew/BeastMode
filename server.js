@@ -68,6 +68,8 @@ app.use(cors((req, callback) => {
 }));
 app.use(express.json({ limit: "250kb" }));
 
+const APP_VERSION = require("./package.json").version;
+
 function sendPublicConfig(req, res) {
   res.set("Cache-Control", "no-store");
   res.json({
@@ -76,6 +78,8 @@ function sendPublicConfig(req, res) {
     passwordResetEnabled: isEmailConfigured() || process.env.ALLOW_DEV_RESET_CODES === "true",
     webPushEnabled: isWebPushConfigured(),
     vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
+    latestAppVersion: APP_VERSION,
+    downloadUrl: process.env.APK_DOWNLOAD_URL || null,
   });
 }
 

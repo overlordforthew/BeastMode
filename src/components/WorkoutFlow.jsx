@@ -5,6 +5,36 @@ import { EXERCISES } from "../lib/app-data.js";
 import { useT } from "../lib/i18n.js";
 import { playSound } from "../lib/audio.js";
 import { calcPoints, fmtDuration, getSessionImpactMessages } from "../lib/session-feedback.js";
+import { onHardwareBack } from "../lib/native-shell.js";
+
+function CloseButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Close"
+      style={{
+        position: "absolute",
+        top: 12,
+        right: 12,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        background: "rgba(255,255,255,0.08)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        color: "#ccc",
+        fontSize: 18,
+        fontWeight: 700,
+        lineHeight: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 10,
+      }}
+    >
+      {"\u2715"}
+    </button>
+  );
+}
 
 const {
   DURATION_OPTIONS,
@@ -51,7 +81,7 @@ function AlarmPopup({ prompt, exercise, duration, onStart, onSkip }) {
 }
 
 //     WORKOUT TIMER
-function WorkoutTimer({ exercise, durationMinutes, onComplete, lang, streak = 1, sessionType = "alarm", sessionContext = null }) {
+function WorkoutTimer({ exercise, durationMinutes, onComplete, onClose, lang, streak = 1, sessionType = "alarm", sessionContext = null }) {
   const t = useT(lang || "en");
   const totalSeconds = Math.round(durationMinutes * 60);
   const [remaining, setRemaining] = useState(totalSeconds);
@@ -62,6 +92,23 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang, streak = 1,
   const [timeFraction, setTimeFraction] = useState(1);
   const [countdownNum, setCountdownNum] = useState(null);
   const intervalRef = useRef(null);
+
+  const handleDismiss = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (started && !completed && !stoppedEarly) {
+      handleStopEarly();
+    } else {
+      onClose?.();
+    }
+  };
+
+  useEffect(() => {
+    return onHardwareBack(() => {
+      handleDismiss();
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, completed, stoppedEarly]);
 
   // 3-2-1 countdown before start
   useEffect(() => {
@@ -154,7 +201,8 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, lang, streak = 1,
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-      <div style={{ background: "linear-gradient(145deg, #0d0d1a, #1a1a2e)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,77,0,0.15)" }}>
+      <div style={{ position: "relative", background: "linear-gradient(145deg, #0d0d1a, #1a1a2e)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(255,77,0,0.15)" }}>
+        {countdownNum === null && <CloseButton onClick={handleDismiss} />}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 24 }}>
           <ExerciseAnimation exerciseId={exercise.id} size={48} />
           <span style={{ fontSize: 20, fontWeight: 700 }}>{exercise.name}</span>

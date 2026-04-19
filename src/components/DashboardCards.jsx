@@ -1,6 +1,7 @@
 import React from "react";
 import { supportsNotifications } from "../lib/app-client.js";
 import { useT } from "../lib/i18n.js";
+import { fmtDuration } from "./../lib/session-feedback.js";
 
 export function MissionCard({ mission, onClaim, loading, lang }) {
   const t = useT(lang || "en");
@@ -60,7 +61,7 @@ export function MissionCard({ mission, onClaim, loading, lang }) {
   );
 }
 
-export function QuickStartCard({ onStartQuick, lang }) {
+export function QuickStartCard({ onStartQuick, durationMinutes, lang }) {
   const t = useT(lang || "en");
   const quickOptions = [
     { id: "random", label: t("quickRandom"), emoji: "🎲" },
@@ -69,6 +70,8 @@ export function QuickStartCard({ onStartQuick, lang }) {
     { id: "mobility", label: t("quickMobility"), emoji: "🦵" },
     { id: "calm", label: t("quickCalm"), emoji: "🫁" },
   ];
+  const resolvedDuration = durationMinutes === "random" ? 2 : Number(durationMinutes) || 2;
+  const startLabel = `${t("startLabel")} ${fmtDuration(resolvedDuration)} ${t("resetLabel")}`.toUpperCase();
 
   return (
     <div style={{ padding: "18px", borderRadius: 20, marginBottom: 16, background: "linear-gradient(135deg, rgba(255,77,0,0.12), rgba(255,179,71,0.08))", border: "1px solid rgba(255,140,0,0.22)", boxShadow: "0 20px 44px rgba(255,106,0,0.12)" }}>
@@ -80,7 +83,7 @@ export function QuickStartCard({ onStartQuick, lang }) {
         <div style={{ fontSize: 28 }}>⚔️</div>
       </div>
       <button onClick={() => onStartQuick("random")} style={{ width: "100%", padding: "16px 18px", background: "linear-gradient(135deg, #FF4D00, #FFB347)", color: "#fff", border: "none", borderRadius: 16, fontSize: 16, fontWeight: 900, letterSpacing: 1.4, marginBottom: 12, boxShadow: "0 16px 32px rgba(255,77,0,0.22)" }}>
-        {t("startReset")}
+        {startLabel}
       </button>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 8 }}>
         {quickOptions.map((option) => (

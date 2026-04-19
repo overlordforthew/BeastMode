@@ -1,10 +1,27 @@
 const DEFAULT_REMOTE_API_BASE = "https://beastmode.namibarden.com";
 
+export const APP_VERSION = "1.1.0";
+
 export const IS_NATIVE_SHELL = Boolean(window.Capacitor)
   || window.location.protocol === "capacitor:"
   || window.location.protocol === "ionic:";
 
 const API_BASE = IS_NATIVE_SHELL ? DEFAULT_REMOTE_API_BASE : "";
+
+export function isNewerVersion(candidate, baseline = APP_VERSION) {
+  if (!candidate || typeof candidate !== "string") return false;
+  const parse = (v) => String(v).split(".").map((n) => Number(n) || 0);
+  const a = parse(candidate);
+  const b = parse(baseline);
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
+    if (av > bv) return true;
+    if (av < bv) return false;
+  }
+  return false;
+}
 
 export const ALERT_INTERVAL_OPTIONS = [
   { value: 15, label: "15m" },

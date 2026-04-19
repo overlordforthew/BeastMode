@@ -4,7 +4,37 @@ import { MEDITATION_TYPES } from "../lib/app-data.js";
 import { useT } from "../lib/i18n.js";
 import { AmbientAudio, playSound } from "../lib/audio.js";
 import { getMeditationPrompt } from "../lib/meditation-guides.js";
+import { onHardwareBack } from "../lib/native-shell.js";
 import { getSessionImpactMessages } from "../lib/session-feedback.js";
+
+function CloseButton({ onClick, accent = "#C4B5FD" }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Close"
+      style={{
+        position: "absolute",
+        top: 12,
+        right: 12,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        background: "rgba(255,255,255,0.08)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        color: accent,
+        fontSize: 18,
+        fontWeight: 700,
+        lineHeight: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 10,
+      }}
+    >
+      {"\u2715"}
+    </button>
+  );
+}
 
 const {
   MEDITATION_DURATIONS,
@@ -16,7 +46,7 @@ const {
 } = BeastModeScoring;
 
 //     MEDITATION TIMER
-function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, lang, streak = 1, sessionContext = null }) {
+function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, onClose, lang, streak = 1, sessionContext = null }) {
   const t = useT(lang || "en");
   const totalSeconds = durationMinutes * 60;
   const [remaining, setRemaining] = useState(totalSeconds);
@@ -125,6 +155,25 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
     setStoppedEarly(true);
   };
 
+  const handleDismiss = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (ambientRef.current) { ambientRef.current.stop(1); ambientRef.current = null; }
+    if (started && !completed && !stoppedEarly) {
+      handleStopEarly();
+    } else {
+      onClose?.();
+    }
+  };
+
+  useEffect(() => {
+    return onHardwareBack(() => {
+      handleDismiss();
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, completed, stoppedEarly]);
+
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const progress = 1 - (remaining / totalSeconds);
@@ -180,6 +229,7 @@ function MeditationTimer({ medType, durationMinutes, sessionNumber, onComplete, 
         ))}
       </div>
       <div style={{ background: "rgba(13,16,37,0.9)", borderRadius: 24, padding: "36px 28px", maxWidth: 380, width: "100%", textAlign: "center", border: "1px solid rgba(138,92,246,0.15)", position: "relative" }}>
+        <CloseButton onClick={handleDismiss} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16 }}>
           <span style={{ fontSize: 28 }}>{medType.emoji}</span>
           <span style={{ fontSize: 18, fontWeight: 700, color: "#C4B5FD" }}>{medType.name}</span>
