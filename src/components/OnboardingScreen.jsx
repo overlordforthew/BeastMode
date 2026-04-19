@@ -1,7 +1,11 @@
 import React, { useState } from "react";
-import { api } from "../lib/app-client.js";
-import { DAYS_OF_WEEK } from "../lib/app-data.js";
+import BeastModeScoring from "../../public/scoring.js";
+import { ALERT_INTERVAL_OPTIONS, api } from "../lib/app-client.js";
+import { DAYS_OF_WEEK, EXERCISES } from "../lib/app-data.js";
 import { useT } from "../lib/i18n.js";
+import { fmtDuration } from "../lib/session-feedback.js";
+
+const { DURATION_OPTIONS, DURATION_MULTIPLIERS } = BeastModeScoring;
 
 const DEFAULT_WEEKDAYS = ["mon", "tue", "wed", "thu", "fri"];
 
@@ -10,6 +14,37 @@ function formatHour(i) {
   if (i < 12) return `${i}:00 AM`;
   if (i === 12) return "12:00 PM";
   return `${i - 12}:00 PM`;
+}
+
+function LanguageBar({ lang, setLang, busy }) {
+  const languages = [
+    { code: "en", label: "EN" },
+    { code: "es", label: "ES" },
+    { code: "ja", label: "\u65E5" },
+  ];
+  return (
+    <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 20 }}>
+      {languages.map((l) => (
+        <button
+          key={l.code}
+          onClick={() => !busy && setLang(l.code, { syncRemote: true })}
+          disabled={busy}
+          style={{
+            padding: "8px 14px",
+            background: lang === l.code ? "rgba(255,77,0,0.18)" : "rgba(255,255,255,0.04)",
+            border: lang === l.code ? "1px solid rgba(255,77,0,0.4)" : "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 10,
+            color: lang === l.code ? "#FF8C00" : "#666",
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: 1.2,
+          }}
+        >
+          {l.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function OnboardingScreen({
@@ -24,6 +59,20 @@ function OnboardingScreen({
 }) {
   const t = useT(lang);
   const [step, setStep] = useState(1);
+  const [interval, setIntervalMins] = useState(
+    ALERT_INTERVAL_OPTIONS.some((o) => o.value === settings?.intervalMinutes)
+      ? settings.intervalMinutes
+      : 45
+  );
+  const [duration, setDuration] = useState(settings?.duration || 2);
+  const [exerciseMode, setExerciseMode] = useState(
+    settings?.selectedExercises?.length && settings.selectedExercises.length < EXERCISES.length
+      ? "custom"
+      : "all"
+  );
+  const [selectedExercises, setSelectedExercises] = useState(
+    settings?.selectedExercises?.length ? settings.selectedExercises : EXERCISES.map((e) => e.id)
+  );
   const [startHour, setStartHour] = useState(
     Number.isInteger(settings?.startHour) ? settings.startHour : 8
   );
@@ -45,6 +94,11 @@ function OnboardingScreen({
   const toggleDay = (key) => {
     setActiveDays((prev) =>
       prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]
+    );
+  };
+  const toggleExercise = (id) => {
+    setSelectedExercises((prev) =>
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
     );
   };
 
@@ -75,19 +129,24 @@ function OnboardingScreen({
       setError(t("onbHoursMustDiffer"));
       return;
     }
+    if (exerciseMode === "custom" && !selectedExercises.length) {
+      setError(t("onbPickAtLeastOneExercise"));
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await api("/api/user/settings", {
-        method: "PUT",
-        body: {
-          startHour,
-          endHour,
-          activeDays,
-          timezone:
-            Intl.DateTimeFormat().resolvedOptions().timeZone || settings?.timezone || "UTC",
-        },
-      });
+      const payload = {
+        intervalMinutes: interval,
+        duration,
+        selectedExercises: exerciseMode === "all" ? EXERCISES.map((e) => e.id) : selectedExercises,
+        startHour,
+        endHour,
+        activeDays,
+        timezone:
+          Intl.DateTimeFormat().resolvedOptions().timeZone || settings?.timezone || "UTC",
+      };
+      await api("/api/user/settings", { method: "PUT", body: payload });
       if (requestPush && pushSupported && !pushAlreadyGranted && onRequestPush) {
         try {
           await onRequestPush();
@@ -110,9 +169,9 @@ function OnboardingScreen({
     color: "#fff",
     border: "none",
     borderRadius: 16,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 900,
-    letterSpacing: 2,
+    letterSpacing: 1.4,
     marginBottom: 12,
     cursor: busy ? "default" : "pointer",
     opacity: busy ? 0.6 : 1,
@@ -135,14 +194,45 @@ function OnboardingScreen({
     minHeight: "100vh",
     maxWidth: 420,
     margin: "0 auto",
-    padding: "32px 20px",
+    padding: "28px 20px",
     display: "flex",
     flexDirection: "column",
   };
 
+  const sectionStyle = { marginBottom: 18 };
+  const labelStyle = { fontSize: 12, fontWeight: 800, letterSpacing: 2, color: "#FF8C00", marginBottom: 8 };
+  const hintStyle = { fontSize: 11, color: "#666", marginBottom: 10 };
+  const selectStyle = {
+    width: "100%",
+    padding: "12px 14px",
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 12,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 600,
+    appearance: "none",
+    WebkitAppearance: "none",
+    backgroundImage:
+      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FF8C00' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 14px center",
+  };
+  const optBtn = (active) => ({
+    padding: "9px 14px",
+    background: active ? "rgba(255,77,0,0.15)" : "rgba(255,255,255,0.04)",
+    border: active ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    color: active ? "#FF8C00" : "#666",
+    fontWeight: 700,
+    fontSize: 12,
+    letterSpacing: 0.8,
+  });
+
   if (step === 1) {
     return (
       <div style={container}>
+        <LanguageBar lang={lang} setLang={setLang} busy={busy} />
         <div style={{ fontSize: 12, letterSpacing: 3, color: "#FF8C00", marginBottom: 8 }}>
           {t("onbStep1Label")}
         </div>
@@ -157,11 +247,11 @@ function OnboardingScreen({
         >
           {t("onbWelcomeTitle")}
         </h1>
-        <p style={{ fontSize: 15, color: "#aaa", lineHeight: 1.5, marginBottom: 28 }}>
+        <p style={{ fontSize: 15, color: "#aaa", lineHeight: 1.5, marginBottom: 24 }}>
           {t("onbWelcomeSub")}
         </p>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
           {[
             { icon: "\uD83D\uDD14", title: t("onbBullet1Title"), body: t("onbBullet1Body") },
             { icon: "\uD83D\uDCAA", title: t("onbBullet2Title"), body: t("onbBullet2Body") },
@@ -201,50 +291,11 @@ function OnboardingScreen({
         {error && (
           <div style={{ color: "#FF6B6B", fontSize: 12, marginTop: 10, textAlign: "center" }}>{error}</div>
         )}
-
-        <div style={{ marginTop: 24, display: "flex", justifyContent: "center", gap: 8 }}>
-          {[{ code: "en", label: "EN" }, { code: "es", label: "ES" }, { code: "ja", label: "\u65E5" }].map((l) => (
-            <button
-              key={l.code}
-              onClick={() => setLang(l.code, { syncRemote: true })}
-              style={{
-                padding: "6px 12px",
-                background: lang === l.code ? "rgba(255,77,0,0.15)" : "rgba(255,255,255,0.04)",
-                border: lang === l.code ? "1px solid rgba(255,77,0,0.3)" : "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 8,
-                color: lang === l.code ? "#FF8C00" : "#555",
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: 1,
-              }}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
       </div>
     );
   }
 
-  // step 2: schedule + nudges
-  const selectStyle = {
-    width: "100%",
-    padding: "12px 14px",
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: 600,
-    appearance: "none",
-    WebkitAppearance: "none",
-    backgroundImage:
-      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FF8C00' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "right 14px center",
-  };
-  const labelStyle = { fontSize: 12, fontWeight: 800, letterSpacing: 2, color: "#FF8C00", marginBottom: 8 };
-  const hintStyle = { fontSize: 12, color: "#666", marginBottom: 12 };
+  // step 2: full settings
   const hours = Array.from({ length: 24 }, (_, i) => (
     <option key={i} value={i}>
       {formatHour(i)}
@@ -253,17 +304,45 @@ function OnboardingScreen({
 
   return (
     <div style={container}>
+      <LanguageBar lang={lang} setLang={setLang} busy={busy} />
       <div style={{ fontSize: 12, letterSpacing: 3, color: "#FF8C00", marginBottom: 8 }}>
         {t("onbStep2Label")}
       </div>
-      <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: 1.5, color: "#FFD700", marginBottom: 8 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: 1.5, color: "#FFD700", marginBottom: 6 }}>
         {t("onbScheduleTitle")}
       </h1>
-      <p style={{ fontSize: 14, color: "#aaa", lineHeight: 1.5, marginBottom: 22 }}>
+      <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 22 }}>
         {t("onbScheduleSub")}
       </p>
 
-      <div style={{ marginBottom: 18 }}>
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("alertInterval")}</div>
+        <div style={hintStyle}>{t("alertIntervalHint")}</div>
+        <select value={interval} onChange={(e) => setIntervalMins(Number(e.target.value))} style={selectStyle}>
+          {ALERT_INTERVAL_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("exerciseDuration")}</div>
+        <div style={hintStyle}>{t("durationHint")}</div>
+        <select
+          value={duration}
+          onChange={(e) => setDuration(e.target.value === "random" ? "random" : Number(e.target.value))}
+          style={selectStyle}
+        >
+          <option value="random">{"\uD83C\uDFB2"} {t("random")}</option>
+          {DURATION_OPTIONS.map((d) => (
+            <option key={d} value={d}>
+              {fmtDuration(d)} — {"\u00D7"}{DURATION_MULTIPLIERS[d]} {t("multiplier")}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={sectionStyle}>
         <div style={labelStyle}>{t("beastModeHours")}</div>
         <div style={hintStyle}>{t("onbHoursHint")}</div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -283,7 +362,7 @@ function OnboardingScreen({
         </div>
       </div>
 
-      <div style={{ marginBottom: 22 }}>
+      <div style={sectionStyle}>
         <div style={labelStyle}>{t("activeDays")}</div>
         <div style={hintStyle}>{t("onbDaysHint")}</div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -309,6 +388,38 @@ function OnboardingScreen({
             );
           })}
         </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("exercises")}</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <button onClick={() => setExerciseMode("all")} style={optBtn(exerciseMode === "all")}>{t("allRandom")}</button>
+          <button onClick={() => setExerciseMode("custom")} style={optBtn(exerciseMode === "custom")}>{t("customPick")}</button>
+        </div>
+        {exerciseMode === "custom" && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {EXERCISES.map((ex) => {
+              const on = selectedExercises.includes(ex.id);
+              return (
+                <button
+                  key={ex.id}
+                  onClick={() => toggleExercise(ex.id)}
+                  style={{
+                    padding: "7px 11px",
+                    background: on ? "rgba(255,77,0,0.12)" : "rgba(255,255,255,0.03)",
+                    border: on ? "1px solid rgba(255,77,0,0.25)" : "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 10,
+                    color: on ? "#FF8C00" : "#555",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {ex.emoji} {ex.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {pushSupported && !pushBlocked && (
@@ -356,7 +467,7 @@ function OnboardingScreen({
       {pushSupported && !pushAlreadyGranted && !pushBlocked ? (
         <>
           <button style={primaryBtn} onClick={() => handleFinish(true)} disabled={busy}>
-            {busy ? "..." : t("onbEnableNudges")}
+            {busy ? "..." : t("onbConfirmWithNudges")}
           </button>
           <button style={secondaryBtn} onClick={() => handleFinish(false)} disabled={busy}>
             {t("onbNotNow")}
@@ -364,7 +475,7 @@ function OnboardingScreen({
         </>
       ) : (
         <button style={primaryBtn} onClick={() => handleFinish(false)} disabled={busy}>
-          {busy ? "..." : t("onbLetsGo")}
+          {busy ? "..." : t("onbConfirmSettings")}
         </button>
       )}
 
