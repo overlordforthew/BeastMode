@@ -12,15 +12,20 @@ let pluginCache = null;
 let currentToken = null;
 const tapHandlers = new Set();
 
+function reportStep(step, extra = {}) {
+  api("/api/user/push-debug", { method: "POST", body: { step, ...extra } }).catch(() => {});
+}
+
 async function loadPlugin() {
   if (!IS_NATIVE_SHELL) return null;
   if (pluginCache) return pluginCache;
   try {
     const mod = await import("@capacitor/push-notifications");
     pluginCache = mod.PushNotifications;
+    reportStep("plugin-loaded", { hasMethods: Boolean(pluginCache?.requestPermissions) });
     return pluginCache;
   } catch (err) {
-    console.warn("PushNotifications plugin unavailable:", err?.message || err);
+    reportStep("plugin-load-failed", { error: err?.message || String(err) });
     return null;
   }
 }
@@ -39,17 +44,19 @@ async function createChannels(plugin) {
         ...(channel.sound ? { sound: channel.sound } : {}),
       });
     } catch (err) {
-      console.warn(`createChannel ${channel.id} failed:`, err?.message || err);
+      reportStep("create-channel-failed", { channel: channel.id, error: err?.message || String(err) });
     }
   }
+  reportStep("channels-ready");
 }
 
 async function sendTokenToServer(token, platform = "android") {
   try {
     await api("/api/user/fcm-token", { method: "POST", body: { token, platform } });
     currentToken = token;
+    reportStep("token-saved", { tokenHead: String(token).slice(0, 16) });
   } catch (err) {
-    console.warn("Failed to register FCM token with server:", err?.message || err);
+    reportStep("token-save-failed", { error: err?.message || String(err) });
   }
 }
 
@@ -59,20 +66,22 @@ export function onNativePushTap(handler) {
 }
 
 export async function initNativePush({ requestPermission = true } = {}) {
-  if (!IS_NATIVE_SHELL) return { available: false };
+  reportStep("init-called", { requestPermission, nativeShell: IS_NATIVE_SHELL });
+  if (!IS_NATIVE_SHELL) return { available: false, reason: "not-native" };
   const plugin = await loadPlugin();
-  if (!plugin) return { available: false };
+  if (!plugin) return { available: false, reason: "plugin-unavailable" };
 
   if (!initialized) {
     initialized = true;
 
     plugin.addListener("registration", async (token) => {
       const value = token?.value || token?.token;
+      reportStep("registration-event", { hasValue: Boolean(value) });
       if (value) await sendTokenToServer(value, "android");
     });
 
     plugin.addListener("registrationError", (err) => {
-      console.warn("Push registration error:", err?.error || err);
+      reportStep("registration-error", { error: err?.error || String(err) });
     });
 
     plugin.addListener("pushNotificationActionPerformed", (action) => {
@@ -87,15 +96,19 @@ export async function initNativePush({ requestPermission = true } = {}) {
 
   if (requestPermission) {
     try {
+      reportStep("request-permission");
       const result = await plugin.requestPermissions();
+      reportStep("permission-result", { receive: result?.receive });
       if (result?.receive !== "granted") {
-        return { available: true, granted: false };
+        return { available: true, granted: false, reason: `permission-${result?.receive || "unknown"}` };
       }
+      reportStep("calling-register");
       await plugin.register();
+      reportStep("register-returned");
       return { available: true, granted: true };
     } catch (err) {
-      console.warn("Push permission request failed:", err?.message || err);
-      return { available: true, granted: false };
+      reportStep("request-permission-threw", { error: err?.message || String(err) });
+      return { available: true, granted: false, reason: `threw:${err?.message || err}` };
     }
   }
 

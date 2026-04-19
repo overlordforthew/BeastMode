@@ -1,6 +1,6 @@
 {
   "name": "beast-mode-backend",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Beast Mode fitness app backend",
   "main": "server.js",
   "scripts": {

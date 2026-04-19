@@ -364,6 +364,14 @@ router.post("/push-test", async (req, res) => {
   }
 });
 
+// POST /api/user/push-debug
+router.post("/push-debug", async (req, res) => {
+  const step = String(req.body?.step || "").slice(0, 60);
+  const rest = Object.fromEntries(Object.entries(req.body || {}).filter(([key]) => key !== "step").map(([k, v]) => [k, String(v).slice(0, 200)]));
+  req.log?.info({ userId: req.userId, pushStep: step, ...rest }, "push-debug");
+  res.json({ ok: true });
+});
+
 // POST /api/user/fcm-token
 router.post("/fcm-token", validateBody(fcmTokenSchema), async (req, res) => {
   try {

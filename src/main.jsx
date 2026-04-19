@@ -165,6 +165,13 @@ function BeastModeApp() {
 
   //     INIT: Check token and load profile
   useEffect(() => {
+    if (screen !== "dashboard") return;
+    window.scrollTo(0, 0);
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }, [screen]);
+
+  useEffect(() => {
     configureNativeShell();
     if (IS_NATIVE_SHELL) {
       initNativePush({ requestPermission: false }).catch(() => {});
@@ -513,7 +520,7 @@ function BeastModeApp() {
       if (totalMin >= 60) {
         const h = Math.floor(totalMin / 60);
         const m = totalMin % 60;
-        setCountdown(`${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+        setCountdown(`${h}h ${m.toString().padStart(2, "0")}m`);
       } else {
         setCountdown(`${totalMin}:${s.toString().padStart(2, "0")}`);
       }
@@ -813,10 +820,21 @@ function BeastModeApp() {
         {/* Points Card */}
         <div style={{ position: "relative", background: mode === "meditation" ? "linear-gradient(135deg, #1a0d2e, #150d28)" : "linear-gradient(135deg, #1a0a00, #2d1400)", borderRadius: 20, padding: "24px 20px 16px", marginBottom: 16, border: mode === "meditation" ? "1px solid rgba(138,92,246,0.2)" : "1px solid rgba(255,77,0,0.2)", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "radial-gradient(circle, " + (mode === "meditation" ? "rgba(138,92,246,0.15)" : "rgba(255,77,0,0.15)") + ", transparent)" }} />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, marginBottom: 16, position: "relative" }}>
-            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#888", marginBottom: 4 }}>{t("today")}</div><div style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace" }}>{Math.round(todayPoints).toLocaleString()}</div></div>
-            <div style={{ width: 1, height: 50, background: "rgba(255,255,255,0.1)" }} />
-            <div><div style={{ fontSize: 11, letterSpacing: 2, color: "#888", marginBottom: 4 }}>{t("total")}</div><div style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace" }}>{Math.round(totalPoints).toLocaleString()}</div></div>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 40, marginBottom: 16, position: "relative" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: "#888", marginBottom: 4 }}>{t("today")}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, justifyContent: "center" }}>
+                <div style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace", lineHeight: 1 }}>{Math.round(todayPoints).toLocaleString()}</div>
+                <div style={{ fontSize: 12, color: "#FFB84D", letterSpacing: 1, fontWeight: 700 }}>{t("pts")}</div>
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: "#888", marginBottom: 4 }}>{t("total")}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, justifyContent: "center" }}>
+                <div style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", fontFamily: "'Courier New', monospace", lineHeight: 1 }}>{Math.round(totalPoints).toLocaleString()}</div>
+                <div style={{ fontSize: 12, color: "#FFB84D", letterSpacing: 1, fontWeight: 700 }}>{t("pts")}</div>
+              </div>
+            </div>
           </div>
           <div style={{ display: "flex", justifyContent: "center", gap: 20, fontSize: 13, color: "#888" }}>
             <span>  {sessionsCompleted} {t("completed")}</span>
@@ -863,11 +881,10 @@ function BeastModeApp() {
               <div style={{ fontSize: 12, letterSpacing: 3, color: "#888", marginBottom: 6, fontWeight: 700 }}>{t("nextAlert")}</div>
               <div style={{ fontSize: 52, fontWeight: 900, color: "#FF4D00", fontFamily: "'Courier New', monospace", letterSpacing: 2, lineHeight: 1, textShadow: "0 0 24px rgba(255,77,0,0.55), 0 0 8px rgba(255,140,0,0.45)" }}>{countdown || "\u2014"}</div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>"{settings?.alarmMessage || "Let's go!"}"</span>
-              {alarmPrompt?.subtitle && <span style={{ fontSize: 11, color: "#F3D8B8", maxWidth: 190, textAlign: "right", lineHeight: 1.35 }}>{alarmPrompt.subtitle}</span>}
-              <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,77,0,0.12)", borderRadius: 20, color: "#FF8C00" }}>{t("every")} {fmtIntervalOption(settings?.intervalMinutes || 45)}</span>
-              {settings?.startHour != null && settings?.endHour != null && <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.06)", borderRadius: 20, color: "#888" }}>{settings.startHour === 0 ? "12AM" : settings.startHour <= 12 ? settings.startHour + (settings.startHour < 12 ? "AM" : "PM") : (settings.startHour-12) + "PM"} - {settings.endHour === 0 ? "12AM" : settings.endHour <= 12 ? settings.endHour + (settings.endHour < 12 ? "AM" : "PM") : (settings.endHour-12) + "PM"}</span>}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: 170 }}>
+              <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,77,0,0.12)", borderRadius: 20, color: "#FF8C00", whiteSpace: "nowrap" }}>{t("every")} {fmtIntervalOption(settings?.intervalMinutes || 45)}</span>
+              {settings?.startHour != null && settings?.endHour != null && <span style={{ fontSize: 11, padding: "3px 10px", background: "rgba(255,255,255,0.06)", borderRadius: 20, color: "#888", whiteSpace: "nowrap" }}>{settings.startHour === 0 ? "12AM" : settings.startHour <= 12 ? settings.startHour + (settings.startHour < 12 ? "AM" : "PM") : (settings.startHour-12) + "PM"} - {settings.endHour === 0 ? "12AM" : settings.endHour <= 12 ? settings.endHour + (settings.endHour < 12 ? "AM" : "PM") : (settings.endHour-12) + "PM"}</span>}
+              <span style={{ fontSize: 11, color: "#888", fontStyle: "italic", textAlign: "right" }}>"{settings?.alarmMessage || "Let's go!"}"</span>
             </div>
           </div>
         ) : (
