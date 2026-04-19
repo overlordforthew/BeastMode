@@ -7,8 +7,28 @@ import { fmtDuration } from "../lib/session-feedback.js";
 
 const { DURATION_OPTIONS, DURATION_MULTIPLIERS } = BeastModeScoring;
 
+const ALARM_SOUND_CHOICES = [
+  { id: "default", emoji: "\uD83D\uDD14" },
+  { id: "classic", emoji: "\u23F0" },
+  { id: "bell", emoji: "\uD83D\uDECE\uFE0F" },
+  { id: "siren", emoji: "\uD83D\uDEA8" },
+];
+
 //     SETUP SCREEN
-function DailySetupScreen({ onComplete, onAccountDeleted, settings, user, lang, setLang }) {
+function DailySetupScreen({
+  onComplete,
+  onAccountDeleted,
+  settings,
+  user,
+  lang,
+  setLang,
+  pushStatus,
+  appConfig,
+  notificationPermission,
+  onEnableNudges,
+  onDisableNudges,
+  onSendTestPush,
+}) {
   const t = useT(lang);
   const [interval, setInterval_] = useState(ALERT_INTERVAL_OPTIONS.some((option) => option.value === settings?.intervalMinutes) ? settings.intervalMinutes : 45);
   const [duration, setDuration] = useState(settings?.duration || 2);
@@ -18,12 +38,58 @@ function DailySetupScreen({ onComplete, onAccountDeleted, settings, user, lang, 
   const [selectedExercises, setSelectedExercises] = useState(settings?.selectedExercises || EXERCISES.map(e => e.id));
   const [activeDays, setActiveDays] = useState(settings?.activeDays || ALL_DAYS);
   const [alarmMessage, setAlarmMessage] = useState(settings?.alarmMessage || "Let's Be Our Best!");
+  const [alarmSound, setAlarmSound] = useState(settings?.alarmSound || "default");
   const [startHour, setStartHour] = useState(settings?.startHour || 8);
   const [endHour, setEndHour] = useState(settings?.endHour || 17);
   const [buddyUsername, setBuddyUsername] = useState(settings?.buddyUsername || "");
   const [teamName, setTeamName] = useState(settings?.teamName || "");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [togglingPush, setTogglingPush] = useState(false);
+  const [testingPush, setTestingPush] = useState(false);
+  const [soundSaving, setSoundSaving] = useState(false);
+
+  const isNative = typeof window !== "undefined" && (Boolean(window.Capacitor) || window.location.protocol === "capacitor:" || window.location.protocol === "ionic:");
+  const pushAvailable = Boolean(appConfig?.fcmEnabled || appConfig?.webPushEnabled);
+  const pushOn = Boolean(pushStatus?.subscribed);
+  const pushBlocked = !isNative && notificationPermission === "denied";
+
+  const handleTogglePush = async () => {
+    if (togglingPush) return;
+    setTogglingPush(true);
+    try {
+      if (pushOn) {
+        if (onDisableNudges) await onDisableNudges();
+      } else {
+        if (onEnableNudges) await onEnableNudges();
+      }
+    } finally {
+      setTogglingPush(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    if (!onSendTestPush || testingPush) return;
+    setTestingPush(true);
+    try {
+      await onSendTestPush();
+    } finally {
+      setTestingPush(false);
+    }
+  };
+
+  const handleSoundChange = async (sound) => {
+    if (sound === alarmSound || soundSaving) return;
+    setAlarmSound(sound);
+    setSoundSaving(true);
+    try {
+      await api("/api/user/settings", { method: "PUT", body: { alarmSound: sound } });
+    } catch (e) {
+      console.error("Failed to save alarm sound:", e);
+    } finally {
+      setSoundSaving(false);
+    }
+  };
 
   const toggleDay = (key) => {
     setActiveDays(prev => prev.includes(key) ? prev.filter(d => d !== key) : [...prev, key]);
@@ -39,6 +105,7 @@ function DailySetupScreen({ onComplete, onAccountDeleted, settings, user, lang, 
       selectedExercises: exerciseMode === "all" ? EXERCISES.map(e => e.id) : selectedExercises,
       activeDays,
       alarmMessage,
+      alarmSound,
       startHour,
       endHour,
       buddyUsername,
@@ -162,6 +229,54 @@ function DailySetupScreen({ onComplete, onAccountDeleted, settings, user, lang, 
         <div style={labelStyle}>{t("alarmMessage")}</div>
         <input value={alarmMessage} onChange={e => setAlarmMessage(e.target.value)}
           style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 14 }} />
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={labelStyle}>{t("notificationsLabel")}</div>
+        <div style={hintStyle}>{t("notificationsHint")}</div>
+        {pushAvailable ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: pushOn ? "rgba(0,230,118,0.08)" : "rgba(255,255,255,0.04)", border: pushOn ? "1px solid rgba(0,230,118,0.3)" : "1px solid rgba(255,255,255,0.1)", borderRadius: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: pushOn ? "#00E676" : "#aaa" }}>{pushOn ? t("notificationsOn") : t("notificationsOff")}</div>
+              {pushBlocked && <div style={{ fontSize: 11, color: "#FFB6B6", marginTop: 4 }}>{t("notificationsBlocked")}</div>}
+            </div>
+            <button
+              onClick={handleTogglePush}
+              disabled={togglingPush || pushBlocked}
+              style={{ padding: "10px 18px", background: pushOn ? "rgba(255,107,107,0.18)" : "linear-gradient(135deg, #FF4D00, #FF8C00)", border: pushOn ? "1px solid rgba(255,107,107,0.35)" : "none", borderRadius: 10, color: pushOn ? "#FFD5D5" : "#fff", fontWeight: 800, fontSize: 12, letterSpacing: 1.4, opacity: togglingPush || pushBlocked ? 0.6 : 1 }}
+            >
+              {togglingPush ? "..." : pushOn ? t("notificationsTurnOff") : t("notificationsTurnOn")}
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: "14px 16px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12, color: "#888" }}>{t("notificationsUnavailable")}</div>
+        )}
+
+        {pushOn && (
+          <>
+            <div style={{ marginTop: 16, fontSize: 12, color: "#888", marginBottom: 8, letterSpacing: 1 }}>{t("notificationSound")}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {ALARM_SOUND_CHOICES.map((choice) => (
+                <button
+                  key={choice.id}
+                  onClick={() => handleSoundChange(choice.id)}
+                  disabled={soundSaving}
+                  style={{ padding: "10px 14px", background: alarmSound === choice.id ? "rgba(255,77,0,0.15)" : "rgba(255,255,255,0.04)", border: alarmSound === choice.id ? "1px solid rgba(255,77,0,0.35)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: alarmSound === choice.id ? "#FF8C00" : "#888", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <span>{choice.emoji}</span><span>{t(`sound_${choice.id}`)}</span>
+                </button>
+              ))}
+            </div>
+            {!isNative && <div style={{ fontSize: 11, color: "#666", marginTop: 8 }}>{t("soundHintWeb")}</div>}
+            <button
+              onClick={handleTestPush}
+              disabled={testingPush}
+              style={{ marginTop: 14, padding: "12px 18px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, color: "#FFD700", fontSize: 13, fontWeight: 800, letterSpacing: 1, opacity: testingPush ? 0.6 : 1 }}
+            >
+              {testingPush ? "..." : t("sendTestNudge")}
+            </button>
+          </>
+        )}
       </div>
 
       <div style={sectionStyle}>

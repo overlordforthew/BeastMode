@@ -1,6 +1,6 @@
 // Beast Mode Service Worker
 // Cache version is build-managed from the app bundle hash.
-const CACHE_VERSION = 'beastmode-dd534c11c457';
+const CACHE_VERSION = 'beastmode-e319f5cbd762';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 

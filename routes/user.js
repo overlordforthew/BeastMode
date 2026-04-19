@@ -7,9 +7,14 @@ const { ensureUserProgressDaySynced } = require("../lib/progress");
 const {
   getPushStatus,
   isWebPushConfigured,
+  isFcmConfigured,
+  isPushConfigured,
   removePushSubscription,
   savePushSubscription,
+  saveFcmToken,
+  removeFcmToken,
   sendPushPayloadToUser,
+  ALARM_SOUND_CHANNELS,
 } = require("../lib/push");
 const { invalidateLeaderboardCache } = require("./stats");
 
@@ -103,9 +108,19 @@ const settingsSchema = z.object({
   startHour: z.union([z.coerce.number().int(), z.null(), z.literal("")]).optional(),
   endHour: z.union([z.coerce.number().int(), z.null(), z.literal("")]).optional(),
   alarmMessage: z.union([z.string(), z.null()]).optional(),
+  alarmSound: z.string().optional(),
   buddyUsername: z.union([z.string(), z.null()]).optional(),
   teamName: z.union([z.string(), z.null()]).optional(),
   timezone: z.union([z.string(), z.null()]).optional(),
+});
+
+const fcmTokenSchema = z.object({
+  token: z.string().min(20, "FCM token required"),
+  platform: z.string().optional(),
+});
+
+const fcmUnregisterSchema = z.object({
+  token: z.string().optional(),
 });
 
 const pushSubscriptionSchema = z.object({
@@ -161,6 +176,7 @@ router.get("/profile", async (req, res) => {
         startHour: settings.start_hour,
         endHour: settings.end_hour,
         alarmMessage: settings.alarm_message,
+        alarmSound: settings.alarm_sound || "default",
         buddyUsername: settings.buddy_username,
         teamName: settings.team_name,
         timezone: settings.timezone || "UTC",
@@ -218,6 +234,7 @@ router.put("/settings", validateBody(settingsSchema), async (req, res) => {
       startHour,
       endHour,
       alarmMessage,
+      alarmSound,
       buddyUsername,
       teamName,
       timezone,
@@ -234,6 +251,9 @@ router.put("/settings", validateBody(settingsSchema), async (req, res) => {
       : alarmMessage === ""
         ? ""
         : null;
+    const safeAlarmSound = typeof alarmSound === "string" && Object.prototype.hasOwnProperty.call(ALARM_SOUND_CHANNELS, alarmSound)
+      ? alarmSound
+      : null;
     const safeBuddyUsername = sanitizeUsernameReference(buddyUsername);
     const safeTeamName = sanitizeTeamName(teamName);
     const safeTimezone = sanitizeTimezone(timezone);
@@ -251,11 +271,12 @@ router.put("/settings", validateBody(settingsSchema), async (req, res) => {
         start_hour = COALESCE($5, start_hour),
         end_hour = COALESCE($6, end_hour),
         alarm_message = COALESCE($7, alarm_message),
-        buddy_username = $8,
-        team_name = $9,
-        timezone = COALESCE($10, timezone),
+        alarm_sound = COALESCE($8, alarm_sound),
+        buddy_username = $9,
+        team_name = $10,
+        timezone = COALESCE($11, timezone),
         updated_at = NOW()
-      WHERE user_id = $11
+      WHERE user_id = $12
     `, [
       safeDuration,
       safeInterval,
@@ -264,6 +285,7 @@ router.put("/settings", validateBody(settingsSchema), async (req, res) => {
       safeStartHour,
       safeEndHour,
       safeAlarmMessage,
+      safeAlarmSound,
       safeBuddyUsername ?? null,
       safeTeamName ?? null,
       safeTimezone,
@@ -319,8 +341,8 @@ router.delete("/push-subscription", validateBody(pushUnsubscribeSchema), async (
 // POST /api/user/push-test
 router.post("/push-test", async (req, res) => {
   try {
-    if (!isWebPushConfigured()) {
-      return res.status(503).json({ error: "Web push is not configured" });
+    if (!isPushConfigured()) {
+      return res.status(503).json({ error: "Push is not configured" });
     }
 
     const result = await sendPushPayloadToUser(req.userId, {
@@ -339,6 +361,33 @@ router.post("/push-test", async (req, res) => {
   } catch (err) {
     console.error("Push test error:", err);
     res.status(500).json({ error: "Failed to send test push" });
+  }
+});
+
+// POST /api/user/fcm-token
+router.post("/fcm-token", validateBody(fcmTokenSchema), async (req, res) => {
+  try {
+    if (!isFcmConfigured()) {
+      return res.status(503).json({ error: "Native push (FCM) is not configured" });
+    }
+    const { token, platform } = req.body || {};
+    const status = await saveFcmToken(req.userId, token, platform || "android", pool);
+    res.json(status);
+  } catch (err) {
+    console.error("FCM token save error:", err);
+    res.status(400).json({ error: err.message || "Failed to save FCM token" });
+  }
+});
+
+// DELETE /api/user/fcm-token
+router.delete("/fcm-token", validateBody(fcmUnregisterSchema), async (req, res) => {
+  try {
+    const { token } = req.body || {};
+    const status = await removeFcmToken(req.userId, token || null, pool);
+    res.json(status);
+  } catch (err) {
+    console.error("FCM token remove error:", err);
+    res.status(500).json({ error: "Failed to remove FCM token" });
   }
 });
 

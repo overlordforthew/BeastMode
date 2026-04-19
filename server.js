@@ -9,7 +9,7 @@ const rateLimit = require("express-rate-limit");
 const { initDb, pool } = require("./db");
 const { httpLogger, logger } = require("./logger");
 const { isEmailConfigured } = require("./mailer");
-const { isWebPushConfigured, startPushScheduler, stopPushScheduler } = require("./lib/push");
+const { isWebPushConfigured, isFcmConfigured, startPushScheduler, stopPushScheduler } = require("./lib/push");
 
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
@@ -77,6 +77,7 @@ function sendPublicConfig(req, res) {
     googleSignInEnabled: Boolean(process.env.GOOGLE_CLIENT_ID),
     passwordResetEnabled: isEmailConfigured() || process.env.ALLOW_DEV_RESET_CODES === "true",
     webPushEnabled: isWebPushConfigured(),
+    fcmEnabled: isFcmConfigured(),
     vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
     latestAppVersion: APP_VERSION,
     downloadUrl: process.env.APK_DOWNLOAD_URL || null,

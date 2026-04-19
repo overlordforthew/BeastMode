@@ -26,6 +26,16 @@ CREATE TABLE IF NOT EXISTS user_settings (
   timezone TEXT DEFAULT 'UTC',
   push_enabled BOOLEAN DEFAULT FALSE,
   push_last_sent_at TIMESTAMPTZ,
+  alarm_sound TEXT DEFAULT 'default',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS fcm_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  platform TEXT NOT NULL DEFAULT 'android',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -142,5 +152,6 @@ CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_user_progress_last_active_date ON user_progress(last_active_date);
 CREATE INDEX IF NOT EXISTS idx_user_settings_team_name_lower ON user_settings(LOWER(team_name)) WHERE team_name IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscription_endpoint ON push_subscriptions(endpoint) WHERE endpoint IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_fcm_tokens_user ON fcm_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_admin_action_created_at ON admin_action_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_action_target_user_created_at ON admin_action_log(target_user_id, created_at DESC);

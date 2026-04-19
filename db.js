@@ -73,6 +73,18 @@ async function initDb() {
       ["user_settings.timezone column", "ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC'"],
       ["user_settings.push_enabled column", "ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS push_enabled BOOLEAN DEFAULT FALSE"],
       ["user_settings.push_last_sent_at column", "ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS push_last_sent_at TIMESTAMPTZ"],
+      ["user_settings.alarm_sound column", "ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'default'"],
+      ["fcm_tokens table", `
+        CREATE TABLE IF NOT EXISTS fcm_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token TEXT UNIQUE NOT NULL,
+          platform TEXT NOT NULL DEFAULT 'android',
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `],
+      ["fcm_tokens user index", "CREATE INDEX IF NOT EXISTS idx_fcm_tokens_user ON fcm_tokens(user_id)"],
       ["user_progress.meditations_finished column", "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS meditations_finished INTEGER DEFAULT 0"],
       ["user_progress.session_credits column", "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS session_credits REAL DEFAULT 0"],
       ["user_progress.qualifying_meditations column", "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS qualifying_meditations INTEGER DEFAULT 0"],

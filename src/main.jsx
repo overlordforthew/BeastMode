@@ -20,6 +20,7 @@ import { ActivationCard, MissionCard, PressureCard, QuickStartCard } from "./com
 import { EvolutionBadge, EvolutionBar } from "./components/EvolutionStatus.jsx";
 import {
   APP_VERSION,
+  IS_NATIVE_SHELL,
   api,
   fetchPublicConfig,
   isNewerVersion,
@@ -30,6 +31,12 @@ import {
   urlBase64ToUint8Array,
 } from "./lib/app-client.js";
 import { configureNativeShell, onHardwareBack } from "./lib/native-shell.js";
+import {
+  checkNativePushPermission,
+  disableNativePush,
+  initNativePush,
+  onNativePushTap,
+} from "./lib/native-push.js";
 import { playSound } from "./lib/audio.js";
 import { AWARDS, EXERCISES, MEDITATION_TYPES, getTodayKey } from "./lib/app-data.js";
 import { getPreferredLanguage, persistLanguagePreference, useT } from "./lib/i18n.js";
@@ -69,9 +76,9 @@ function BeastModeApp() {
   const [pressure, setPressure] = useState(null);
   const [missionClaiming, setMissionClaiming] = useState(false);
   const [missionPopup, setMissionPopup] = useState(null);
-  const [appConfig, setAppConfig] = useState({ webPushEnabled: false, vapidPublicKey: null, latestAppVersion: null, downloadUrl: null });
+  const [appConfig, setAppConfig] = useState({ webPushEnabled: false, fcmEnabled: false, vapidPublicKey: null, latestAppVersion: null, downloadUrl: null });
   const [loadError, setLoadError] = useState(null);
-  const [pushStatus, setPushStatus] = useState({ webPushEnabled: false, subscribed: false, pushEnabled: false, subscriptionCount: 0, lastPushSentAt: null });
+  const [pushStatus, setPushStatus] = useState({ webPushEnabled: false, fcmEnabled: false, subscribed: false, pushEnabled: false, subscriptionCount: 0, fcmTokenCount: 0, alarmSound: "default", lastPushSentAt: null });
   const [activationMessage, setActivationMessage] = useState("");
   const [notificationPermission, setNotificationPermission] = useState(() => supportsNotifications() ? Notification.permission : "unsupported");
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
@@ -159,6 +166,20 @@ function BeastModeApp() {
   //     INIT: Check token and load profile
   useEffect(() => {
     configureNativeShell();
+    if (IS_NATIVE_SHELL) {
+      initNativePush({ requestPermission: false }).catch(() => {});
+      const unsubscribe = onNativePushTap(() => {
+        if (localStorage.getItem("bm_token")) {
+          loadSession().catch(() => {});
+        }
+      });
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [loadSession]);
+
+  useEffect(() => {
     const token = localStorage.getItem("bm_token");
     if (!token) { setScreen("auth"); return; }
     setLoadError(null);
@@ -192,6 +213,7 @@ function BeastModeApp() {
         if (!active) return;
         setAppConfig({
           webPushEnabled: Boolean(config.webPushEnabled),
+          fcmEnabled: Boolean(config.fcmEnabled),
           vapidPublicKey: config.vapidPublicKey || null,
           latestAppVersion: config.latestAppVersion || null,
           downloadUrl: config.downloadUrl || null,
@@ -232,6 +254,7 @@ function BeastModeApp() {
   }, []);
 
   const syncPushSubscription = useCallback(async () => {
+    if (IS_NATIVE_SHELL) return null;
     if (!supportsWebPush() || notificationPermission !== "granted" || !appConfig.webPushEnabled || !appConfig.vapidPublicKey) {
       return null;
     }
@@ -262,13 +285,44 @@ function BeastModeApp() {
   }, [refreshPushStatus, user?.id]);
 
   useEffect(() => {
-    if (!user || notificationPermission !== "granted") return;
+    if (!user) return;
+    if (IS_NATIVE_SHELL) {
+      checkNativePushPermission().then((state) => {
+        if (state === "granted") {
+          setNotificationPermission("granted");
+          initNativePush({ requestPermission: false }).catch(() => {});
+          refreshPushStatus().catch(() => {});
+        }
+      }).catch(() => {});
+      return;
+    }
+    if (notificationPermission !== "granted") return;
     syncPushSubscription().catch((err) => {
       console.warn("Failed to sync push subscription:", err.message || err);
     });
-  }, [notificationPermission, syncPushSubscription, user?.id]);
+  }, [notificationPermission, refreshPushStatus, syncPushSubscription, user?.id]);
 
   const handleEnableNudges = useCallback(async () => {
+    if (IS_NATIVE_SHELL) {
+      const result = await initNativePush({ requestPermission: true });
+      if (!result.available) {
+        setActivationMessage(t("notificationBlocked"));
+        return;
+      }
+      if (result.granted === false) {
+        setActivationMessage(t("notificationBlocked"));
+        setNotificationPermission("denied");
+        return;
+      }
+      setNotificationPermission("granted");
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const status = await refreshPushStatus().catch(() => null);
+      if (status?.subscribed) {
+        setActivationMessage(t("nudgesLinked"));
+      }
+      return;
+    }
+
     if (!supportsNotifications()) return;
     if (Notification.permission === "granted") {
       setNotificationPermission("granted");
@@ -294,7 +348,18 @@ function BeastModeApp() {
     } else if (permission === "denied") {
       setActivationMessage(t("notificationBlocked"));
     }
-  }, [syncPushSubscription, t]);
+  }, [refreshPushStatus, syncPushSubscription, t]);
+
+  const handleDisableNudges = useCallback(async () => {
+    if (IS_NATIVE_SHELL) {
+      await disableNativePush().catch(() => {});
+    }
+    try {
+      await api("/api/user/push-subscription", { method: "DELETE", body: JSON.stringify({}) });
+    } catch {}
+    const status = await refreshPushStatus().catch(() => null);
+    if (status) setActivationMessage(t("nudgesDisabled") || "Nudges turned off.");
+  }, [refreshPushStatus, t]);
 
   const handleSendTestNudge = useCallback(async () => {
     const status = await api("/api/user/push-test", { method: "POST" });
@@ -651,7 +716,22 @@ function BeastModeApp() {
   }
   if (screen === "auth") return <AuthScreen onAuth={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} lang={lang} setLang={setLang} />;
   if (screen === "onboarding") return <OnboardingScreen onComplete={() => { setScreen("loading"); loadSession().catch(() => { localStorage.removeItem("bm_token"); setScreen("auth"); }); }} user={user} settings={settings} lang={lang} setLang={setLang} webPushEnabled={Boolean(appConfig.webPushEnabled)} notificationPermission={notificationPermission} onRequestPush={handleEnableNudges} />;
-  if (screen === "setup") return <DailySetupScreen onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); refreshDashboardSignals(); }} onAccountDeleted={handleLogout} settings={settings} user={user} lang={lang} setLang={setLang} />;
+  if (screen === "setup") return (
+    <DailySetupScreen
+      onComplete={(s) => { setSettings(s); setScreen("dashboard"); scheduleNextAlarm(); refreshDashboardSignals(); }}
+      onAccountDeleted={handleLogout}
+      settings={settings}
+      user={user}
+      lang={lang}
+      setLang={setLang}
+      pushStatus={pushStatus}
+      appConfig={appConfig}
+      notificationPermission={notificationPermission}
+      onEnableNudges={handleEnableNudges}
+      onDisableNudges={handleDisableNudges}
+      onSendTestPush={handleSendTestNudge}
+    />
+  );
   if (screen === "leaderboard") return <LeaderboardScreen user={user} totalPoints={progress?.totalPoints || 0} streak={progress?.streak || 1} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "awards") return <AwardsScreen unlockedAwards={unlockedAwards} onBack={() => setScreen("dashboard")} lang={lang} />;
   if (screen === "evolution") return <EvolutionScreen points={progress?.totalPoints || 0} onBack={() => setScreen("dashboard")} />;
@@ -670,7 +750,12 @@ function BeastModeApp() {
   const MAX_FREEZES = 3;
   const FREEZE_EARN_INTERVAL = 5;
   const streakQualified = isQualifiedDayState({ sessionCredits, qualifyingMeditations, sessionsFinished, meditationsFinished: todayMedSessions });
-  const pushReady = Boolean(appConfig.webPushEnabled && notificationPermission === "granted" && pushStatus?.subscribed);
+  const pushReady = Boolean(
+    pushStatus?.subscribed && (
+      (IS_NATIVE_SHELL && appConfig.fcmEnabled) ||
+      (!IS_NATIVE_SHELL && appConfig.webPushEnabled && notificationPermission === "granted")
+    )
+  );
   const activationStatusMessage = notificationPermission === "denied" ? t("notificationBlocked") : activationMessage;
   const todayDateKey = new Date().toISOString().split("T")[0];
   const todayExerciseIds = Array.from(new Set(
