@@ -191,6 +191,12 @@ fi
 
 verify_artifact "$ARTIFACT_PATH"
 
+if [[ "$BUILD_TYPE" == "release" ]]; then
+  DIST_PATH="$ROOT_DIR/public/beastmode.apk"
+  cp "$ARTIFACT_PATH" "$DIST_PATH"
+  echo "Copied release APK to $DIST_PATH (baked into Docker image on next deploy)"
+fi
+
 echo
 echo "Android artifact ready:"
 echo "$ARTIFACT_PATH"

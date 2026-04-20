@@ -110,7 +110,7 @@ for (const [routePath, fileName] of Object.entries(PUBLIC_PAGE_ROUTES)) {
 }
 
 function sendAndroidApk(req, res) {
-  const apkPath = path.join(__dirname, "android", "app", "build", "outputs", "apk", "release", "app-release.apk");
+  const apkPath = path.join(__dirname, "public", "beastmode.apk");
   res.download(apkPath, "beastmode-android.apk", (error) => {
     if (!error) return;
     if (error.code === "ENOENT") {
