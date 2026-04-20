@@ -49,30 +49,35 @@ router.use(async (req, res, next) => {
   }
 });
 
+function formatMinutes(value) {
+  const rounded = Math.round(Number(value) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 const DAILY_MISSION_LIBRARY = [
   {
     id: "streak_builder",
     emoji: "🔥",
     title: "Streak Builder",
-    description: "Finish 3 workout resets today.",
+    description: "Move 5 workout minutes today.",
     bonusPoints: 20,
     accent: "fire",
-    target: 3,
-    getProgress: (metrics) => Math.min(metrics.sessionsFinished, 3),
-    getProgressText: (metrics) => `${Math.min(metrics.sessionsFinished, 3)}/3 workouts finished`,
-    isComplete: (metrics) => metrics.sessionsFinished >= 3,
+    target: 5,
+    getProgress: (metrics) => Math.min(metrics.workoutMinutesToday, 5),
+    getProgressText: (metrics) => `${formatMinutes(Math.min(metrics.workoutMinutesToday, 5))}/5 workout min`,
+    isComplete: (metrics) => metrics.workoutMinutesToday >= 5,
   },
   {
     id: "mind_body_stack",
     emoji: "🧠",
     title: "Mind + Body Stack",
-    description: "Complete 2 workouts and 1 meditation today.",
+    description: "Stack 4 workout minutes and 1 meditation today.",
     bonusPoints: 25,
     accent: "zen",
-    target: 3,
-    getProgress: (metrics) => Math.min(metrics.sessionsFinished, 2) + Math.min(metrics.meditationsFinished, 1),
-    getProgressText: (metrics) => `${Math.min(metrics.sessionsFinished, 2)}/2 workouts + ${Math.min(metrics.meditationsFinished, 1)}/1 meditation`,
-    isComplete: (metrics) => metrics.sessionsFinished >= 2 && metrics.meditationsFinished >= 1,
+    target: 5,
+    getProgress: (metrics) => Math.min(metrics.workoutMinutesToday, 4) + Math.min(metrics.qualifyingMeditations, 1),
+    getProgressText: (metrics) => `${formatMinutes(Math.min(metrics.workoutMinutesToday, 4))}/4 workout min + ${Math.min(metrics.qualifyingMeditations, 1)}/1 meditation`,
+    isComplete: (metrics) => metrics.workoutMinutesToday >= 4 && metrics.qualifyingMeditations >= 1,
   },
   {
     id: "point_sprint",
@@ -102,13 +107,13 @@ const DAILY_MISSION_LIBRARY = [
     id: "afterburn",
     emoji: "🚀",
     title: "Afterburn",
-    description: "Do 2 workouts, then bank 1 extra-credit reset.",
+    description: "Stack 4 workout minutes and 1 extra-credit reset today.",
     bonusPoints: 25,
     accent: "boost",
-    target: 3,
-    getProgress: (metrics) => Math.min(metrics.sessionsFinished, 2) + Math.min(metrics.extraSessionsToday, 1),
-    getProgressText: (metrics) => `${Math.min(metrics.sessionsFinished, 2)}/2 workouts + ${Math.min(metrics.extraSessionsToday, 1)}/1 extra credit`,
-    isComplete: (metrics) => metrics.sessionsFinished >= 2 && metrics.extraSessionsToday >= 1,
+    target: 5,
+    getProgress: (metrics) => Math.min(metrics.workoutMinutesToday, 4) + Math.min(metrics.extraSessionsToday, 1),
+    getProgressText: (metrics) => `${formatMinutes(Math.min(metrics.workoutMinutesToday, 4))}/4 workout min + ${Math.min(metrics.extraSessionsToday, 1)}/1 extra credit`,
+    isComplete: (metrics) => metrics.workoutMinutesToday >= 4 && metrics.extraSessionsToday >= 1,
   },
 ];
 
@@ -140,7 +145,8 @@ async function getDailyMissionMetrics(userId, dateKey, db = pool) {
     db.query(`
       SELECT
         COUNT(DISTINCT CASE WHEN type <> 'meditation' AND was_completed = TRUE THEN exercise_id END)::int AS unique_exercises_today,
-        COUNT(*) FILTER (WHERE type = 'extra' AND was_completed = TRUE)::int AS extra_sessions_today
+        COUNT(*) FILTER (WHERE type = 'extra' AND was_completed = TRUE)::int AS extra_sessions_today,
+        COALESCE(SUM(duration_minutes) FILTER (WHERE type <> 'meditation' AND was_completed = TRUE), 0)::real AS workout_minutes_today
       FROM workout_history
       WHERE user_id = $1
         AND created_at::date = $2::date
@@ -161,6 +167,7 @@ async function getDailyMissionMetrics(userId, dateKey, db = pool) {
     qualifyingMeditations: Number((dailyLogR.rows[0]?.qualifying_meditations ?? dailyLogR.rows[0]?.meditations_finished) || 0),
     uniqueExercisesToday: Number(activityR.rows[0]?.unique_exercises_today || 0),
     extraSessionsToday: Number(activityR.rows[0]?.extra_sessions_today || 0),
+    workoutMinutesToday: Number(activityR.rows[0]?.workout_minutes_today || 0),
     claim: claimR.rows[0] || null,
   };
 }
@@ -197,6 +204,7 @@ async function getDailyMissionStatus(userId, dateKey = getTodayDateKey(), db = p
       qualifyingMeditations: metrics.qualifyingMeditations,
       uniqueExercisesToday: metrics.uniqueExercisesToday,
       extraSessionsToday: metrics.extraSessionsToday,
+      workoutMinutesToday: metrics.workoutMinutesToday,
     },
     claimed,
     claimedAt: metrics.claim?.created_at || null,
