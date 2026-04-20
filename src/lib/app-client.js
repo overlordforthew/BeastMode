@@ -1,6 +1,6 @@
 const DEFAULT_REMOTE_API_BASE = "https://beastmode.namibarden.com";
 
-export const APP_VERSION = "1.2.1";
+export const APP_VERSION = "1.2.2";
 
 export const IS_NATIVE_SHELL = Boolean(window.Capacitor)
   || window.location.protocol === "capacitor:"

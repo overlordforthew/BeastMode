@@ -651,7 +651,7 @@ function BeastModeApp() {
     setShowExtraCredit(false);
     setShowMedTimer(false);
     setCurrentExercise(exercise);
-    setResolvedDuration(2);
+    setResolvedDuration(resolveDuration(settings?.duration || 2));
     setShowTimer(true);
   }, [settings, todayMedSessions]);
 
