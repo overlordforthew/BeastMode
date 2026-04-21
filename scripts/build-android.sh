@@ -157,6 +157,8 @@ printf 'sdk.dir=%s\n' "$SDK_DIR" > "$ROOT_DIR/android/local.properties"
 
 echo "Using Android SDK: $SDK_DIR"
 echo "Using Java: $JAVA_HOME"
+echo "Building web bundle..."
+(cd "$ROOT_DIR" && npm run build:web)
 echo "Syncing Capacitor Android project..."
 (cd "$ROOT_DIR" && npx cap sync android)
 

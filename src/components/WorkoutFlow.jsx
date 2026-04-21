@@ -93,6 +93,39 @@ function WorkoutTimer({ exercise, durationMinutes, onComplete, onClose, lang, st
   const [countdownNum, setCountdownNum] = useState(null);
   const intervalRef = useRef(null);
 
+  const wakeLockRef = useRef(null);
+
+  useEffect(() => {
+    let released = false;
+    let sentinel = null;
+    const acquire = async () => {
+      if (typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
+      try {
+        sentinel = await navigator.wakeLock.request("screen");
+        wakeLockRef.current = sentinel;
+        sentinel.addEventListener("release", () => { wakeLockRef.current = null; });
+      } catch {
+        // Permission denied or not visible — ignore; alarm sounds still wake device.
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && !wakeLockRef.current && !released) {
+        acquire();
+      }
+    };
+    acquire();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      released = true;
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (sentinel) {
+        try { sentinel.release(); } catch {}
+      }
+      wakeLockRef.current = null;
+    };
+  }, []);
+
+
   const handleDismiss = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (started && !completed && !stoppedEarly) {

@@ -7,7 +7,11 @@ const CHANNELS = [
   { id: "beastmode_siren", name: "Beast Mode (Siren)", description: "Reset reminders with urgent siren", sound: "beastmode_siren" },
 ];
 
+const CREATE_CHANNEL_TIMEOUT_MS = 4000;
+
 let initialized = false;
+let listenersAttached = false;
+let channelsSetupStarted = false;
 let pluginCache = null;
 let currentToken = null;
 const tapHandlers = new Set();
@@ -30,24 +34,70 @@ async function loadPlugin() {
   }
 }
 
-async function createChannels(plugin) {
-  for (const channel of CHANNELS) {
-    try {
-      await plugin.createChannel({
-        id: channel.id,
-        name: channel.name,
-        description: channel.description,
-        importance: 4,
-        visibility: 1,
-        lights: true,
-        vibration: true,
-        ...(channel.sound ? { sound: channel.sound } : {}),
-      });
-    } catch (err) {
-      reportStep("create-channel-failed", { channel: channel.id, error: err?.message || String(err) });
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error(label + "-timeout-" + ms + "ms"));
+    }, ms);
+    Promise.resolve(promise).then(
+      (value) => { if (done) return; done = true; clearTimeout(timer); resolve(value); },
+      (err) => { if (done) return; done = true; clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+function setupChannelsInBackground(plugin) {
+  if (channelsSetupStarted) return;
+  channelsSetupStarted = true;
+  (async () => {
+    reportStep("channels-setup-start");
+    for (const channel of CHANNELS) {
+      try {
+        await withTimeout(
+          plugin.createChannel({
+            id: channel.id,
+            name: channel.name,
+            description: channel.description,
+            importance: 4,
+            visibility: 1,
+            lights: true,
+            vibration: true,
+            ...(channel.sound ? { sound: channel.sound } : {}),
+          }),
+          CREATE_CHANNEL_TIMEOUT_MS,
+          "create-channel-" + channel.id,
+        );
+      } catch (err) {
+        reportStep("create-channel-failed", { channel: channel.id, error: err?.message || String(err) });
+      }
     }
-  }
-  reportStep("channels-ready");
+    reportStep("channels-ready");
+  })();
+}
+
+function attachListeners(plugin) {
+  if (listenersAttached) return;
+  listenersAttached = true;
+
+  plugin.addListener("registration", async (token) => {
+    const value = token?.value || token?.token;
+    reportStep("registration-event", { hasValue: Boolean(value) });
+    if (value) await sendTokenToServer(value, "android");
+  });
+
+  plugin.addListener("registrationError", (err) => {
+    reportStep("registration-error", { error: err?.error || String(err) });
+  });
+
+  plugin.addListener("pushNotificationActionPerformed", (action) => {
+    const data = action?.notification?.data || {};
+    for (const handler of tapHandlers) {
+      try { handler(data); } catch {}
+    }
+  });
 }
 
 async function sendTokenToServer(token, platform = "android") {
@@ -71,39 +121,20 @@ export async function initNativePush({ requestPermission = true } = {}) {
   const plugin = await loadPlugin();
   if (!plugin) return { available: false, reason: "plugin-unavailable" };
 
-  if (!initialized) {
-    initialized = true;
-
-    plugin.addListener("registration", async (token) => {
-      const value = token?.value || token?.token;
-      reportStep("registration-event", { hasValue: Boolean(value) });
-      if (value) await sendTokenToServer(value, "android");
-    });
-
-    plugin.addListener("registrationError", (err) => {
-      reportStep("registration-error", { error: err?.error || String(err) });
-    });
-
-    plugin.addListener("pushNotificationActionPerformed", (action) => {
-      const data = action?.notification?.data || {};
-      for (const handler of tapHandlers) {
-        try { handler(data); } catch {}
-      }
-    });
-
-    await createChannels(plugin);
-  }
+  attachListeners(plugin);
+  initialized = true;
 
   if (requestPermission) {
     try {
       reportStep("request-permission");
-      const result = await plugin.requestPermissions();
+      const result = await withTimeout(plugin.requestPermissions(), 10000, "request-permissions");
       reportStep("permission-result", { receive: result?.receive });
       if (result?.receive !== "granted") {
         return { available: true, granted: false, reason: `permission-${result?.receive || "unknown"}` };
       }
+      setupChannelsInBackground(plugin);
       reportStep("calling-register");
-      await plugin.register();
+      await withTimeout(plugin.register(), 10000, "register");
       reportStep("register-returned");
       return { available: true, granted: true };
     } catch (err) {
@@ -112,6 +143,7 @@ export async function initNativePush({ requestPermission = true } = {}) {
     }
   }
 
+  setupChannelsInBackground(plugin);
   return { available: true, granted: null };
 }
 
